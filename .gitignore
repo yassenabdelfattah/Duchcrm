@@ -1,0 +1,26 @@
+node_modules/
+dist/
+build/
+.vite/
+coverage/
+
+# Secrets - never commit
+.env
+.env.*
+!.env.example
+.dev.vars
+.wrangler/
+
+# Supabase local state
+supabase/.temp/
+supabase/.branches/
+
+# Editor / OS
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json
+
+*.log
+npm-debug.log*

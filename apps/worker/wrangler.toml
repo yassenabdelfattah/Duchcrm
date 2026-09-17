@@ -1,0 +1,23 @@
+name = "duch-crm-worker"
+main = "src/index.ts"
+compatibility_date = "2026-09-01"
+
+# Schedules. The cron strings are matched exactly in src/index.ts, so if you
+# change one here you must change the constant there too.
+[triggers]
+crons = [
+  # Drain the inventory outbox. The sale screen already pushes immediately;
+  # this catches anything that failed or was left behind by a closed tab.
+  "* * * * *",
+  # Nightly reconciliation. 00:00 UTC is about 2am in Cairo - late enough that
+  # the day's webhooks have all landed, early enough to be reviewed at opening.
+  "0 0 * * *",
+]
+
+[observability]
+enabled = true
+
+# Secrets are NOT set here. Set them with:
+#   npx wrangler secret put SUPABASE_URL
+#   npx wrangler secret put SUPABASE_SERVICE_ROLE_KEY
+#   npx wrangler secret put ALERT_WEBHOOK_URL   (optional)

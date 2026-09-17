@@ -1,0 +1,73 @@
+project_id = "duch-crm"
+
+[api]
+enabled = true
+port = 54321
+schemas = ["public", "graphql_public"]
+extra_search_path = ["public", "extensions"]
+# Bounded so a bug in a filter cannot pull the whole catalogue in one request.
+max_rows = 1000
+
+[db]
+port = 54322
+shadow_port = 54320
+major_version = 17
+
+[db.pooler]
+enabled = false
+
+[studio]
+enabled = true
+port = 54323
+
+[inbucket]
+enabled = true
+port = 54324
+
+[storage]
+enabled = true
+file_size_limit = "50MiB"
+
+[auth]
+enabled = true
+site_url = "http://localhost:5173"
+additional_redirect_urls = ["http://localhost:5173"]
+jwt_expiry = 3600
+enable_refresh_token_rotation = true
+refresh_token_reuse_interval = 10
+# Staff accounts are created by an admin, not by strangers finding the URL.
+# Turn this off in production once everyone has an account.
+enable_signup = true
+
+[auth.email]
+enable_signup = true
+double_confirm_changes = true
+# Local only. Production requires a confirmed email address.
+enable_confirmations = false
+
+[auth.hook.custom_access_token]
+enabled = true
+uri = "pg-functions://postgres/public/custom_access_token_hook"
+
+[edge_runtime]
+enabled = true
+policy = "oneshot"
+inspector_port = 8083
+
+# Shopify signs its webhooks itself, so this endpoint must be reachable without
+# a Supabase JWT. The HMAC check in the handler is what authenticates it, and
+# it runs before anything else touches the request.
+[functions.shopify-webhook]
+verify_jwt = false
+
+[functions.push-inventory]
+verify_jwt = true
+
+[functions.shopify-import-products]
+verify_jwt = true
+
+[functions.reconcile-stock]
+verify_jwt = true
+
+[analytics]
+enabled = false

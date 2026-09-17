@@ -1,0 +1,61 @@
+@import 'tailwindcss';
+
+/* Tailwind v4 is configured in CSS rather than a JS config file. */
+@theme {
+  --font-sans: 'Inter', system-ui, sans-serif;
+  --font-arabic: 'Cairo', 'Segoe UI', system-ui, sans-serif;
+
+  --color-duch-ink: #111111;
+  --color-duch-paper: #fafaf9;
+  --color-duch-line: #e7e5e4;
+  --color-duch-accent: #c2410c;
+}
+
+:root {
+  color-scheme: light;
+}
+
+html {
+  /* Stops iOS Safari zooming in when a cashier taps a number field. */
+  -webkit-text-size-adjust: 100%;
+}
+
+html[lang='ar'] body {
+  font-family: var(--font-arabic);
+}
+
+html[lang='en'] body {
+  font-family: var(--font-sans);
+}
+
+body {
+  margin: 0;
+  background: var(--color-duch-paper);
+  color: var(--color-duch-ink);
+}
+
+/* Inputs on the sale screen must be at least 16px or iOS zooms the viewport
+   every time one is focused, which makes the till unusable one-handed. */
+@media (max-width: 640px) {
+  input,
+  select,
+  textarea {
+    font-size: 16px;
+  }
+}
+
+/* Latin digits read better for prices even in the Arabic interface - staff
+   compare them against the card terminal and the printed receipt. */
+.tabular {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum';
+}
+
+@media print {
+  .no-print {
+    display: none !important;
+  }
+  body {
+    background: white;
+  }
+}
