@@ -1,9 +1,9 @@
 # Phase 3 — orders, packing, shipping and returns
 
-**Status: draft. Captured from a requirements conversation, not yet built.**
+**Status: draft, being refined in conversation. Not yet built.**
 
-Open questions are marked **[?]**. Several of them change the schema, so they
-are worth settling before any migration is written.
+Open questions are marked **[?]**. The ones left change the schema, so they are
+worth settling before any migration is written.
 
 ---
 
@@ -22,6 +22,36 @@ needing the page refreshed.
 
 ---
 
+## What we know about how Duch actually operates
+
+Recorded from the requirements conversation, because most of the design below
+follows from it.
+
+**Refusals are above average, and they are the main source of returns.** The
+two dominant reasons are the customer not responding at all, and the customer
+opening the parcel at the door and deciding they do not want it. Sizing
+complaints are rare — but the system still has to handle them, and has to
+handle exchanges.
+
+**Timings.** Delivery runs three to five days, in Cairo and roughly as an
+average elsewhere. A refusal comes back fast: the parcel is on its way back
+immediately and lands within two or three days.
+
+**Money.** Accurate transfers the cash to the bank account and sends a
+notification. Their application shows the detail, and they issue a full
+statement covering that transfer, broken down per order — including which ones
+were returned, refused, or never answered. That statement gets reviewed, then
+passed to the accountant along with the money detail so he can enter it in his
+own ledger.
+
+**Custody matters.** Returns are not processed until the parcel is physically
+back in the office. Until then the order stays open and the goods are tracked
+as being with the courier. This is deliberate and it is an anti-theft control,
+not an accounting nicety — every piece is accounted for from the moment it
+leaves the office until it comes back or is delivered.
+
+---
+
 ## 1. Two statuses, not one
 
 The current `order_status` enum (`draft, confirmed, completed, cancelled,
@@ -30,10 +60,10 @@ refunded`) mixes two questions that move independently:
 - **Where are the goods?**
 - **Where is the money?**
 
-With cash on delivery those come apart badly. An order can be *delivered* while
-the cash is still sitting with the courier for another week. One enum cannot
-express "the customer has it, we have not been paid" without inventing a
-combined value for every pair.
+With cash on delivery those come apart badly. An order can be delivered while
+the cash is still with the courier for another week. One enum cannot express
+"the customer has it, we have not been paid" without inventing a combined value
+for every pair.
 
 So: keep `status` for the goods, add `payment_status` for the money.
 
@@ -49,8 +79,8 @@ So: keep `status` for the goods, add `payment_status` for the money.
 | `out_for_delivery` | On the van | Tracking poll |
 | `delivered` | Handed to the customer | Tracking poll |
 | `delivery_failed` | Refused, unreachable, or bad address | Tracking poll |
-| `return_in_transit` | Coming back to us | Tracking poll |
-| `returned` | Physically back and checked in | Packer |
+| `return_in_transit` | Coming back to us, still in courier custody | Tracking poll |
+| `returned` | Physically back, opened and counted | Packer |
 | `cancelled` | Killed before it shipped | Staff or Shopify |
 
 ### Payment status
@@ -58,107 +88,105 @@ So: keep `status` for the goods, add `payment_status` for the money.
 `pending`, `paid`, `partially_refunded`, `refunded`, `failed`.
 
 A prepaid card order is `paid` from the start. A COD order stays `pending`
-through delivery and only becomes `paid` when Accurate actually remits the
-cash — which is the point of the next question.
-
-**[?] How does Accurate tell you what they have collected?** A settlement
-report, a statement, a spreadsheet, an API endpoint? This decides whether there
-needs to be a `courier_settlements` table matching remittances to orders. Until
-COD money is reconciled against orders, "delivered" and "paid for" are
-different sets and nobody is chasing the gap between them.
+through delivery and only becomes `paid` when the settlement statement is
+matched — see section 6.
 
 ---
 
 ## 2. Status changes are recorded, not overwritten
 
-Same principle as the stock ledger: an `order_events` table holding every
-transition with who, when and why, rather than a column that gets overwritten.
+An `order_events` table holding every transition with who, when and why, rather
+than a column that gets overwritten. Same principle as the stock ledger.
 
-This is not bookkeeping for its own sake. It is what makes these answerable:
+This is what makes these answerable:
 
 - How long do orders sit before they are packed?
 - Which orders have been `packed` for three days with no pickup?
+- Which parcels have been coming back for longer than they should?
 - Who marked this delivered, and when?
 
 None of that is recoverable from a status column.
 
 ---
 
-## 3. Returns are two different things
+## 3. Custody: knowing where every piece is
 
-This is the point that matters most. Merging the two would make the return
-percentage useless for both purposes.
+The requirement is that nothing leaves the building untracked, so that a piece
+cannot quietly go missing at the courier.
 
-### Failed delivery — the customer never accepted it
+Every order line carries a count of what left and what came back. The parcel is
+in courier custody from `in_transit` until either `delivered` or `returned`,
+and a report lists everything currently in that window, aged.
 
-Refused at the door, unreachable, wrong address. They never had the goods and
-never paid. Common with COD, and in Egyptian e-commerce usually the larger of
-the two by a wide margin.
+Because a refusal comes back within two or three days, anything that has been
+`return_in_transit` for, say, longer than a week is an exception worth a phone
+call. **That aged list is the actual anti-theft control** — not the tracking
+itself, but noticing when something has stopped moving.
 
-What a high number tells you: something is wrong upstream — address quality,
-the confirmation call, delivery timing, or people ordering on impulse and
-changing their mind before the van arrives.
+### Check-in is per item, and counts
 
-### Post-delivery return — they had it and sent it back
-
-Wrong size, did not like it, faulty, wrong item sent.
-
-What a high number tells you: something about the product — sizing guidance,
-photography, fabric description, or quality control.
-
-**These belong in separate buckets.** A single rate that merges a COD refusal
-with a size exchange measures nothing you can act on.
-
-### Return reasons
-
-`refused_at_door`, `customer_unreachable`, `wrong_address`, `delivery_timeout`,
-`changed_mind`, `wrong_size`, `not_as_expected`, `faulty`, `wrong_item_sent`.
-
----
-
-## 4. Stock comes back when the box does, not when the courier says so
-
-When tracking flips to "returning", the goods are in a van. They are not
-sellable, and they may never arrive.
-
-So `return_in_transit` moves no stock. The movement happens at `returned`, when
-someone has the parcel open in front of them. Restocking earlier means the
-website sells a hoodie that is somewhere on the ring road.
-
-Check-in has three outcomes per item:
+When the parcel is opened, the packer records what is actually in it, line by
+line. A three-item order that comes back with two items is a discrepancy that
+has to be recordable, visible, and chaseable. Each item is checked in as:
 
 - **Resellable** — a `return` movement, back into sellable stock.
-- **Damaged** — recorded, but not returned to sellable stock.
-- **Missing** — the parcel came back short. Recorded and investigated.
+- **Damaged** — recorded, not returned to sellable stock.
+- **Missing** — did not come back. Flagged, and it stays open.
 
-**[?] Do damaged returns need to be a quantity you can see and act on** — a
-damaged bucket you can count and write off periodically — or is a one-line
-write-off with a note enough? The first needs its own stock state; the second
-is just an `adjustment` movement.
+Stock only moves at this point. Nothing goes back into sellable stock while it
+is still in a van.
 
 ---
 
-## 5. Return percentage, and the trap in it
+## 4. Return reasons, shaped around what actually happens
 
-The naive version — returns this month divided by orders this month — is wrong
-in a way that flatters you while you are growing.
+The two big ones first, because they are the ones Duch sees:
 
-An order shipped on the 28th can come back on the 12th of the next month. If
-the business is growing, this month's denominator is large while this month's
-returns mostly belong to last month's smaller shipments. The rate looks lower
-than it really is, and it looks best exactly when you are growing fastest.
+| Reason | What it means |
+|---|---|
+| `no_response` | Customer never answered. Parcel never opened. |
+| `refused_after_inspection` | Opened at the door, did not want it. |
+| `refused_unopened` | Refused without opening. |
+| `wrong_address` | Could not be delivered. |
+| `delivery_timeout` | Attempts exhausted, returned by the courier. |
+| `wrong_size` | Post-delivery. Rare here, but supported. |
+| `not_as_expected` | Post-delivery. |
+| `faulty` | Post-delivery. |
+| `wrong_item_sent` | Our mistake. Tracked separately — it is a packing error, not a customer decision. |
 
-The fix is to measure by **cohort**: of the orders shipped in a given week or
-month, what share eventually came back. That is accurate, but it takes a few
-weeks to mature, so recent cohorts must be labelled as still moving rather than
-shown as though final.
+`refused_after_inspection` is worth its own reason rather than being folded in
+with a plain refusal. The garment was handled, the packaging was opened, and it
+may need repackaging before it can be sold again. It is also the reason that
+says the most about the product itself, since the customer saw the real thing
+and changed their mind.
 
-**[?] Roughly how long between shipping and a return being resolved?** Two
-weeks, a month? That sets the point at which a cohort is treated as settled.
+**Failed deliveries and post-delivery returns are reported separately.** A
+door refusal and a size exchange have different causes and different fixes, so
+a rate that merges them measures nothing actionable.
+
+---
+
+## 5. Return percentage
+
+### The timing trap
+
+Returns this month divided by orders this month is wrong in a way that
+flatters you while you are growing: an order shipped on the 28th can come back
+in the next month, so the denominator is current and the numerator is stale.
+It looks best exactly when you are growing fastest.
+
+So it is measured by **cohort** — of the orders shipped in a given week, what
+share eventually came back.
+
+### When a cohort is settled
+
+From the timings above: three to five days to attempt delivery, then two or
+three days for a refusal to come back. That is about eight days at the outer
+edge. **A shipping cohort is treated as final after 14 days**, which leaves
+comfortable margin, and cohorts younger than that are shown as still moving
+rather than as a finished number.
 
 ### What to slice it by
-
-Each of these has a different fix behind it:
 
 | Slice | What a high number points at |
 |---|---|
@@ -169,43 +197,134 @@ Each of these has a different fix behind it:
 | Customer | A few people who order and refuse repeatedly |
 | Reason | Whether the cause is upstream or in the product |
 
-The per-customer one is worth having early — a repeat refuser can be flagged
-before the next COD order ships.
+Given that refusals are above average and mostly non-response, the per-customer
+and per-governorate cuts are likely to be the most useful early.
+
+### The cost of a refusal
+
+A refused order is not free — there is the courier's return fee, the packaging,
+and the handling. Tracking that gives a real figure for what refusals cost per
+month, which is the number that justifies doing something about them.
 
 ---
 
-## 6. Alerts
+## 6. The settlement and the accountant
 
-"CRM open all the time, new orders should appear" is Supabase Realtime, which
-was planned for Phase 5 alongside staff chat. It moves here, because it is the
-mechanism behind the packing queue keeping itself current.
+This is the money side, and it is the part that currently happens by hand.
 
-- A new order arrives by webhook and appears in the queue without a refresh.
-- A badge count in the navigation, and a sound.
-- Optionally a browser notification, so it is noticed when the tab is behind
-  others.
+### The flow today
 
-**[?] Should anything else raise an alert** — an order packed but not collected
-for two days, a failed delivery, a COD settlement that has not arrived? These
-are the cases where silence is the problem, and silence is what nobody notices.
+Accurate transfers cash to the bank and notifies. A statement covers that
+transfer, itemised per order, including the ones that were returned or refused.
+That statement is reviewed, then handed to the accountant with the detail so he
+can post it to his ledger.
+
+### What the CRM should do with it
+
+A `courier_settlements` table: one row per transfer, holding the date, the
+amount received, the reference, and a link to the statement document. Under it,
+one row per order in that statement — what the courier says was collected, what
+fee was deducted, and what the outcome was.
+
+Matching that against our own orders answers the questions that are currently
+answered by reading a spreadsheet carefully:
+
+- Which delivered orders have not been paid for yet?
+- Does the total on the statement agree with what we think those orders were
+  worth?
+- Which orders does the courier say were returned that we have not physically
+  received back?
+
+That last one is the custody check meeting the money check, and it is the one
+worth having.
+
+Marking a settlement reviewed flips every order in it to `paid`, and produces a
+single export for the accountant with all the detail attached — replacing the
+manual forward.
 
 ---
 
-## 7. Two different printed documents
+## 7. Exchanges
 
-"Print the shipping slip" could mean either of these, and they come from
-different places:
+Rare compared to refusals, but must be supported.
+
+The question is whether an exchange is modelled as a return plus a new linked
+order, or as one operation. A return plus a linked outbound order keeps the
+stock ledger honest — one garment comes back, a different one goes out — and
+keeps the returned item's condition check in the normal flow.
+
+**[?] How does an exchange physically happen?** Does the courier deliver the
+replacement and collect the original in one visit, or does the customer send
+the original back first and the replacement ship afterwards? That decides
+whether the two orders are linked but independent, or have to move together.
+
+---
+
+## 8. Alerts
+
+One person with the CRM open all day means Supabase Realtime, which was planned
+for Phase 5 with staff chat. It moves here, because it is what keeps the
+packing queue current.
+
+- A new order appears in the queue without a refresh, with a badge and a sound.
+- Optionally a browser notification, for when the tab is behind others.
+
+Worth alerting on beyond new orders, because these are the cases where silence
+is the problem:
+
+- An order packed but not collected for two days.
+- A parcel that has been coming back for longer than a week — the custody
+  exception.
+- A settlement that has not arrived when expected.
+
+---
+
+## 9. Two different printed documents
 
 - **Packing slip** — ours. Lists what goes in the box, for the packer to check
   against and for the customer to find inside. Bilingual, prints from the CRM.
   Can be built now.
 - **Airway bill / courier label** — Accurate's, carrying their barcode and
-  tracking number. Usually generated by their system when the pickup order is
-  created. Some couriers return a PDF to print; others return data to lay out
-  ourselves.
+  tracking number. Generated by their system when the pickup order is created.
 
-**[?] Which did you mean, or both?** And if Accurate returns a label, in what
-form?
+**[?] Which did you mean, or both?** And if Accurate returns a label, is it a
+PDF to print, or data to lay out ourselves?
+
+---
+
+## Remaining open questions
+
+**[?] What form does the statement come in?** A PDF, an Excel or CSV export
+from their application, or something the API can return? This decides whether
+reconciliation is automatic, a file upload, or typed in. It is the difference
+between a few seconds and an afternoon, every time.
+
+**[?] Can a customer accept part of an order and refuse the rest?** If someone
+opens a two-item parcel and keeps only one, this has to be recordable per line
+rather than per order. It changes the schema, so it is worth being sure.
+
+**[?] Is there a confirmation call before shipping?** Many brands here ring COD
+customers before dispatch, and non-response is the single largest refusal
+reason above. If there is no confirmation step, adding one to the workflow may
+do more for the refusal rate than anything else in this document. If there is,
+it needs to be a status and its effect should be measured.
+
+**[?] What does the courier charge for a failed delivery or a return,** and
+does the statement show it per order? Needed for the real cost of a refusal.
+
+**[?] Does the customer pay the shipping fee on top of the goods,** and is that
+included in the COD amount the courier collects? Needed to reconcile the
+statement against order totals.
+
+**[?] After an opened-and-refused delivery, is the garment normally sellable
+again?** Does it need repackaging, and does that have a cost worth recording?
+
+**[?] What does the accountant actually need?** A PDF, a spreadsheet in a
+particular layout, an import file for accounting software? The CRM can produce
+it directly rather than having it assembled by hand.
+
+**[?] Should repeat refusers be flagged,** and if so what should happen — a
+warning on the order, or something stronger like requiring prepayment?
 
 ---
 
@@ -219,8 +338,9 @@ Buildable now:
   Phase 2, so any that have already arrived can be replayed rather than lost.
 - The packing queue screen and the daily workflow up to the pickup step.
 - Realtime alerts.
-- The returns model, check-in, and restocking.
-- Return percentage reporting.
+- The returns model, the per-item check-in, and restocking.
+- Custody tracking and the aged exception report.
+- Return percentage reporting by cohort.
 - The packing slip.
 
 Blocked on Accurate:
@@ -228,7 +348,7 @@ Blocked on Accurate:
 - Creating the pickup order.
 - Their airway bill.
 - Tracking updates, and therefore every status from `in_transit` onwards.
-- COD settlement reconciliation.
+- Settlement import, and therefore automatic COD reconciliation.
 
 The status flow is deliberately shaped so the courier integration slots into
 the middle of it. Until it exists those transitions can be driven by hand,
