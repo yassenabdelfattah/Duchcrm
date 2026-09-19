@@ -16,6 +16,7 @@ const NAV_ITEMS: NavItem[] = [
   { to: '/', labelKey: 'nav.dashboard', capability: 'stock.read', icon: '▦' },
   { to: '/sell', labelKey: 'nav.sell', capability: 'sales.create', icon: '＋' },
   { to: '/queue', labelKey: 'nav.queue', capability: 'orders.queue', icon: '☰' },
+  { to: '/returns', labelKey: 'nav.returns', capability: 'orders.queue', icon: '↩' },
   { to: '/stock', labelKey: 'nav.stock', capability: 'stock.read', icon: '▤' },
   { to: '/products', labelKey: 'nav.products', capability: 'products.read', icon: '✚' },
   { to: '/sync', labelKey: 'nav.sync', capability: 'sync.read', icon: '⇄' },

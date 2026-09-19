@@ -160,19 +160,26 @@ export function Modal({
   if (!open) return null;
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-0 sm:items-center sm:p-4">
+      {/*
+        Capped in height with the body scrolling inside it. A return check-in
+        for a multi-item parcel is taller than a phone screen, and without this
+        the confirm button sits below the fold with no way to reach it - the
+        packer can fill the whole form in and not be able to submit it.
+        The title stays put so it is always clear what is being confirmed.
+      */}
       <div
         role="dialog"
         aria-modal="true"
         aria-label={title}
-        className="w-full max-w-md rounded-t-2xl bg-white p-5 shadow-xl sm:rounded-2xl"
+        className="flex max-h-[92dvh] w-full max-w-md flex-col rounded-t-2xl bg-white shadow-xl sm:max-h-[85dvh] sm:rounded-2xl"
       >
-        <div className="mb-4 flex items-start justify-between gap-4">
+        <div className="flex shrink-0 items-start justify-between gap-4 border-b border-duch-line p-5 pb-3">
           <h2 className="text-base font-bold">{title}</h2>
           <Button variant="ghost" onClick={onClose} aria-label="close" className="min-h-9 px-2">
             ✕
           </Button>
         </div>
-        {children}
+        <div className="overflow-y-auto overscroll-contain p-5">{children}</div>
       </div>
     </div>
   );

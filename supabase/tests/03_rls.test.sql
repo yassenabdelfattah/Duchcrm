@@ -8,7 +8,7 @@
 -- ---------------------------------------------------------------------------
 
 begin;
-select plan(13);
+select plan(16);
 
 -- --- Fixtures --------------------------------------------------------------
 
@@ -177,6 +177,55 @@ select throws_ok(
   null,
   'The last active admin cannot be deactivated, which would lock everyone out'
 );
+
+-- --- Who may put returned stock back ---------------------------------------
+--
+-- Checking parcels back in is the packing role's job, so packing may record a
+-- return even though it may not make an adjustment. Sales may do neither.
+
+set local role authenticated;
+set local request.jwt.claims = '{"sub":"cccccccc-0000-0000-0000-00000000000d"}';
+
+select lives_ok(
+  $$ select public.record_stock_movements(
+       'cccccccc-0000-0000-0000-000000000001',
+       'return',
+       '[{"variant_id":"cccccccc-0000-0000-0000-000000000003","quantity_delta":1}]'::jsonb,
+       'return', 'test-return'
+     ) $$,
+  'A packing user can put a returned piece back into stock'
+);
+
+select throws_ok(
+  $$ select public.record_stock_movements(
+       'cccccccc-0000-0000-0000-000000000001',
+       'adjustment',
+       '[{"variant_id":"cccccccc-0000-0000-0000-000000000003","quantity_delta":5}]'::jsonb
+     ) $$,
+  '42501',
+  null,
+  'But cannot invent stock with an adjustment'
+);
+
+reset role;
+select set_config('request.jwt.claims', '', true);
+
+set local role authenticated;
+set local request.jwt.claims = '{"sub":"cccccccc-0000-0000-0000-00000000000c"}';
+
+select throws_ok(
+  $$ select public.record_stock_movements(
+       'cccccccc-0000-0000-0000-000000000001',
+       'return',
+       '[{"variant_id":"cccccccc-0000-0000-0000-000000000003","quantity_delta":1}]'::jsonb
+     ) $$,
+  '42501',
+  null,
+  'A sales user cannot check returns back in'
+);
+
+reset role;
+select set_config('request.jwt.claims', '', true);
 
 select * from finish();
 rollback;

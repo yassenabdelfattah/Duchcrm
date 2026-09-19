@@ -21,7 +21,8 @@
     "orders": "الطلبات",
     "sync": "مشاكل المزامنة",
     "staff": "الموظفون",
-    "queue": "قائمة التجهيز"
+    "queue": "قائمة التجهيز",
+    "returns": "المرتجعات"
   },
   "auth": {
     "signIn": "تسجيل الدخول",
@@ -203,5 +204,50 @@
     "partially_refunded": "مسترد جزئياً",
     "refunded": "مسترد",
     "failed": "فشل"
+  },
+  "returns": {
+    "title": "المرتجعات",
+    "scanPrompt": "امسح الكود الموجود على الشحنة",
+    "scanPlaceholder": "رقم تتبع المندوب",
+    "tabInbound": "في الطريق",
+    "tabDiscrepancies": "ناقصة",
+    "emptyInbound": "لا يوجد شيء في طريق العودة.",
+    "emptyDiscrepancies": "كل المرتجعات وصلت كاملة.",
+    "unitsExpected": "متوقع {{count}}",
+    "daysWaiting": "منذ {{count}} يوم",
+    "notFound": "لا توجد شحنة بهذا الكود. راجع الملصق.",
+    "alreadyReceived": "الطلب {{orderNumber}} تم استلامه من قبل.",
+    "notReturnable": "الطلب {{orderNumber}} ليس مع المندوب، لا يوجد ما يتم استلامه.",
+    "needsFailureTitle": "لماذا رجع الطلب {{orderNumber}}؟",
+    "needsFailureHelp": "لم يتم تسجيل سبب الرجوع بعد. اختر السبب وسيتم التسجيل والاستلام معاً.",
+    "checkInTitle": "استلام الطلب {{orderNumber}}",
+    "expectedQty": "المُرسل",
+    "resellable": "صالح للبيع",
+    "damaged": "تالف",
+    "missing": "ناقص",
+    "resellableHelp": "الشحنة المفتوحة التي تحتاج إعادة تغليف فقط تُحتسب صالحة للبيع.",
+    "condition": "ما العيب فيه؟",
+    "shortWarning": "هذه الشحنة ناقصة {{count}}. ستبقى مفتوحة للمتابعة.",
+    "confirm": "استلام",
+    "confirming": "جاري الاستلام…",
+    "checkedIn": "تم استلام {{orderNumber}}",
+    "sessionTitle": "اليوم",
+    "sessionParcels": "الشحنات",
+    "sessionBack": "عاد للمخزون",
+    "sessionDamaged": "تالف",
+    "sessionMissing": "ناقص",
+    "nextParcel": "الشحنة التالية",
+    "chase": "متابعة"
+  },
+  "returnReason": {
+    "no_response": "لم يرد",
+    "refused_after_inspection": "فتحها ورفضها",
+    "refused_unopened": "رفض دون فتح",
+    "wrong_address": "عنوان خاطئ",
+    "delivery_timeout": "انتهت المحاولات",
+    "wrong_size": "مقاس خاطئ",
+    "not_as_expected": "ليس كما توقع",
+    "faulty": "به عيب",
+    "wrong_item_sent": "أرسلنا الصنف الخطأ"
   }
 }

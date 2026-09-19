@@ -21,7 +21,8 @@
     "orders": "Orders",
     "sync": "Sync issues",
     "staff": "Staff",
-    "queue": "Packing queue"
+    "queue": "Packing queue",
+    "returns": "Returns"
   },
   "auth": {
     "signIn": "Sign in",
@@ -203,5 +204,50 @@
     "partially_refunded": "Partly refunded",
     "refunded": "Refunded",
     "failed": "Failed"
+  },
+  "returns": {
+    "title": "Returns",
+    "scanPrompt": "Scan the code on the parcel",
+    "scanPlaceholder": "Courier tracking code",
+    "tabInbound": "Coming back",
+    "tabDiscrepancies": "Short",
+    "emptyInbound": "Nothing is on its way back.",
+    "emptyDiscrepancies": "Every return arrived complete.",
+    "unitsExpected": "{{count}} expected",
+    "daysWaiting": "{{count}}d since reported",
+    "notFound": "No parcel with that code. Check the label.",
+    "alreadyReceived": "{{orderNumber}} was already checked in.",
+    "notReturnable": "{{orderNumber}} is not out with the courier, so there is nothing to check in.",
+    "needsFailureTitle": "Why did {{orderNumber}} come back?",
+    "needsFailureHelp": "Nobody recorded this failure yet. Pick a reason and it gets recorded and checked in together.",
+    "checkInTitle": "Checking in {{orderNumber}}",
+    "expectedQty": "Sent",
+    "resellable": "Back in stock",
+    "damaged": "Damaged",
+    "missing": "Missing",
+    "resellableHelp": "An opened parcel that just needs repackaging counts as back in stock.",
+    "condition": "What is wrong with it?",
+    "shortWarning": "This parcel is {{count}} short. It will stay open for someone to chase.",
+    "confirm": "Check in",
+    "confirming": "Checking in…",
+    "checkedIn": "{{orderNumber}} checked in",
+    "sessionTitle": "Today",
+    "sessionParcels": "Parcels",
+    "sessionBack": "Back in stock",
+    "sessionDamaged": "Damaged",
+    "sessionMissing": "Missing",
+    "nextParcel": "Next parcel",
+    "chase": "Chase"
+  },
+  "returnReason": {
+    "no_response": "Never answered",
+    "refused_after_inspection": "Opened it and refused",
+    "refused_unopened": "Refused without opening",
+    "wrong_address": "Wrong address",
+    "delivery_timeout": "Attempts ran out",
+    "wrong_size": "Wrong size",
+    "not_as_expected": "Not as expected",
+    "faulty": "Faulty",
+    "wrong_item_sent": "We sent the wrong item"
   }
 }
