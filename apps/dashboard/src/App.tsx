@@ -10,6 +10,7 @@ import { Layout } from './components/Layout';
 import { Spinner } from './components/ui';
 import { Dashboard } from './pages/Dashboard';
 import { Login } from './pages/Login';
+import { PackingQueue } from './pages/PackingQueue';
 import { Pending } from './pages/Pending';
 import { Products } from './pages/Products';
 import { Stock } from './pages/Stock';
@@ -50,6 +51,7 @@ function RefineApp() {
         { name: 'products', list: '/products', meta: { label: 'nav.products' } },
         { name: 'stock', list: '/stock', meta: { label: 'nav.stock' } },
         { name: 'sale', create: '/sell', meta: { label: 'nav.sell' } },
+        { name: 'orders', list: '/queue', meta: { label: 'nav.queue' } },
         { name: 'sync_issues', list: '/sync', meta: { label: 'nav.sync' } },
       ]}
       options={{
@@ -70,6 +72,7 @@ function RefineApp() {
           <Route element={<Layout />}>
             <Route index element={<Dashboard />} />
             <Route path="/sell" element={<StoreSale />} />
+            <Route path="/queue" element={<PackingQueue />} />
             <Route path="/stock" element={<Stock />} />
             <Route path="/products" element={<Products />} />
             <Route path="/sync" element={<SyncIssues />} />

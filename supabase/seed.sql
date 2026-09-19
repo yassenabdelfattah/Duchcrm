@@ -121,3 +121,60 @@ select public.record_stock_movements(
 insert into public.customers (full_name, phone, instagram_handle, city, governorate)
 values ('Nour Ahmed', '+20 100 123 4567', '@nour.wears', 'Maadi', 'Cairo')
 on conflict do nothing;
+
+-- --- A couple of website orders waiting to be handled ----------------------
+--
+-- So the packing queue has something in it on a fresh checkout. These are
+-- shaped the way the Shopify webhook leaves them: waiting for the confirmation
+-- call, unpaid because cash on delivery has not been collected, with the stock
+-- already taken because the storefront has sold it.
+
+insert into public.customers (id, full_name, phone, city, governorate, address_line1)
+values ('77777777-0000-0000-0000-000000000001', 'Mariam Saad', '01122334455',
+        'Nasr City', 'Cairo', '8 Abbas El Akkad')
+on conflict (id) do nothing;
+
+insert into public.orders (
+  id, order_number, channel, fulfillment_status, payment_status, location_id,
+  customer_id, payment_method, subtotal_egp, shipping_egp, total_egp, created_at
+)
+values
+  ('88888888-0000-0000-0000-000000000001', public.next_order_number('online'), 'online',
+   'awaiting_confirmation', 'pending', '55555555-5555-5555-5555-555555555555',
+   (select id from public.customers where phone = '01001234567'),
+   'cod', 1450.00, 70.00, 1450.00, now() - interval '5 hours'),
+  ('88888888-0000-0000-0000-000000000002', public.next_order_number('online'), 'online',
+   'awaiting_confirmation', 'pending', '55555555-5555-5555-5555-555555555555',
+   '77777777-0000-0000-0000-000000000001',
+   'cod', 3300.00, 70.00, 3300.00, now() - interval '26 hours')
+on conflict (id) do nothing;
+
+insert into public.order_line_items (order_id, variant_id, sku, title, variant_title, quantity, unit_price_egp, total_egp)
+select
+  '88888888-0000-0000-0000-000000000001', v.id, v.sku, p.title,
+  concat_ws(' / ', v.size, v.color), 1, v.price_egp, v.price_egp
+from public.variants v join public.products p on p.id = v.product_id
+where v.sku = 'DCH-HOOD-BLK-L'
+on conflict do nothing;
+
+insert into public.order_line_items (order_id, variant_id, sku, title, variant_title, quantity, unit_price_egp, total_egp)
+select
+  '88888888-0000-0000-0000-000000000002', v.id, v.sku, p.title,
+  concat_ws(' / ', v.size, v.color), 1, v.price_egp, v.price_egp
+from public.variants v join public.products p on p.id = v.product_id
+where v.sku in ('DCH-CARG-OLV-M', 'DCH-HOOD-BLK-M')
+on conflict do nothing;
+
+-- The storefront already sold these, so the stock comes off now.
+select public.record_stock_movements(
+  '55555555-5555-5555-5555-555555555555',
+  'online_order',
+  (
+    select jsonb_agg(jsonb_build_object('variant_id', li.variant_id, 'quantity_delta', -li.quantity))
+      from public.order_line_items li
+     where li.order_id in ('88888888-0000-0000-0000-000000000001',
+                           '88888888-0000-0000-0000-000000000002')
+  ),
+  'seed', 'local-dev-orders',
+  'Stock taken when the storefront sold these'
+);

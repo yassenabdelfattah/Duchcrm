@@ -81,6 +81,8 @@ export type ShopifyWebhookTopic = (typeof SHOPIFY_WEBHOOK_TOPICS)[number];
 export const ROLE_CAPABILITIES: Record<StaffRole, readonly string[]> = {
   admin: ['*'],
   stock_manager: [
+    'orders.queue',
+    'orders.pack',
     'products.read',
     'products.write',
     'stock.read',
@@ -91,8 +93,17 @@ export const ROLE_CAPABILITIES: Record<StaffRole, readonly string[]> = {
     'sync.read',
     'sync.resolve',
   ],
-  sales: ['products.read', 'stock.read', 'sales.read', 'sales.create', 'customers.write'],
-  packing: ['products.read', 'stock.read', 'sales.read'],
+  sales: [
+    'orders.queue',
+    'products.read',
+    'stock.read',
+    'sales.read',
+    'sales.create',
+    'customers.write',
+  ],
+  // Packing staff do the physical work: the queue, the slips, the handover.
+  // Sales staff see the queue and make the confirmation calls, but do not pack.
+  packing: ['orders.queue', 'orders.pack', 'products.read', 'stock.read', 'sales.read'],
 } as const;
 
 export function can(role: StaffRole | null | undefined, capability: string): boolean {
