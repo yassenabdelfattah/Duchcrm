@@ -138,13 +138,14 @@ begin
     return v_order;
   end if;
 
-  select coalesce(p_location_id, id) into v_location_id
-    from public.locations
-   where is_default and is_active
-   limit 1;
+  -- An explicitly named location wins. Otherwise ship from the default one.
+  v_location_id := p_location_id;
 
   if v_location_id is null then
-    v_location_id := p_location_id;
+    select id into v_location_id
+      from public.locations
+     where is_default and is_active
+     limit 1;
   end if;
 
   if v_location_id is null then

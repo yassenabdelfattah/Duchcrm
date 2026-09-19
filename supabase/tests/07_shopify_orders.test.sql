@@ -12,8 +12,10 @@ select plan(20);
 
 -- --- Fixtures --------------------------------------------------------------
 
+-- Not the default location: the seed already has one, and only one row may be.
+-- The ingest calls below name this location explicitly instead.
 insert into public.locations (id, name, type, is_default, is_active, shopify_location_id)
-values ('c3c3c3c3-0000-0000-0000-000000000001', 'Web Test Warehouse', 'warehouse', true, true, 55501);
+values ('c3c3c3c3-0000-0000-0000-000000000001', 'Web Test Warehouse', 'warehouse', false, true, 55501);
 
 insert into public.products (id, title)
 values ('c3c3c3c3-0000-0000-0000-000000000002', 'Web Test Hoodie');
@@ -71,14 +73,17 @@ $$;
 -- --- A normal order --------------------------------------------------------
 
 select lives_ok(
-  $$ select public.ingest_shopify_order(pg_temp.web_order(
-       5001,
-       jsonb_build_array(jsonb_build_object(
-         'id', 1, 'variant_id', 77701, 'sku', 'WEB-HOOD-M',
-         'title', 'Web Test Hoodie - M', 'quantity', 2,
-         'price', '1500.00', 'total_discount', '0.00'
-       ))
-     )) $$,
+  $$ select public.ingest_shopify_order(
+       pg_temp.web_order(
+         5001,
+         jsonb_build_array(jsonb_build_object(
+           'id', 1, 'variant_id', 77701, 'sku', 'WEB-HOOD-M',
+           'title', 'Web Test Hoodie - M', 'quantity', 2,
+           'price', '1500.00', 'total_discount', '0.00'
+         ))
+       ),
+       'c3c3c3c3-0000-0000-0000-000000000001'
+     ) $$,
   'A storefront order is imported'
 );
 
@@ -136,14 +141,17 @@ select is(
 -- --- Shopify redelivers ----------------------------------------------------
 
 select is(
-  (select (public.ingest_shopify_order(pg_temp.web_order(
-     5001,
-     jsonb_build_array(jsonb_build_object(
-       'id', 1, 'variant_id', 77701, 'sku', 'WEB-HOOD-M',
-       'title', 'Web Test Hoodie - M', 'quantity', 2,
-       'price', '1500.00', 'total_discount', '0.00'
-     ))
-   ))).id),
+  (select (public.ingest_shopify_order(
+     pg_temp.web_order(
+       5001,
+       jsonb_build_array(jsonb_build_object(
+         'id', 1, 'variant_id', 77701, 'sku', 'WEB-HOOD-M',
+         'title', 'Web Test Hoodie - M', 'quantity', 2,
+         'price', '1500.00', 'total_discount', '0.00'
+       ))
+     ),
+     'c3c3c3c3-0000-0000-0000-000000000001'
+   )).id),
   (select id from public.orders where shopify_order_id = 5001),
   'A redelivered webhook returns the order that already exists'
 );
@@ -163,14 +171,17 @@ select is(
 
 -- --- A variant with no Shopify id, matched by SKU --------------------------
 
-select public.ingest_shopify_order(pg_temp.web_order(
-  5002,
-  jsonb_build_array(jsonb_build_object(
-    'id', 2, 'variant_id', null, 'sku', 'WEB-HOOD-L',
-    'title', 'Web Test Hoodie - L', 'quantity', 1,
-    'price', '1500.00', 'total_discount', '0.00'
-  ))
-));
+select public.ingest_shopify_order(
+  pg_temp.web_order(
+    5002,
+    jsonb_build_array(jsonb_build_object(
+      'id', 2, 'variant_id', null, 'sku', 'WEB-HOOD-L',
+      'title', 'Web Test Hoodie - L', 'quantity', 1,
+      'price', '1500.00', 'total_discount', '0.00'
+    ))
+  ),
+  'c3c3c3c3-0000-0000-0000-000000000001'
+);
 
 select is(
   (select variant_id from public.order_line_items li
@@ -185,14 +196,17 @@ select is(
 -- The customer has bought it either way. An order we refuse to import is an
 -- order nobody packs.
 
-select public.ingest_shopify_order(pg_temp.web_order(
-  5003,
-  jsonb_build_array(jsonb_build_object(
-    'id', 3, 'variant_id', 999999, 'sku', 'NOT-IN-CRM',
-    'title', 'Mystery Item', 'quantity', 1,
-    'price', '900.00', 'total_discount', '0.00'
-  ))
-));
+select public.ingest_shopify_order(
+  pg_temp.web_order(
+    5003,
+    jsonb_build_array(jsonb_build_object(
+      'id', 3, 'variant_id', 999999, 'sku', 'NOT-IN-CRM',
+      'title', 'Mystery Item', 'quantity', 1,
+      'price', '900.00', 'total_discount', '0.00'
+    ))
+  ),
+  'c3c3c3c3-0000-0000-0000-000000000001'
+);
 
 select is(
   (select count(*)::int from public.orders where shopify_order_id = 5003),

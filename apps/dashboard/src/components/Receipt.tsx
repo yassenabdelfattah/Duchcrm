@@ -1,4 +1,4 @@
-import { formatEGP } from '@duch/shared';
+import { formatDateTime, formatEGP } from '@duch/shared';
 import { useLocale } from '../i18n';
 import type { CompletedSale } from '../pages/StoreSale';
 
@@ -16,11 +16,7 @@ import type { CompletedSale } from '../pages/StoreSale';
 export function Receipt({ sale }: { sale: CompletedSale }) {
   const { t, locale } = useLocale();
 
-  const date = new Intl.DateTimeFormat(locale === 'ar' ? 'ar-EG' : 'en-GB', {
-    dateStyle: 'medium',
-    timeStyle: 'short',
-    timeZone: 'Africa/Cairo',
-  }).format(new Date(sale.created_at));
+  const date = formatDateTime(sale.created_at, locale);
 
   return (
     <div className="mx-auto w-full max-w-[80mm] bg-white p-4 text-[13px] leading-relaxed print:max-w-none print:p-0">

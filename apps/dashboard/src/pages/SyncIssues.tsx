@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import type { SyncIssueType } from '@duch/shared';
+import { formatDateTime, type SyncIssueType } from '@duch/shared';
 import { supabase } from '../lib/supabase';
 import { useLocale } from '../i18n';
 import { Badge, Button, Card, EmptyState, ErrorNote, Field, Input, Modal, Spinner } from '../components/ui';
@@ -79,11 +79,7 @@ export function SyncIssues() {
                     : ''}
                 </p>
                 <p className="mt-0.5 text-xs text-stone-500">
-                  {new Intl.DateTimeFormat(locale === 'ar' ? 'ar-EG' : 'en-GB', {
-                    dateStyle: 'medium',
-                    timeStyle: 'short',
-                    timeZone: 'Africa/Cairo',
-                  }).format(new Date(issue.detected_at))}
+                  {formatDateTime(issue.detected_at, locale)}
                 </p>
               </div>
 

@@ -1,9 +1,11 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router';
-import { formatEGP } from '@duch/shared';
+import { useGetIdentity } from '@refinedev/core';
+import { can, formatEGP } from '@duch/shared';
 import { supabase } from '../lib/supabase';
 import { useLocale } from '../i18n';
 import { Badge, Card, Spinner } from '../components/ui';
+import type { StaffIdentity } from '../providers/authProvider';
 
 interface Totals {
   orders: number;
@@ -41,6 +43,10 @@ function cairoStartOfDay(): string {
 
 export function Dashboard() {
   const { t, locale } = useLocale();
+  const { data: identity } = useGetIdentity<StaffIdentity>();
+  // Sales and packing staff cannot read sync_issues, so the count would always
+  // come back zero for them. A confident zero is worse than no tile at all.
+  const maySeeSync = can(identity?.role, 'sync.read');
   const [totals, setTotals] = useState<Totals | null>(null);
   const [movements, setMovements] = useState<MovementRow[] | null>(null);
 
@@ -54,7 +60,7 @@ export function Dashboard() {
           .from('orders')
           .select('total_egp')
           .gte('created_at', since)
-          .neq('status', 'cancelled'),
+          .neq('fulfillment_status', 'cancelled'),
         supabase.from('v_low_stock').select('variant_id', { count: 'exact', head: true }),
         supabase
           .from('sync_issues')
@@ -100,12 +106,14 @@ export function Dashboard() {
           to="/stock"
           tone={totals.lowStock > 0 ? 'warn' : undefined}
         />
-        <Stat
-          label={t('dashboard.openIssues')}
-          value={String(totals.openIssues)}
-          to="/sync"
-          tone={totals.openIssues > 0 ? 'bad' : undefined}
-        />
+        {maySeeSync ? (
+          <Stat
+            label={t('dashboard.openIssues')}
+            value={String(totals.openIssues)}
+            to="/sync"
+            tone={totals.openIssues > 0 ? 'bad' : undefined}
+          />
+        ) : null}
       </div>
 
       <Card>

@@ -21,8 +21,10 @@ insert into public.variants (id, product_id, sku, size, color, price_egp)
 values ('a1a1a1a1-0000-0000-0000-000000000003', 'a1a1a1a1-0000-0000-0000-000000000002',
         'CARGO-OLV-L', 'L', 'Olive', 1800.00);
 
+-- A phone number no other fixture and no seed row uses. customers.phone is
+-- uniquely indexed, and these suites run against the seeded database.
 insert into public.customers (id, full_name, phone, governorate)
-values ('a1a1a1a1-0000-0000-0000-00000000000c', 'Test Customer', '01001234567', 'Cairo');
+values ('a1a1a1a1-0000-0000-0000-00000000000c', 'Test Customer', '01211100011', 'Cairo');
 
 select public.record_stock_movements(
   'a1a1a1a1-0000-0000-0000-000000000001',

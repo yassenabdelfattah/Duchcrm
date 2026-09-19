@@ -105,6 +105,14 @@ npm test
 Runs the TypeScript suites in `tests/` — webhook signature verification and
 money arithmetic.
 
+```bash
+npm run functions:check
+```
+
+Type-checks the Edge Functions. Needs [Deno](https://deno.com) installed
+(`scoop install deno`) — the dashboard's TypeScript config does not cover
+`supabase/functions`, so without this they are never compiled at all.
+
 There is also a test that cannot be written as a single-session SQL script,
 because it needs two database connections at once:
 
