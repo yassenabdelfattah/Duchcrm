@@ -195,7 +195,7 @@ select public.cancel_order(
 );
 
 select is(
-  (select status::text from public.orders where idempotency_key = 'sale-idem-key-00002'),
+  (select fulfillment_status::text from public.orders where idempotency_key = 'sale-idem-key-00002'),
   'cancelled',
   'The order is marked cancelled'
 );
