@@ -32,9 +32,25 @@ it from the Start menu and wait for it to say "Engine running".
 
 ### A2. Install the project
 
+**Change into the project folder first.** Every command from here on has to run
+there — `npm` looks for the project in whatever folder you are standing in, and
+a fresh terminal always starts in your home folder.
+
+```bash
+cd C:\Users\yasse\Projects\duch-crm
+```
+
 ```bash
 npm install
 ```
+
+If you see `Could not read package.json ... C:\Users\yasse\package.json`, that
+is this exact thing: you are in your home folder. Run the `cd` above and try
+again.
+
+npm may also warn that some packages "have install scripts not yet covered by
+allowScripts". That is npm being cautious about running third-party install
+scripts and is safe to ignore here — everything needed is already installed.
 
 ### A3. Start the local database
 
@@ -42,9 +58,16 @@ npm install
 supabase start
 ```
 
-The first run downloads a few containers and takes a couple of minutes. When it
-finishes it prints a block of URLs and keys. **Keep that output** — you need
-two lines from it in the next step.
+The first run downloads several gigabytes of containers and can take ten or
+fifteen minutes. It looks like it has hung; it has not. Later runs take
+seconds.
+
+When it finishes it prints a block of URLs and keys. **Keep that output** — you
+need two lines from it in the next step. If you lose it:
+
+```bash
+supabase status
+```
 
 ### A4. Point the app at it
 

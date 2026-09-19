@@ -12,7 +12,7 @@
   },
   "scripts": {
     "dev": "npm run dev --workspace @duch/dashboard",
-    "build": "npm run build --workspace @duch/shared && npm run build --workspace @duch/dashboard",
+    "build": "npm run build --workspace @duch/dashboard",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "functions:check": "deno check supabase/functions/*/index.ts",
     "lint": "npm run lint --workspaces --if-present",
