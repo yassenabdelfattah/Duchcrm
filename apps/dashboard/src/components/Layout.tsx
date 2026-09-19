@@ -19,6 +19,7 @@ const NAV_ITEMS: NavItem[] = [
   { to: '/returns', labelKey: 'nav.returns', capability: 'orders.queue', icon: '↩' },
   { to: '/stock', labelKey: 'nav.stock', capability: 'stock.read', icon: '▤' },
   { to: '/products', labelKey: 'nav.products', capability: 'products.read', icon: '✚' },
+  { to: '/settlements', labelKey: 'nav.settlements', capability: 'settlements.manage', icon: '₤' },
   { to: '/sync', labelKey: 'nav.sync', capability: 'sync.read', icon: '⇄' },
 ];
 

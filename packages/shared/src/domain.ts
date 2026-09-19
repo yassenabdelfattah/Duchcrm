@@ -92,6 +92,7 @@ export const ROLE_CAPABILITIES: Record<StaffRole, readonly string[]> = {
     'sales.create',
     'sync.read',
     'sync.resolve',
+    'settlements.manage',
   ],
   sales: [
     'orders.queue',

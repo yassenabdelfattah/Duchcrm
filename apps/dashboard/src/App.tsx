@@ -14,6 +14,7 @@ import { PackingQueue } from './pages/PackingQueue';
 import { Pending } from './pages/Pending';
 import { Products } from './pages/Products';
 import { Returns } from './pages/Returns';
+import { Settlements } from './pages/Settlements';
 import { Stock } from './pages/Stock';
 import { StoreSale } from './pages/StoreSale';
 import { SyncIssues } from './pages/SyncIssues';
@@ -54,6 +55,7 @@ function RefineApp() {
         { name: 'sale', create: '/sell', meta: { label: 'nav.sell' } },
         { name: 'orders', list: '/queue', meta: { label: 'nav.queue' } },
         { name: 'returns', list: '/returns', meta: { label: 'nav.returns' } },
+        { name: 'settlements', list: '/settlements', meta: { label: 'nav.settlements' } },
         { name: 'sync_issues', list: '/sync', meta: { label: 'nav.sync' } },
       ]}
       options={{
@@ -76,6 +78,7 @@ function RefineApp() {
             <Route path="/sell" element={<StoreSale />} />
             <Route path="/queue" element={<PackingQueue />} />
             <Route path="/returns" element={<Returns />} />
+            <Route path="/settlements" element={<Settlements />} />
             <Route path="/stock" element={<Stock />} />
             <Route path="/products" element={<Products />} />
             <Route path="/sync" element={<SyncIssues />} />

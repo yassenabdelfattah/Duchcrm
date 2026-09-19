@@ -4,7 +4,7 @@
 -- ---------------------------------------------------------------------------
 
 begin;
-select plan(14);
+select plan(21);
 
 -- --- Fixtures --------------------------------------------------------------
 
@@ -178,6 +178,87 @@ select is_empty(
 
 reset role;
 select set_config('request.jwt.claims', '', true);
+
+-- --- Correcting a statement while it is still a draft ---------------------
+--
+-- The statement is typed in by hand from their paper, so mis-keying a fee is
+-- normal and has to be fixable without starting over.
+
+insert into public.orders (
+  id, order_number, channel, fulfillment_status, payment_status,
+  location_id, payment_method, subtotal_egp, shipping_egp, total_egp
+)
+values (
+  'b2b2b2b2-0000-0000-0000-0000000000a3', public.next_order_number('online'), 'online',
+  'delivered', 'pending', 'b2b2b2b2-0000-0000-0000-000000000001', 'cod', 500, 70, 500
+);
+
+insert into public.order_line_items (order_id, variant_id, sku, title, quantity, unit_price_egp, total_egp)
+values ('b2b2b2b2-0000-0000-0000-0000000000a3', 'b2b2b2b2-0000-0000-0000-000000000003',
+        'SETTLE-TEE', 'Settle Tee', 1, 500, 500);
+
+insert into public.shipments (order_id, tracking_number, direction, status, cod_amount_egp, handed_over_at, delivered_at)
+values ('b2b2b2b2-0000-0000-0000-0000000000a3', 'ACC-SETTLE-0003', 'outbound', 'delivered',
+        570, now() - interval '9 days', now() - interval '6 days');
+
+select isnt_empty(
+  $$ select order_id from public.v_awaiting_settlement
+      where tracking_number = 'ACC-SETTLE-0003' $$,
+  'A delivered order that is on no statement shows as money still owed to us'
+);
+
+insert into public.courier_settlements (id, reference, received_at, net_received_egp)
+values ('b2b2b2b2-0000-0000-0000-0000000000f2', 'ACC-STMT-9002', current_date, 500);
+
+select is(
+  (select (public.add_settlement_line(
+     'b2b2b2b2-0000-0000-0000-0000000000f2', 'ACC-SETTLE-0003', 'delivered', null, 70
+   )).net_egp),
+  500.00::numeric,
+  'The line lands with the fee they charged taken off'
+);
+
+select throws_ok(
+  $$ select public.add_settlement_line(
+       'b2b2b2b2-0000-0000-0000-0000000000f2', 'ACC-SETTLE-0003', 'delivered', null, 70
+     ) $$,
+  '23505',
+  null,
+  'Keying the same parcel twice is refused, which is the likely slip on a long statement'
+);
+
+select is(
+  (select (public.update_settlement_line(
+     (select id from public.settlement_lines where tracking_number = 'ACC-SETTLE-0003'),
+     null, null, 100
+   )).net_egp),
+  470.00::numeric,
+  'A mis-keyed fee can be corrected in place'
+);
+
+select is_empty(
+  $$ select order_id from public.v_awaiting_settlement
+      where tracking_number = 'ACC-SETTLE-0003' $$,
+  'Once it is on a statement it stops showing as owed'
+);
+
+select lives_ok(
+  $$ select public.remove_settlement_line(
+       (select id from public.settlement_lines where tracking_number = 'ACC-SETTLE-0003')
+     ) $$,
+  'And a line added by mistake can be taken off again'
+);
+
+-- --- A reviewed statement is closed ----------------------------------------
+
+select throws_ok(
+  $$ select public.add_settlement_line(
+       'b2b2b2b2-0000-0000-0000-0000000000f1', 'ACC-SETTLE-0003', 'delivered', null, 0
+     ) $$,
+  '23514',
+  null,
+  'Nothing can be added to a statement that has already been signed off'
+);
 
 select * from finish();
 rollback;
