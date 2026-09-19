@@ -1,7 +1,6 @@
 # Phase 3 — orders, packing, shipping and returns
 
-**Status: schema and tests written, but not yet run against a database.**
-Screens not yet built.
+**Status: schema built, migrations applied and tests passing. Screens not yet built.**
 
 One question is still open, marked **[?]** at the end.
 
@@ -296,7 +295,7 @@ question and whether repackaging shows up in the cost of a refusal.
 
 ## What is built, and what is blocked
 
-**Written, with a pgTAP suite, pending a test run:** the two status fields, the confirmation-call fields, the
+**Built and tested:** the two status fields, the confirmation-call fields, the
 `order_events` history, shipments and custody, returns with per-item check-in,
 exchanges, settlements with the balance check, and the reporting views.
 
