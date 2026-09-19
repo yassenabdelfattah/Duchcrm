@@ -281,15 +281,15 @@ current for someone with the CRM open all day.
 
 ---
 
-## The one question still open
+## Repackaging
 
-**[?] After someone opens a parcel and refuses it, does the garment normally go
-straight back into sellable stock, or does it need repackaging first?** And if
-it does, is that worth recording as a cost?
+A garment that comes back from an opened-and-refused delivery just needs
+repackaging, and then it is sellable again. Nothing else.
 
-The schema already handles either answer — check-in splits what came back into
-resellable and damaged — so this only changes whether the screen asks a third
-question and whether repackaging shows up in the cost of a refusal.
+So check-in defaults those lines to **resellable**, and the `damaged` path
+stays for the genuine cases — something marked, torn or soiled. No separate
+cost is tracked for repackaging, because it is not worth the extra question at
+the counter.
 
 ---
 

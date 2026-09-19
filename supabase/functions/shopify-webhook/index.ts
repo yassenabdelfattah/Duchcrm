@@ -163,13 +163,20 @@ async function handle(
     case 'products/create':
       return handleProductUpdate(payload, db);
 
-    // Phase 3. The payload is already stored, so when the order handlers land
-    // they can be backfilled from webhook_events rather than lost.
     case 'orders/create':
+      return handleOrderCreate(payload, db);
+
     case 'orders/updated':
+      // Shopify sends this for anything from an address correction to a tag
+      // change. Creating the order if we somehow missed orders/create is the
+      // useful part; beyond that the CRM owns the order's state, not Shopify.
+      return handleOrderCreate(payload, db);
+
     case 'orders/cancelled':
+      return handleOrderCancelled(payload, db);
+
     case 'refunds/create':
-      return { status: 'ignored', reason: 'order_handlers_arrive_in_phase_3' };
+      return handleRefund(payload, db);
 
     default:
       return { status: 'ignored', reason: `unhandled_topic:${topic}` };
@@ -228,6 +235,123 @@ async function handleInventoryLevelUpdate(
     reason: `inventory_${classification}`,
     detail: data as Record<string, unknown>,
   };
+}
+
+/**
+ * A new order from the storefront.
+ *
+ * All the work happens inside one database function, so the order, its
+ * customer, its lines and the stock coming off all land together or not at
+ * all. Calling this twice returns the same order rather than selling the stock
+ * a second time, which matters because Shopify redelivers.
+ */
+async function handleOrderCreate(
+  payload: Record<string, unknown>,
+  db: ReturnType<typeof adminClient>,
+): Promise<HandlerResult> {
+  const { data, error } = await db.rpc('ingest_shopify_order', { p_payload: payload });
+
+  if (error) throw new Error(`ingest_shopify_order failed: ${error.message}`);
+
+  const order = data as { id: string; order_number: string } | null;
+
+  // Tell Shopify our number straight away. The outbox has it too, so if this
+  // fails the Worker picks it up within the minute.
+  await pushInventoryFor(db, order?.id);
+
+  return {
+    status: 'processed',
+    detail: { order_number: order?.order_number ?? null },
+  };
+}
+
+async function handleOrderCancelled(
+  payload: Record<string, unknown>,
+  db: ReturnType<typeof adminClient>,
+): Promise<HandlerResult> {
+  const shopifyOrderId = Number(payload.id);
+  if (!Number.isFinite(shopifyOrderId)) {
+    return { status: 'ignored', reason: 'payload_missing_order_id' };
+  }
+
+  const { data, error } = await db.rpc('cancel_shopify_order', {
+    p_shopify_order_id: shopifyOrderId,
+    p_reason: (payload.cancel_reason as string | null) ?? 'Cancelled in Shopify',
+  });
+
+  if (error) {
+    // An order we never imported is not a failure worth retrying forever.
+    if (/no CRM order/i.test(error.message)) {
+      return { status: 'ignored', reason: 'order_not_in_crm' };
+    }
+    throw new Error(`cancel_shopify_order failed: ${error.message}`);
+  }
+
+  const order = data as { id: string; order_number: string; fulfillment_status: string } | null;
+  await pushInventoryFor(db, order?.id);
+
+  return {
+    status: 'processed',
+    detail: {
+      order_number: order?.order_number ?? null,
+      fulfillment_status: order?.fulfillment_status ?? null,
+    },
+  };
+}
+
+async function handleRefund(
+  payload: Record<string, unknown>,
+  db: ReturnType<typeof adminClient>,
+): Promise<HandlerResult> {
+  const { data, error } = await db.rpc('apply_shopify_refund', { p_payload: payload });
+
+  if (error) {
+    if (/no CRM order/i.test(error.message)) {
+      return { status: 'ignored', reason: 'order_not_in_crm' };
+    }
+    throw new Error(`apply_shopify_refund failed: ${error.message}`);
+  }
+
+  return { status: 'processed', detail: data as Record<string, unknown> };
+}
+
+/**
+ * Nudges the inventory push for every variant on an order.
+ *
+ * Deliberately best effort: the movements already marked those variants dirty
+ * in the outbox inside the same transaction, so a failure here costs at most a
+ * minute's delay, never a lost update.
+ */
+async function pushInventoryFor(
+  db: ReturnType<typeof adminClient>,
+  orderId: string | undefined,
+): Promise<void> {
+  if (!orderId) return;
+
+  try {
+    const { data: lines } = await db
+      .from('order_line_items')
+      .select('variant_id')
+      .eq('order_id', orderId)
+      .not('variant_id', 'is', null);
+
+    const variantIds = [...new Set((lines ?? []).map((l) => l.variant_id as string))];
+    if (variantIds.length === 0) return;
+
+    const { data: order } = await db
+      .from('orders')
+      .select('location_id')
+      .eq('id', orderId)
+      .single();
+
+    if (!order?.location_id) return;
+
+    await db.functions.invoke('push-inventory', {
+      body: { variant_ids: variantIds, location_id: order.location_id },
+    });
+  } catch (error) {
+    console.warn('Immediate inventory push failed; the outbox will retry', error);
+  }
 }
 
 /** Keeps titles, prices and barcodes current when they are edited in Shopify. */

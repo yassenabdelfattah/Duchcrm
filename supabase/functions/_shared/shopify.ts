@@ -247,23 +247,38 @@ export interface InventoryLevelRow {
   committed: number;
 }
 
+/**
+ * The shape of one page, named rather than written inline at the call site.
+ *
+ * Inlining it there creates a circular inference that TypeScript resolves by
+ * making the response `any`: `cursor` is assigned from the response at the
+ * bottom of the loop, and the response's type depends on `cursor` being passed
+ * in at the top. The result compiles but type-checks nothing inside the loop.
+ */
+interface InventoryLevelsPage {
+  location: {
+    inventoryLevels: {
+      pageInfo: { hasNextPage: boolean; endCursor: string | null };
+      nodes: Array<{
+        item: { id: string; sku: string | null };
+        quantities: Array<{ name: string; quantity: number }>;
+      }>;
+    };
+  } | null;
+}
+
 /** Walks every page of inventory levels at a location. */
 export async function fetchAllInventoryLevels(locationId: number): Promise<InventoryLevelRow[]> {
   const rows: InventoryLevelRow[] = [];
   let cursor: string | null = null;
 
   do {
-    const body = await shopifyGraphQL<{
-      location: {
-        inventoryLevels: {
-          pageInfo: { hasNextPage: boolean; endCursor: string | null };
-          nodes: Array<{
-            item: { id: string; sku: string | null };
-            quantities: Array<{ name: string; quantity: number }>;
-          }>;
-        };
-      } | null;
-    }>(INVENTORY_LEVELS_QUERY, { locationId: gid.location(locationId), cursor });
+    // Annotated explicitly, which is what breaks the cycle described above.
+    const body: GraphQLResponse<InventoryLevelsPage> =
+      await shopifyGraphQL<InventoryLevelsPage>(
+        INVENTORY_LEVELS_QUERY,
+        { locationId: gid.location(locationId), cursor },
+      );
 
     if (body.errors?.length) {
       throw new ShopifyError(

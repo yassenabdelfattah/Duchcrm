@@ -17,6 +17,7 @@ import {
   parseGid,
   PRODUCTS_QUERY,
   shopifyGraphQL,
+  type GraphQLResponse,
 } from '../_shared/shopify.ts';
 
 interface ImportRequest {
@@ -45,6 +46,13 @@ interface ShopifyVariantNode {
     id: string;
     tracked: boolean;
     measurement?: { weight?: { value: number; unit: string } | null } | null;
+  };
+}
+
+interface ShopifyProductsPage {
+  products: {
+    pageInfo: { hasNextPage: boolean; endCursor: string | null };
+    nodes: ShopifyProductNode[];
   };
 }
 
@@ -86,12 +94,12 @@ Deno.serve(async (req: Request): Promise<Response> => {
   let cursor: string | null = null;
 
   do {
-    const result = await shopifyGraphQL<{
-      products: {
-        pageInfo: { hasNextPage: boolean; endCursor: string | null };
-        nodes: ShopifyProductNode[];
-      };
-    }>(PRODUCTS_QUERY, { cursor });
+    // Annotated explicitly. Written inline, the response type would depend on
+    // `cursor` while `cursor` is assigned from the response at the bottom of
+    // the loop - a cycle TypeScript resolves by falling back to `any`, which
+    // silently switches off type checking for the whole loop body.
+    const result: GraphQLResponse<ShopifyProductsPage> =
+      await shopifyGraphQL<ShopifyProductsPage>(PRODUCTS_QUERY, { cursor });
 
     if (result.errors?.length) {
       return json(

@@ -8,10 +8,23 @@ Read [DECISIONS.md](DECISIONS.md#1-how-stock-stays-in-sync-with-shopify) before
 changing anything to do with inventory — the sync design has some deliberate
 choices that look wrong until you know why.
 
-**Status: Phases 1 and 2 complete.** Staff accounts and roles, the Shopify
+**Status: Phases 1 and 2 complete. Phase 3 schema built and tested.** Staff accounts and roles, the Shopify
 product import, the stock ledger, the in-store sale screen, inventory sync with
-loop prevention, and nightly reconciliation. Orders, shipping and invoices are
-Phase 3.
+loop prevention, and nightly reconciliation.
+
+Phase 3 so far: website orders import from Shopify, the order lifecycle with
+custody tracking, returns with per-item check-in, exchanges, and courier
+settlements. Its screens are not built yet — see
+[docs/phase-3-orders-and-returns.md](docs/phase-3-orders-and-returns.md).
+
+---
+
+## Start here
+
+Nothing is deployed yet. **[docs/getting-started.md](docs/getting-started.md)**
+is the whole path from an empty machine to a working CRM, in order. Part A gets
+it running locally with test data in about half an hour, without touching
+Shopify or your live database.
 
 ---
 
@@ -81,8 +94,9 @@ staff will actually use it.
 npm run db:test
 ```
 
-Runs the pgTAP suites in `supabase/tests` — 61 assertions covering the stock
-ledger, the in-store sale, role enforcement and the Shopify sync logic.
+Runs the pgTAP suites in `supabase/tests` — 118 assertions covering the stock
+ledger, the in-store sale, role enforcement, the Shopify sync logic, the order
+lifecycle with custody and returns, courier settlements, and order import.
 
 ```bash
 npm test
