@@ -111,9 +111,25 @@ Try signing in as `sales@duch.local` and then as `admin@duch.local` — the sale
 user genuinely cannot see unit costs or sync issues, and that is enforced by
 the database rather than by hiding menu items.
 
-The dev server is also reachable from your phone on the same wifi. The address
-is printed in the terminal as **Network**. Open the sale screen there, because
-that is how staff will actually use it.
+### Opening it on your phone
+
+This matters more than it sounds. The sale screen and the packing queue are
+built for someone holding a phone one-handed behind a counter, and that is not
+something you can judge on a laptop.
+
+When `npm run dev` starts it prints two addresses. Use the one labelled
+**Network** — something like `http://192.168.1.6:5173`. Your phone has to be on
+the same wifi.
+
+The app rewrites its own API address to match whatever host you loaded it from,
+so there is nothing to edit to make this work and nothing to redo when the
+router hands out a different address tomorrow. Without that, the phone would
+load the page and then fail every request, because the `127.0.0.1` in `.env`
+means *the phone itself* once you are on the phone.
+
+If the page loads but nothing works, the usual causes are a firewall blocking
+the port, or the router having client isolation switched on — common on guest
+networks. Try the main network rather than the guest one.
 
 ### A7. Check it is all sound
 
@@ -242,6 +258,13 @@ Supabase dashboard immediately.
 starting. Wait for "Engine running" and try again.
 
 **`npm install` fails.** Check `node --version` is 20 or higher.
+
+**`npm run dev` fails saying the port is in use.** A dev server is already
+running in another terminal. Either use the one that is running, or stop it:
+
+```bash
+npx kill-port 5173
+```
 
 **The app loads but everything is empty.** Your account is probably still
 inactive — see B4. You should be seeing the "waiting for approval" screen; if
