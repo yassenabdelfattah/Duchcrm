@@ -127,6 +127,26 @@ router hands out a different address tomorrow. Without that, the phone would
 load the page and then fail every request, because the `127.0.0.1` in `.env`
 means *the phone itself* once you are on the phone.
 
+**"This site can't provide a secure connection."** This is the one almost
+everybody hits, and it is not a network problem — it means the phone reached
+the laptop, tried to speak HTTPS, and got plain HTTP back. The dev server has
+no certificate, because it is a development server.
+
+Type the address in full, including `http://`, and do not let autocomplete
+finish it:
+
+```
+http://192.168.1.6:5173
+```
+
+If the browser still forces HTTPS, it has "always use secure connections"
+switched on. In Chrome: **Settings → Privacy and security → Security →
+Always use secure connections**, turn it off. Opening the address in a private
+tab also works, since it skips whatever the browser has remembered.
+
+None of this applies once the CRM is deployed — Cloudflare Pages serves real
+HTTPS, and staff will just open duch's address like any other website.
+
 If the page loads but nothing works, the usual causes are a firewall blocking
 the port, or the router having client isolation switched on — common on guest
 networks. Try the main network rather than the guest one.
