@@ -10,38 +10,22 @@ if (!configuredUrl || !anonKey) {
 }
 
 /**
- * Makes the local stack reachable when the page is opened from another device.
+ * Where the API lives.
  *
- * During development VITE_SUPABASE_URL points at 127.0.0.1. That is correct on
- * the machine running everything, but a phone on the shop wifi loading the
- * dashboard from 192.168.1.x resolves 127.0.0.1 to *itself* - so the page
- * renders and then every request fails, which looks like the CRM being broken
- * rather than a networking detail.
+ * In development the dashboard talks to Supabase through its own dev server,
+ * at /supabase, rather than directly at 127.0.0.1:54321. That is one port to
+ * reach instead of two, which matters the moment the page is opened from
+ * anywhere but this machine: a phone resolves 127.0.0.1 to itself, and a
+ * firewall or a router that isolates devices will happily serve the page while
+ * blocking the API. Going through one origin removes the whole class of
+ * problem, and makes a tunnel a single URL rather than two.
  *
- * So when the page is being served from somewhere other than loopback and the
- * configured API is loopback, the API host is rewritten to match wherever the
- * page came from. Testing the sale screen on a real phone then needs no edit to
- * .env, and no re-edit when the router hands out a different address.
- *
- * Development only. A deployed build always uses exactly what it was given.
+ * A production build always uses exactly the URL it was given.
  */
 function resolveApiUrl(configured: string): string {
-  if (!import.meta.env.DEV || typeof window === 'undefined') return configured;
-
-  try {
-    const api = new URL(configured);
-    const apiIsLoopback = api.hostname === 'localhost' || api.hostname === '127.0.0.1';
-    const pageHost = window.location.hostname;
-    const pageIsLoopback = pageHost === 'localhost' || pageHost === '127.0.0.1';
-
-    if (apiIsLoopback && !pageIsLoopback) {
-      api.hostname = pageHost;
-      return api.origin;
-    }
-  } catch {
-    // A malformed URL is caught by createClient below with a clearer message.
+  if (import.meta.env.DEV && typeof window !== 'undefined') {
+    return `${window.location.origin}/supabase`;
   }
-
   return configured;
 }
 
