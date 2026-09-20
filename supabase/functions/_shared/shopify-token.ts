@@ -61,6 +61,31 @@ function redact(text: string, credentials: ClientCredentials): string {
 }
 
 /**
+ * Describes a credential without revealing it.
+ *
+ * A secret set from a shell arrives mangled more often than it arrives
+ * wrong: PowerShell keeps the quotes in `set X="value"`, a copied value
+ * brings a trailing newline, a paste truncates. All of those look identical
+ * from outside - Shopify just says it cannot find the application - and none
+ * of them can be diagnosed without describing what was actually stored.
+ *
+ * Length and character class are enough to spot every one of those, and
+ * neither discloses the value.
+ */
+export function describeCredential(value: string): string {
+  if (!value) return 'not set';
+
+  const trimmed = value.trim();
+  const notes: string[] = [`${value.length} chars`];
+
+  if (trimmed.length !== value.length) notes.push('SURROUNDING WHITESPACE');
+  if (/^['"]|['"]$/.test(trimmed)) notes.push('WRAPPED IN QUOTES');
+  if (!/^[A-Za-z0-9_.-]+$/.test(trimmed)) notes.push('UNEXPECTED CHARACTERS');
+
+  return notes.join(', ');
+}
+
+/**
  * One exchange. No caching, no retries - the caller owns both.
  *
  * The endpoint wants form encoding, not JSON. Sending JSON returns a 400 that
@@ -121,8 +146,9 @@ export async function requestClientCredentialsToken(
 
     throw new ShopifyAuthError(
       `Shopify refused the client credentials grant (${response.status}).${code} ` +
-        `Check SHOPIFY_CLIENT_ID and SHOPIFY_CLIENT_SECRET against the Dev Dashboard, ` +
-        `and that the app is installed on ${credentials.domain}.`,
+        `Sent to ${credentials.domain} with ` +
+        `SHOPIFY_CLIENT_ID [${describeCredential(credentials.clientId)}] and ` +
+        `SHOPIFY_CLIENT_SECRET [${describeCredential(credentials.clientSecret)}].`,
       response.status,
       null,
     );

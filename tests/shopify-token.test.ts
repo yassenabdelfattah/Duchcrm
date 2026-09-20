@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   ShopifyAuthError,
   createShopifyTokenProvider,
+  describeCredential,
   requestClientCredentialsToken,
 } from '../supabase/functions/_shared/shopify-token';
 
@@ -136,6 +137,33 @@ describe('requestClientCredentialsToken', () => {
     await expect(requestClientCredentialsToken(CREDENTIALS, fetchImpl)).rejects.toThrow(
       /no access_token/,
     );
+  });
+});
+
+describe('describeCredential', () => {
+  // A secret set from a shell is mangled far more often than it is wrong,
+  // and every variety of mangling produces the same opaque refusal.
+
+  it('reports length without revealing the value', () => {
+    const described = describeCredential('0123456789abcdef0123456789abcdef');
+    expect(described).toBe('32 chars');
+    expect(described).not.toContain('0123');
+  });
+
+  it('spots quotes kept by the shell', () => {
+    expect(describeCredential('"0123456789abcdef"')).toContain('WRAPPED IN QUOTES');
+  });
+
+  it('spots a trailing newline from a copy and paste', () => {
+    expect(describeCredential('0123456789abcdef\n')).toContain('SURROUNDING WHITESPACE');
+  });
+
+  it('spots characters no Shopify credential contains', () => {
+    expect(describeCredential('abc def$%^')).toContain('UNEXPECTED CHARACTERS');
+  });
+
+  it('says so when nothing is set at all', () => {
+    expect(describeCredential('')).toBe('not set');
   });
 });
 
