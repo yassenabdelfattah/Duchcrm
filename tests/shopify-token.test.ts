@@ -93,15 +93,41 @@ describe('requestClientCredentialsToken', () => {
     expect(error.message).toContain('ducheg.myshopify.com');
   });
 
-  it('ignores an implausibly long error field rather than pasting a body into the logs', async () => {
+  it("reads Shopify's plural errors field as well as the singular one", async () => {
+    // The OAuth endpoint uses both shapes depending on the failure.
     const fetchImpl = (async () =>
-      new Response(JSON.stringify({ error: 'x'.repeat(200) }), {
+      new Response(JSON.stringify({ errors: 'Invalid API key or access token' }), {
         status: 400,
       })) as unknown as typeof fetch;
 
     const error = await requestClientCredentialsToken(CREDENTIALS, fetchImpl).catch((e) => e);
 
-    expect(error.message).not.toContain('xxxxx');
+    expect(error.message).toContain('Invalid API key or access token');
+  });
+
+  it('redacts the credentials when Shopify quotes them back', async () => {
+    const fetchImpl = (async () =>
+      new Response(JSON.stringify({ errors: `secret test-client-secret rejected` }), {
+        status: 400,
+      })) as unknown as typeof fetch;
+
+    const error = await requestClientCredentialsToken(CREDENTIALS, fetchImpl).catch((e) => e);
+
+    expect(error.message).not.toContain('test-client-secret');
+    expect(error.message).toContain('[redacted]');
+  });
+
+  it('truncates a long error rather than pasting a whole body into the logs', async () => {
+    const fetchImpl = (async () =>
+      new Response(JSON.stringify({ error: 'x'.repeat(5000) }), {
+        status: 400,
+      })) as unknown as typeof fetch;
+
+    const error = await requestClientCredentialsToken(CREDENTIALS, fetchImpl).catch((e) => e);
+
+    expect(error.message).toContain('xxx');
+    // Enough to recognise, not the whole payload.
+    expect(error.message.length).toBeLessThan(500);
   });
 
   it('rejects a success response that carries no token', async () => {

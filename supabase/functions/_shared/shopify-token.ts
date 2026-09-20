@@ -46,6 +46,21 @@ export class ShopifyAuthError extends Error {
 }
 
 /**
+ * Removes the credentials from a string before it is logged or returned.
+ *
+ * Shopify's refusal messages sometimes quote back what was sent. This message
+ * travels into function logs and an HTTP response, so the id and secret are
+ * stripped before either sees them.
+ */
+function redact(text: string, credentials: ClientCredentials): string {
+  let safe = text;
+  for (const value of [credentials.clientSecret, credentials.clientId]) {
+    if (value && value.length >= 6) safe = safe.split(value).join('[redacted]');
+  }
+  return safe;
+}
+
+/**
  * One exchange. No caching, no retries - the caller owns both.
  *
  * The endpoint wants form encoding, not JSON. Sending JSON returns a 400 that
@@ -77,14 +92,31 @@ export async function requestClientCredentialsToken(
     // worth having because it separates the two causes that look identical
     // from outside - `invalid_client` is a wrong id or secret, while
     // `invalid_request` usually means the app is not installed on the store.
+    // Shopify is inconsistent here: the OAuth endpoint answers some failures
+    // with {"error": "invalid_client"} and others with {"errors": "Invalid
+    // API key or access token"} - singular code, or plural sentence. Reading
+    // only the singular one silently discards the more descriptive half.
     let code = '';
     try {
-      const parsed = JSON.parse(raw) as { error?: string };
-      if (typeof parsed.error === 'string' && parsed.error.length < 64) {
-        code = ` Shopify said: ${parsed.error}.`;
+      const parsed = JSON.parse(raw) as { error?: unknown; errors?: unknown };
+      const detail = [parsed.error, parsed.errors].find((v) => typeof v === 'string') as
+        | string
+        | undefined;
+
+      if (detail) {
+        code = ` Shopify said: ${redact(detail.slice(0, 200), credentials)}.`;
       }
     } catch {
-      // A non-JSON body is not worth guessing at.
+      // Not JSON. Fall through to the raw body below.
+    }
+
+    // Some refusals are not JSON at all - an HTML error page, or nothing.
+    // Saying "Shopify refused it" and discarding the only evidence makes the
+    // failure unfixable from the outside, so a redacted, truncated,
+    // whitespace-collapsed excerpt goes in instead.
+    if (!code && raw.trim()) {
+      const excerpt = redact(raw.replace(/\s+/g, ' ').trim().slice(0, 200), credentials);
+      code = ` Shopify said: ${excerpt}.`;
     }
 
     throw new ShopifyAuthError(
