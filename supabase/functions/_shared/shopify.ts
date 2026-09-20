@@ -1,4 +1,37 @@
 import { config } from './env.ts';
+import { createShopifyTokenProvider, ShopifyAuthError } from './shopify-token.ts';
+
+/**
+ * One provider per function instance, built lazily so that a function which
+ * never talks to Shopify does not fail at import time over a missing secret.
+ */
+let tokenProvider: ReturnType<typeof createShopifyTokenProvider> | null = null;
+
+function shopifyToken() {
+  if (!tokenProvider) {
+    const clientId = config.shopifyClientId;
+    const clientSecret = config.shopifyClientSecret;
+    const staticToken = config.shopifyStaticToken;
+
+    if (!staticToken && (!clientId || !clientSecret)) {
+      throw new ShopifyAuthError(
+        'Missing Shopify credentials. Set SHOPIFY_CLIENT_ID and ' +
+          'SHOPIFY_CLIENT_SECRET with: supabase secrets set SHOPIFY_CLIENT_ID=...',
+        0,
+        null,
+      );
+    }
+
+    tokenProvider = createShopifyTokenProvider({
+      staticToken: staticToken || null,
+      credentials:
+        clientId && clientSecret
+          ? { domain: config.shopifyDomain, clientId, clientSecret }
+          : null,
+    });
+  }
+  return tokenProvider;
+}
 
 /**
  * Minimal Shopify GraphQL Admin API client.
@@ -46,16 +79,27 @@ export async function shopifyGraphQL<T>(
   const url = `https://${config.shopifyDomain}/admin/api/${config.shopifyApiVersion}/graphql.json`;
 
   let lastError: unknown;
+  let reauthorised = false;
 
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     const response = await fetch(url, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'X-Shopify-Access-Token': config.shopifyToken,
+        'X-Shopify-Access-Token': await shopifyToken().get(),
       },
       body: JSON.stringify({ query, variables }),
     });
+
+    // A token now lasts 24 hours, so one can die between the cache check and
+    // this request, or be revoked by reinstalling the app. Throw the cached
+    // one away and try once with a fresh token before treating it as fatal -
+    // but only once, so bad credentials fail fast instead of looping.
+    if (response.status === 401 && !reauthorised) {
+      reauthorised = true;
+      shopifyToken().invalidate();
+      continue;
+    }
 
     // Shopify's GraphQL endpoint answers 200 for most application errors, so
     // a non-200 here means rate limiting or something genuinely broken.

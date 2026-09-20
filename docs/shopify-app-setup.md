@@ -10,14 +10,33 @@ revisiting around mid-2027. The version lives in one place:
 
 ---
 
-## 1. Create the custom app
+## 1. Create the app
 
-In Shopify admin:
+**Shopify retired admin-created custom apps.** The old flow — create an app in
+the admin, copy a permanent `shpat_` token out of the API credentials tab —
+no longer exists for new apps. Shopify's own documentation now says plainly:
+"You can no longer create new admin-created custom apps."
+
+New apps are made in the **Dev Dashboard**:
 
 1. **Settings → Apps and sales channels → Develop apps**
-2. **Allow custom app development** if you have not before. This is a one-time
-   store-wide setting and needs the store owner account.
-3. **Create an app**. Name it `Duch CRM`.
+2. **Build apps using Dev Dashboard**
+3. **Create app**, name it `Duch CRM`
+
+### The App URL
+
+The Dev Dashboard asks for an App URL. The CRM is a server-side integration
+with no interface inside Shopify admin, so there is nothing meaningful to put
+there — it is only where a merchant is sent after installing. Use Shopify's
+placeholder:
+
+```
+https://shopify.dev/apps/default-app-home
+```
+
+If you leave it as `example.com` the browser lands on an IANA holding page
+after install. That is cosmetic: the app is installed and the API works
+regardless.
 
 ### Scopes
 
@@ -37,28 +56,60 @@ Do not grant `write_products` or `write_orders`. The CRM does not create
 products or orders in Shopify, and a token that cannot do something is a token
 that cannot do it by accident.
 
-### Get the token
+### Get the credentials
 
-**API credentials → Install app**, then reveal the **Admin API access token**.
-It starts with `shpat_` and **is shown exactly once** — copy it now.
+Install the app on the store, then take the **Client ID** and **Client
+secret** from the Dev Dashboard. There is no access token to copy any more.
 
 ```bash
-supabase secrets set SHOPIFY_ADMIN_API_TOKEN=shpat_xxxxxxxxxxxx
-supabase secrets set SHOPIFY_STORE_DOMAIN=duch-store.myshopify.com
+supabase secrets set SHOPIFY_CLIENT_ID=your-client-id
+supabase secrets set SHOPIFY_CLIENT_SECRET=your-client-secret
+supabase secrets set SHOPIFY_STORE_DOMAIN=ducheg.myshopify.com
 supabase secrets set SHOPIFY_API_VERSION=2026-07
 ```
 
-Use the `.myshopify.com` domain, not `duch.store`. The custom domain is for
-customers; the API only answers on the Shopify one.
+### Why there is no token to store
+
+A Dev Dashboard app exchanges its client id and secret for an access token
+through the **client credentials grant**, and that token **expires after 24
+hours** (`expires_in` is 86399). Shopify is also withdrawing non-expiring
+offline tokens — public apps cannot use them for GraphQL Admin API requests
+after 1 January 2027 — so there is no permanent credential to keep any more.
+
+`_shared/shopify-token.ts` does the exchange, caches the token for the life of
+the function instance, and fetches another five minutes before expiry. A 401
+from Shopify throws the cached token away and retries once, which covers a
+token revoked by reinstalling the app.
+
+Nothing needs doing about this operationally. It matters if you are debugging:
+a Shopify call failing with 401 is far more likely to be a wrong client secret
+than an expired token, because expiry is handled.
+
+A legacy `shpat_` token still works if you have one from before the change —
+set `SHOPIFY_ADMIN_API_TOKEN` and no exchange happens.
+
+`SHOPIFY_STORE_DOMAIN` must be the `.myshopify.com` domain
+(`ducheg.myshopify.com`), not `duch.store`. The custom domain is for
+customers; the API and the token endpoint only answer on the Shopify one.
 
 ---
 
 ## 2. Find your location ID
 
-The CRM mirrors stock at exactly one Shopify location. Find its numeric ID:
+The CRM mirrors stock at exactly one Shopify location. Finding its numeric ID
+takes two steps now, because there is no token lying around to use.
+
+Exchange your client id and secret for a token — it is good for 24 hours,
+which is plenty for a one-off lookup:
 
 ```bash
-curl -s -X POST "https://duch-store.myshopify.com/admin/api/2026-07/graphql.json" -H "X-Shopify-Access-Token: $SHOPIFY_ADMIN_API_TOKEN" -H "Content-Type: application/json" -d '{"query":"{ locations(first: 10) { nodes { id name isActive } } }"}'
+curl -s -X POST "https://ducheg.myshopify.com/admin/oauth/access_token" -d "grant_type=client_credentials" -d "client_id=YOUR_CLIENT_ID" -d "client_secret=YOUR_CLIENT_SECRET"
+```
+
+Then use the `access_token` from that response:
+
+```bash
+curl -s -X POST "https://ducheg.myshopify.com/admin/api/2026-07/graphql.json" -H "X-Shopify-Access-Token: THE_TOKEN_FROM_ABOVE" -H "Content-Type: application/json" -d '{"query":"{ locations(first: 10) { nodes { id name isActive } } }"}'
 ```
 
 You will get IDs shaped like `gid://shopify/Location/1234567890`. The CRM wants

@@ -33,8 +33,19 @@ export const config = {
   get shopifyDomain() {
     return requireEnv('SHOPIFY_STORE_DOMAIN');
   },
-  get shopifyToken() {
-    return requireEnv('SHOPIFY_ADMIN_API_TOKEN');
+  /**
+   * A legacy permanent token from an admin-created custom app. Shopify no
+   * longer issues these, so it is optional - an empty string means "use the
+   * client credentials below instead". See shopify-token.ts.
+   */
+  get shopifyStaticToken() {
+    return optionalEnv('SHOPIFY_ADMIN_API_TOKEN', '');
+  },
+  get shopifyClientId() {
+    return optionalEnv('SHOPIFY_CLIENT_ID', '');
+  },
+  get shopifyClientSecret() {
+    return optionalEnv('SHOPIFY_CLIENT_SECRET', '');
   },
   get shopifyWebhookSecret() {
     return requireEnv('SHOPIFY_WEBHOOK_SECRET');
