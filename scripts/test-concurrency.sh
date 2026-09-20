@@ -15,11 +15,49 @@
 # race-key order ever created and reported PASS on a leftover from a previous
 # run while both cashiers had actually failed.
 #
-# Requires: a running local stack (`supabase start`) and psql.
+# Requires: a running local stack (`supabase start`). Uses psql if it is
+# installed, and otherwise the one inside the database container.
 
 set -uo pipefail
 
 DB_URL="${DATABASE_URL:-postgresql://postgres:postgres@127.0.0.1:54322/postgres}"
+
+# psql is not always installed on the host - on Windows in particular the
+# Supabase CLI ships no client binaries, so this script used to die at the
+# first fixture with "psql: command not found". When it is missing, fall back
+# to the psql inside the running database container: same version as the
+# server, and nothing to install.
+if command -v psql >/dev/null 2>&1; then
+  run_psql() { psql "$@"; }
+else
+  DB_CONTAINER="$(docker ps --filter 'name=^supabase_db_' --format '{{.Names}}' 2>/dev/null | head -1)"
+
+  if [ -z "$DB_CONTAINER" ]; then
+    echo "FAIL: psql is not on PATH and no Supabase database container is running."
+    echo "      Run 'supabase start', or install the Postgres client."
+    exit 1
+  fi
+
+  # The container can only reach a database inside itself. A DATABASE_URL
+  # pointing anywhere else would be silently ignored below, which is worse
+  # than refusing - a remote database must not be raced against by accident.
+  case "$DB_URL" in
+    *127.0.0.1*|*localhost*) ;;
+    *)
+      echo "FAIL: psql is not on PATH, and DATABASE_URL points at a database the"
+      echo "      container fallback cannot reach: $DB_URL"
+      echo "      Install the Postgres client to run against that database."
+      exit 1
+      ;;
+  esac
+
+  # Inside the container the server listens on its own port, not the host's
+  # published mapping.
+  DB_URL="postgresql://postgres:postgres@127.0.0.1:5432/postgres"
+  run_psql() { docker exec -i "$DB_CONTAINER" psql "$@"; }
+
+  echo "psql not found on PATH - using the client inside $DB_CONTAINER."
+fi
 
 LOCATION='ffffffff-0000-0000-0000-000000000001'
 PRODUCT='ffffffff-0000-0000-0000-000000000002'
@@ -28,7 +66,7 @@ RUN_ID="$(date +%s)$$"
 
 echo "Run $RUN_ID - setting stock to exactly one unit..."
 
-psql "$DB_URL" -q -v ON_ERROR_STOP=1 <<SQL
+run_psql "$DB_URL" -q -v ON_ERROR_STOP=1 <<SQL
 insert into public.locations (id, name, type, is_active)
 values ('$LOCATION', 'Race Test Shop', 'store', true)
 on conflict (id) do nothing;
@@ -72,7 +110,7 @@ if [ $? -ne 0 ]; then
   exit 1
 fi
 
-BEFORE=$(psql "$DB_URL" -tAX -c \
+BEFORE=$(run_psql "$DB_URL" -tAX -c \
   "select quantity from public.stock_levels where variant_id = '$VARIANT' and location_id = '$LOCATION';")
 echo "Stock before: $BEFORE"
 
@@ -98,9 +136,9 @@ select (public.create_store_sale('$LOCATION','cash',
 OUT_A=$(mktemp)
 OUT_B=$(mktemp)
 
-psql "$DB_URL" -tAX -c "$SALE_A" >"$OUT_A" 2>&1 &
+run_psql "$DB_URL" -tAX -c "$SALE_A" >"$OUT_A" 2>&1 &
 PID_A=$!
-psql "$DB_URL" -tAX -c "$SALE_B" >"$OUT_B" 2>&1 &
+run_psql "$DB_URL" -tAX -c "$SALE_B" >"$OUT_B" 2>&1 &
 PID_B=$!
 
 wait $PID_A
@@ -111,11 +149,11 @@ echo "--- cashier A ---"; cat "$OUT_A"
 echo "--- cashier B ---"; cat "$OUT_B"
 echo
 
-AFTER=$(psql "$DB_URL" -tAX -c \
+AFTER=$(run_psql "$DB_URL" -tAX -c \
   "select quantity from public.stock_levels where variant_id = '$VARIANT' and location_id = '$LOCATION';")
 
 # Scoped to this run only.
-SOLD=$(psql "$DB_URL" -tAX -c \
+SOLD=$(run_psql "$DB_URL" -tAX -c \
   "select count(*) from public.orders
     where idempotency_key like 'race-$RUN_ID-%'
       and fulfillment_status = 'delivered';")

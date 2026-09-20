@@ -74,6 +74,17 @@ Deno is not installed locally, so `npm run functions:check` needs Docker:
 docker run --rm -v "C:\Users\yasse\Projects\duch-crm\supabase\functions:/fn:ro" denoland/deno:latest sh -c "cp -r /fn/* /tmp && cd /tmp && deno check shopify-webhook/index.ts"
 ```
 
+**`psql` is not installed on this machine** and the Supabase CLI does not ship
+it, so anything calling `psql` directly fails with `command not found`.
+`scripts/test-concurrency.sh` detects this and uses the client inside the
+`supabase_db_duch-crm` container instead, so it runs as listed above with no
+setup. Point `DATABASE_URL` at a non-local database and it refuses rather than
+racing the wrong one. For one-off queries, the same trick works by hand:
+
+```bash
+docker exec -i supabase_db_duch-crm psql postgresql://postgres:postgres@127.0.0.1:5432/postgres -c "select 1;"
+```
+
 **Seed logins** — password `duch-dev-password` for all:
 `admin@duch.local`, `stock@duch.local`, `sales@duch.local`, `packing@duch.local`.
 
