@@ -10,7 +10,7 @@
  * rather than lost.
  */
 
-import { adminClient, corsHeaders, json } from '../_shared/db.ts';
+import { adminClient, corsHeaders, json, withErrorReporting } from '../_shared/db.ts';
 import { setInventoryQuantity } from '../_shared/shopify.ts';
 
 interface PushRequest {
@@ -30,7 +30,7 @@ interface PushOutcome {
   error?: string;
 }
 
-Deno.serve(async (req: Request): Promise<Response> => {
+Deno.serve(withErrorReporting(async (req: Request): Promise<Response> => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
   }
@@ -121,7 +121,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
     failed: results.length - succeeded,
     results,
   });
-});
+}));
 
 async function pushOne(
   db: ReturnType<typeof adminClient>,

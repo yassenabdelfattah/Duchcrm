@@ -81,6 +81,29 @@ describe('requestClientCredentialsToken', () => {
     expect(error.message).toContain('SHOPIFY_CLIENT_ID');
   });
 
+  it("surfaces Shopify's error code, which separates a bad secret from an uninstalled app", async () => {
+    const fetchImpl = (async () =>
+      new Response(JSON.stringify({ error: 'invalid_client' }), {
+        status: 400,
+      })) as unknown as typeof fetch;
+
+    const error = await requestClientCredentialsToken(CREDENTIALS, fetchImpl).catch((e) => e);
+
+    expect(error.message).toContain('invalid_client');
+    expect(error.message).toContain('ducheg.myshopify.com');
+  });
+
+  it('ignores an implausibly long error field rather than pasting a body into the logs', async () => {
+    const fetchImpl = (async () =>
+      new Response(JSON.stringify({ error: 'x'.repeat(200) }), {
+        status: 400,
+      })) as unknown as typeof fetch;
+
+    const error = await requestClientCredentialsToken(CREDENTIALS, fetchImpl).catch((e) => e);
+
+    expect(error.message).not.toContain('xxxxx');
+  });
+
   it('rejects a success response that carries no token', async () => {
     const fetchImpl = (async () => tokenResponse({ scope: 'read_products' })) as unknown as typeof fetch;
 

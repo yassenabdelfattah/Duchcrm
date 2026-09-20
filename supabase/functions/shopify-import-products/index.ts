@@ -10,7 +10,7 @@
  * movement - see the import_opening_stock flag below.
  */
 
-import { adminClient, corsHeaders, json } from '../_shared/db.ts';
+import { adminClient, corsHeaders, json, withErrorReporting } from '../_shared/db.ts';
 import { config } from '../_shared/env.ts';
 import {
   fetchAllInventoryLevels,
@@ -69,7 +69,7 @@ interface ShopifyProductNode {
   variants: { nodes: ShopifyVariantNode[] };
 }
 
-Deno.serve(async (req: Request): Promise<Response> => {
+Deno.serve(withErrorReporting(async (req: Request): Promise<Response> => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
 
   const db = adminClient();
@@ -227,7 +227,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
   }
 
   return json({ ok: true, summary });
-});
+}));
 
 async function importOpeningStock(
   db: ReturnType<typeof adminClient>,

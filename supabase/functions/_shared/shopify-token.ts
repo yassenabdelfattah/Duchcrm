@@ -71,11 +71,26 @@ export async function requestClientCredentialsToken(
   const raw = await response.text();
 
   if (!response.ok) {
-    // Deliberately does not echo the body: a failed exchange can reflect the
-    // credentials back, and this message ends up in function logs.
+    // Shopify's own short code, and only that. The full body is deliberately
+    // not echoed: a failed exchange can reflect the credentials back, and
+    // this message ends up in function logs and HTTP responses. The code is
+    // worth having because it separates the two causes that look identical
+    // from outside - `invalid_client` is a wrong id or secret, while
+    // `invalid_request` usually means the app is not installed on the store.
+    let code = '';
+    try {
+      const parsed = JSON.parse(raw) as { error?: string };
+      if (typeof parsed.error === 'string' && parsed.error.length < 64) {
+        code = ` Shopify said: ${parsed.error}.`;
+      }
+    } catch {
+      // A non-JSON body is not worth guessing at.
+    }
+
     throw new ShopifyAuthError(
-      `Shopify refused the client credentials grant (${response.status}). ` +
-        `Check SHOPIFY_CLIENT_ID and SHOPIFY_CLIENT_SECRET against the Dev Dashboard.`,
+      `Shopify refused the client credentials grant (${response.status}).${code} ` +
+        `Check SHOPIFY_CLIENT_ID and SHOPIFY_CLIENT_SECRET against the Dev Dashboard, ` +
+        `and that the app is installed on ${credentials.domain}.`,
       response.status,
       null,
     );

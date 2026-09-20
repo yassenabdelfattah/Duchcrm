@@ -13,7 +13,7 @@
  * inventory webhook. See DECISIONS.md #2 for why.
  */
 
-import { adminClient, json } from '../_shared/db.ts';
+import { adminClient, json, withErrorReporting } from '../_shared/db.ts';
 import { config } from '../_shared/env.ts';
 import { isValidShopifyWebhook, readWebhookHeaders } from '../_shared/verify-webhook.ts';
 
@@ -23,7 +23,7 @@ interface HandlerResult {
   detail?: Record<string, unknown>;
 }
 
-Deno.serve(async (req: Request): Promise<Response> => {
+Deno.serve(withErrorReporting(async (req: Request): Promise<Response> => {
   if (req.method !== 'POST') {
     return json({ error: 'method_not_allowed' }, 405);
   }
@@ -138,7 +138,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
     .eq('id', eventId);
 
   return json({ ok: true, ...result });
-});
+}));
 
 async function currentAttempts(
   db: ReturnType<typeof adminClient>,

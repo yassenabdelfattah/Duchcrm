@@ -12,11 +12,11 @@
  * flight.
  */
 
-import { adminClient, corsHeaders, json } from '../_shared/db.ts';
+import { adminClient, corsHeaders, json, withErrorReporting } from '../_shared/db.ts';
 import { config } from '../_shared/env.ts';
 import { fetchAllInventoryLevels } from '../_shared/shopify.ts';
 
-Deno.serve(async (req: Request): Promise<Response> => {
+Deno.serve(withErrorReporting(async (req: Request): Promise<Response> => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
 
   const db = adminClient();
@@ -104,4 +104,4 @@ Deno.serve(async (req: Request): Promise<Response> => {
 
   console.log('Reconciliation finished', summary);
   return json(summary);
-});
+}));
