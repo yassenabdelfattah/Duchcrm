@@ -23,16 +23,15 @@ most of the design.
 
 ## State of play
 
-**Built and tested:** Phases 1 and 2 complete; Phase 3 complete except
-invoices.
+**Built and tested:** Phases 1, 2 and 3 complete.
 
-- 20 migrations, 9 pgTAP suites, **171 database assertions**
-- **36 TypeScript assertions** (webhook HMAC, money arithmetic)
+- 21 migrations, 9 pgTAP suites, **171 database assertions**
+- **41 TypeScript assertions** (webhook HMAC, money arithmetic, invoice totals)
 - 10 screens, 4 Edge Functions, 1 Cloudflare Worker
-- 17 commits, working tree clean
+- 19 commits, working tree clean
 
-**Not built:** printable invoices (rest of Phase 3), wholesale (Phase 4),
-staff chat and analytics (Phase 5), Meta inbox (Phase 6).
+**Not built:** wholesale (Phase 4), staff chat and analytics (Phase 5), Meta
+inbox (Phase 6).
 
 **Not deployed.** Nothing is live. No Shopify custom app exists, no secrets
 set, nothing pushed to Cloudflare. The user has a Supabase project and a
@@ -141,6 +140,15 @@ confirm button below the fold with no way to reach it.
 and friends), or every sign-in fails with "Database error querying schema",
 which the UI reports as a wrong password.
 
+**Latin text inside a right-to-left block gets reordered.** An address stored
+as "8 Abbas El Akkad, Nasr City" renders with the house number at the far end
+of the line, and a numeric date renders back to front — 19/09/2026 becomes
+2026/09/19, which a reader can act on wrongly. Wrap anything that might be in
+either language in `<bdi>`, which isolates the run without dragging it to the
+other margin the way `dir="auto"` does. `Intl`'s Arabic date formats embed
+right-to-left marks that survive even that, so `Invoice.tsx` strips them.
+Found by printing an invoice and looking at it.
+
 ---
 
 ## The design decisions that look wrong until explained
@@ -228,6 +236,11 @@ docs/               getting-started, shopify-app-setup,
 3. Damaged returns — currently recorded on the line but with no countable
    damaged-stock bucket. He said "just repackaging, that's it", so this may
    never be needed.
+4. The invoice's seller details are unanswered and stored empty: registered
+   address, tax number, commercial register. They live in the
+   `business_identity` row of `settings`, so filling them in is an admin edit
+   rather than a deploy, and empty ones print nothing. Also unconfirmed:
+   whether wholesale wants different wording from a DM order.
 
 ---
 
@@ -235,13 +248,14 @@ docs/               getting-started, shopify-app-setup,
 
 In rough priority order. Ask the user rather than assuming.
 
-1. **Printable invoices** — the last piece of Phase 3. An A5 bilingual PDF,
-   properly laid out in Arabic, replacing the thermal receipt for orders.
-2. **Deployment** — walk him through `docs/getting-started.md` Part B onwards.
-   Nothing is live and this unblocks real use.
-3. **Accurate integration** — the moment their docs arrive. Replaces manual
+1. **Deployment** — walk him through `docs/getting-started.md` Part B onwards.
+   Nothing is live and this unblocks real use. Needs him at the keyboard for
+   the Shopify custom app and the secrets, so book it as its own session.
+2. **Accurate integration** — the moment their docs arrive. Replaces manual
    tracking-code entry and drives every status from `in_transit` onwards.
-4. **Wholesale**, then **staff chat and analytics**, then the **Meta inbox**.
+3. **Wholesale**, then **staff chat and analytics**, then the **Meta inbox**.
 
 There is local demo data in the database — orders `ACC-P-1001`–`1004` and
-statement `ACC-STMT-2026-42`. `npm run db:reset` clears it.
+statement `ACC-STMT-2026-42`. Alongside it is test residue from verifying the
+invoice and the race test: a `RACE-TEST-HOOD` variant and a handful of
+`S2609-…` store sales. `npm run db:reset` clears all of it.
