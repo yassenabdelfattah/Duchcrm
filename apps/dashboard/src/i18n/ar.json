@@ -59,7 +59,8 @@
     "onlyLeft": "باقي {{count}} فقط",
     "insufficient": "المخزون غير كافٍ للصنف {{sku}}. ربما باعه أحد الزملاء للتو.",
     "success": "تم تسجيل البيع {{orderNumber}}",
-    "printReceipt": "طباعة الفاتورة",
+    "printReceipt": "طباعة الإيصال",
+    "printInvoice": "فاتورة",
     "newSale": "بيع جديد",
     "noResults": "لا توجد نتائج.",
     "inStock": "المتاح {{count}}"
@@ -182,6 +183,7 @@
     "requiresPrepayment": "يجب الدفع المقدم",
     "onHold": "مؤجل حتى {{date}}",
     "printSlip": "بوليصة التجهيز",
+    "printInvoice": "فاتورة",
     "newOrders": "{{count}} جديد",
     "refresh": "تحديث"
   },

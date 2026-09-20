@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { calculateBasket, multiplyMoney, sumMoney, toPiastres } from '../packages/shared/src/money';
+import {
+  calculateBasket,
+  calculateInvoiceTotals,
+  multiplyMoney,
+  sumMoney,
+  toPiastres,
+} from '../packages/shared/src/money';
 import { normalizeEgyptianPhone } from '../packages/shared/src/schemas';
 
 /**
@@ -102,5 +108,60 @@ describe('normalizeEgyptianPhone', () => {
     const forms = ['01001234567', '+201001234567', '00201001234567'];
     const normalised = new Set(forms.map(normalizeEgyptianPhone));
     expect(normalised.size).toBe(1);
+  });
+});
+
+describe('calculateInvoiceTotals', () => {
+  // A real seeded online order: 3,300 of goods, 70 shipping.
+  const shipped = {
+    subtotal_egp: 3300,
+    discount_egp: 0,
+    shipping_egp: 70,
+    total_egp: 3300,
+  };
+
+  it('adds shipping on top of the goods total', () => {
+    expect(calculateInvoiceTotals(shipped).payable_egp).toBe(3370);
+  });
+
+  it('does not mistake the goods total for the amount due', () => {
+    // The whole reason this function exists: orders.total_egp excludes
+    // shipping, so printing it as the amount due short-changes every shipped
+    // order by the delivery fee.
+    const totals = calculateInvoiceTotals(shipped);
+    expect(totals.payable_egp).not.toBe(totals.total_egp);
+    expect(totals.payable_egp - totals.total_egp).toBe(70);
+  });
+
+  it('leaves a store sale with no shipping untouched', () => {
+    const totals = calculateInvoiceTotals({
+      subtotal_egp: 1000,
+      discount_egp: 0,
+      shipping_egp: 0,
+      total_egp: 1000,
+    });
+    expect(totals.payable_egp).toBe(1000);
+  });
+
+  it('shows a discount without letting it touch the shipping fee', () => {
+    // Discount is already reflected in total_egp by the time it is stored.
+    const totals = calculateInvoiceTotals({
+      subtotal_egp: 3300,
+      discount_egp: 300,
+      shipping_egp: 70,
+      total_egp: 3000,
+    });
+    expect(totals.discount_egp).toBe(300);
+    expect(totals.payable_egp).toBe(3070);
+  });
+
+  it('keeps piastres exact where floating point would drift', () => {
+    const totals = calculateInvoiceTotals({
+      subtotal_egp: 1450.1,
+      discount_egp: 0,
+      shipping_egp: 70.2,
+      total_egp: 1450.1,
+    });
+    expect(totals.payable_egp).toBe(1520.3);
   });
 });

@@ -60,6 +60,7 @@
     "insufficient": "Not enough stock for {{sku}}. Someone may have just sold the last one.",
     "success": "Sale {{orderNumber}} recorded",
     "printReceipt": "Print receipt",
+    "printInvoice": "Invoice",
     "newSale": "Start another sale",
     "noResults": "Nothing matched that.",
     "inStock": "{{count}} in stock"
@@ -182,6 +183,7 @@
     "requiresPrepayment": "Prepayment required",
     "onHold": "On hold until {{date}}",
     "printSlip": "Packing slip",
+    "printInvoice": "Invoice",
     "newOrders": "{{count}} new",
     "refresh": "Refresh"
   },

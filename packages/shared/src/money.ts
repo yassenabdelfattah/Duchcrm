@@ -73,6 +73,48 @@ export function calculateBasket(
   return { subtotal_egp: subtotal, discount_egp: discount, total_egp: total };
 }
 
+export interface InvoiceOrderAmounts {
+  /** Sum of the line totals, before any order-level discount. */
+  subtotal_egp: number;
+  discount_egp: number;
+  shipping_egp: number;
+  /** What the database holds: goods after discount, shipping NOT included. */
+  total_egp: number;
+}
+
+export interface InvoiceTotals extends InvoiceOrderAmounts {
+  /** What the customer actually hands over. */
+  payable_egp: number;
+}
+
+/**
+ * The totals block on an invoice.
+ *
+ * The trap this exists to close: `orders.total_egp` is the goods total after
+ * discount and does *not* include shipping. The customer pays shipping on top,
+ * and for a cash-on-delivery parcel that combined figure is what the courier
+ * collects at the door. An invoice showing `total_egp` as the amount due would
+ * understate every shipped order by the shipping fee.
+ *
+ * `total_egp` is taken from the database rather than recomputed from subtotal
+ * minus discount, because SQL is what calculated it when the order was placed;
+ * the subtotal and discount are printed as the explanation of that figure.
+ */
+export function calculateInvoiceTotals(order: InvoiceOrderAmounts): InvoiceTotals {
+  const subtotal = toPiastres(order.subtotal_egp);
+  const discount = toPiastres(order.discount_egp);
+  const shipping = toPiastres(order.shipping_egp);
+  const total = toPiastres(order.total_egp);
+
+  return {
+    subtotal_egp: subtotal,
+    discount_egp: discount,
+    shipping_egp: shipping,
+    total_egp: total,
+    payable_egp: toPiastres(total + shipping),
+  };
+}
+
 // Intl.NumberFormat is expensive to construct, and the sale screen formats a
 // price for every row on every keystroke, so the two we need are built once.
 const EGP_FORMATTERS = new Map<string, Intl.NumberFormat>();

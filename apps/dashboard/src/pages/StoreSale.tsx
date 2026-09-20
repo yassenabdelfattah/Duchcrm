@@ -10,6 +10,7 @@ import { supabase } from '../lib/supabase';
 import { useLocale } from '../i18n';
 import { useBarcodeScanner } from '../hooks/useBarcodeScanner';
 import { Badge, Button, Card, EmptyState, ErrorNote, Field, Input, Select, Spinner } from '../components/ui';
+import { Invoice } from '../components/Invoice';
 import { Receipt } from '../components/Receipt';
 
 interface StockRow {
@@ -36,6 +37,7 @@ interface BasketLine {
 }
 
 export interface CompletedSale {
+  order_id: string;
   order_number: string;
   total_egp: number;
   payment_method: PaymentMethod;
@@ -62,6 +64,7 @@ export function StoreSale() {
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [completed, setCompleted] = useState<CompletedSale | null>(null);
+  const [showInvoice, setShowInvoice] = useState(false);
 
   const idempotencyKey = useRef(newIdempotencyKey());
   const searchBox = useRef<HTMLInputElement>(null);
@@ -281,9 +284,15 @@ export function StoreSale() {
         return;
       }
 
-      const order = data as { order_number: string; total_egp: number; created_at: string };
+      const order = data as {
+        id: string;
+        order_number: string;
+        total_egp: number;
+        created_at: string;
+      };
 
       setCompleted({
+        order_id: order.id,
         order_number: order.order_number,
         total_egp: Number(order.total_egp),
         payment_method: payment,
@@ -324,6 +333,12 @@ export function StoreSale() {
 
   // --- Render --------------------------------------------------------------
 
+  // Rendered on its own rather than over the receipt, so a print from the
+  // invoice does not also put the thermal receipt through the printer.
+  if (completed && showInvoice) {
+    return <Invoice orderId={completed.order_id} onClose={() => setShowInvoice(false)} />;
+  }
+
   if (completed) {
     return (
       <div className="space-y-4">
@@ -336,6 +351,11 @@ export function StoreSale() {
           </p>
           <div className="mt-4 flex flex-wrap gap-2">
             <Button onClick={() => window.print()}>{t('sale.printReceipt')}</Button>
+            {/* The till roll is the default; a customer who wants a proper
+                document asks for one, and wholesale buyers always do. */}
+            <Button variant="secondary" onClick={() => setShowInvoice(true)}>
+              {t('sale.printInvoice')}
+            </Button>
             <Button variant="secondary" onClick={startAnother}>
               {t('sale.newSale')}
             </Button>

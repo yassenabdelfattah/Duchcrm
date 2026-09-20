@@ -17,6 +17,7 @@ import {
   Spinner,
   cx,
 } from '../components/ui';
+import { Invoice } from '../components/Invoice';
 import { PackingSlip, type SlipOrder } from '../components/PackingSlip';
 
 type FulfillmentStatus =
@@ -79,6 +80,7 @@ export function PackingQueue() {
   const [calling, setCalling] = useState<QueueRow | null>(null);
   const [shipping, setShipping] = useState<QueueRow | null>(null);
   const [slip, setSlip] = useState<SlipOrder | null>(null);
+  const [invoiceId, setInvoiceId] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [newCount, setNewCount] = useState(0);
 
@@ -151,6 +153,7 @@ export function PackingQueue() {
   }
 
   if (slip) return <PackingSlip order={slip} onClose={() => setSlip(null)} />;
+  if (invoiceId) return <Invoice orderId={invoiceId} onClose={() => setInvoiceId(null)} />;
   if (!rows) return <Spinner label={t('app.loading')} />;
 
   const visible = byStage[stage];
@@ -347,6 +350,10 @@ export function PackingQueue() {
                   onClick={() => setSlip(toSlip(row))}
                 >
                   {t('queue.printSlip')}
+                </Button>
+
+                <Button variant="secondary" onClick={() => setInvoiceId(row.order_id)}>
+                  {t('queue.printInvoice')}
                 </Button>
               </div>
             </Card>
