@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { Authenticated, Refine, useGetIdentity } from '@refinedev/core';
 import routerProvider from '@refinedev/react-router';
 import { dataProvider } from '@refinedev/supabase';
@@ -27,10 +28,37 @@ import { SyncIssues } from './pages/SyncIssues';
  * reads as a broken app rather than as "wait for your manager".
  */
 function ActiveStaffGate() {
-  const { data: identity, isLoading } = useGetIdentity<StaffIdentity>();
+  const { data: identity, isLoading, refetch } = useGetIdentity<StaffIdentity>();
   const { t } = useLocale();
+  const [retried, setRetried] = useState(false);
 
-  if (isLoading) return <Spinner label={t('app.loading')} />;
+  // Signing out leaves a null identity in the query cache, because there was
+  // no session to read one from. Signing back in does not clear it, so the
+  // first render after a successful login reads that stale null and sends the
+  // person to the holding screen - where they sit, being told their account
+  // needs approving, until they happen to reload the page.
+  //
+  // <Authenticated> has already established that there is a session by the
+  // time this renders, so a null identity here cannot mean "not signed in".
+  // It can only be the answer from before. Fetch it again rather than acting
+  // on it - once, and waiting for it to settle, so a genuinely missing staff
+  // row still reaches the holding screen instead of spinning forever.
+  useEffect(() => {
+    if (isLoading || identity != null || retried) return;
+
+    let cancelled = false;
+    void refetch().finally(() => {
+      if (!cancelled) setRetried(true);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isLoading, identity, retried, refetch]);
+
+  if (isLoading || (identity == null && !retried)) {
+    return <Spinner label={t('app.loading')} />;
+  }
   if (!identity?.is_active || !identity.role) return <Navigate to="/pending" replace />;
 
   return <Outlet />;
