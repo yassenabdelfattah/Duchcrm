@@ -118,7 +118,18 @@ Deno.serve(withErrorReporting(async (req: Request): Promise<Response> => {
 
       if (summary.dry_run) {
         summary.products_written += 1;
-        summary.variants_written += node.variants.nodes.filter((v) => v.sku?.trim()).length;
+        // Walk the variants rather than counting the ones with a SKU, so a
+        // dry run reports the same skips the real run would. Counting only
+        // the good ones left variants_skipped_no_sku empty on every dry run -
+        // and that list is the whole point of running one, since it is what
+        // setup checks before importing for real.
+        for (const variant of node.variants.nodes) {
+          if (variant.sku?.trim()) {
+            summary.variants_written += 1;
+          } else {
+            summary.variants_skipped_no_sku.push(`${node.title} / ${variant.title}`);
+          }
+        }
         continue;
       }
 
