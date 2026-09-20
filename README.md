@@ -19,6 +19,14 @@ settlements. Its screens are not built yet — see
 
 ---
 
+## Picking this up
+
+If you are an AI session continuing this work, read
+**[HANDOFF.md](HANDOFF.md)** first — current state, how to run everything, the
+design decisions that look wrong until explained, and the traps already hit.
+
+---
+
 ## Start here
 
 Nothing is deployed yet. **[docs/getting-started.md](docs/getting-started.md)**

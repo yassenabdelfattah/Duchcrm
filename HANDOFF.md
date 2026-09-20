@@ -1,0 +1,236 @@
+# Handoff
+
+Everything a fresh session needs to pick this up. Read this first, then
+[DECISIONS.md](DECISIONS.md) before touching anything to do with stock or
+money.
+
+---
+
+## What this is
+
+An internal CRM for **Duch**, a streetwear brand run out of a family clothing
+factory in Egypt. It replaces writing every sale into a paper log, a
+spreadsheet and Shopify with one action.
+
+Channels: Shopify storefront (duch.store, EGP), Instagram/WhatsApp DMs, a
+physical shop, and wholesale. Courier is **Accurate Logistics**. Around ten
+staff. Interface is Arabic-first with English, right-to-left from the start.
+
+**The CRM database owns stock. Shopify mirrors it.** That single rule drives
+most of the design.
+
+---
+
+## State of play
+
+**Built and tested:** Phases 1 and 2 complete; Phase 3 complete except
+invoices.
+
+- 20 migrations, 9 pgTAP suites, **171 database assertions**
+- **36 TypeScript assertions** (webhook HMAC, money arithmetic)
+- 10 screens, 4 Edge Functions, 1 Cloudflare Worker
+- 17 commits, working tree clean
+
+**Not built:** printable invoices (rest of Phase 3), wholesale (Phase 4),
+staff chat and analytics (Phase 5), Meta inbox (Phase 6).
+
+**Not deployed.** Nothing is live. No Shopify custom app exists, no secrets
+set, nothing pushed to Cloudflare. The user has a Supabase project and a
+Cloudflare account, both empty. See [docs/getting-started.md](docs/getting-started.md).
+
+**Blocked:** the Accurate Logistics integration, waiting on their API docs.
+See [docs/accurate-integration.md](docs/accurate-integration.md) for the eight
+questions their docs need to answer. Do not guess their endpoints.
+
+---
+
+## Running it
+
+Node and the Supabase CLI are installed but **are not on this agent's PATH**
+(the shell started before they were installed). Prepend them:
+
+```powershell
+$env:PATH = "C:\Program Files\nodejs;$env:USERPROFILE\scoop\shims;$env:PATH"
+```
+
+Docker Desktop must be running — the Supabase stack lives in it. It sometimes
+needs starting by hand and can take a few minutes; its Windows service cannot
+be started without elevation, so if it will not come up, ask the user.
+
+| Command | What it does |
+|---|---|
+| `supabase start` | Local Postgres, auth, storage |
+| `npm run db:reset` | Reapply every migration and the seed |
+| `npm run db:test` | 171 pgTAP assertions |
+| `npm test` | 36 vitest assertions |
+| `npm run typecheck` | All three workspaces |
+| `npm run build` | What Cloudflare Pages runs |
+| `npm run dev` | Dashboard on :5173, also on the LAN |
+| `bash scripts/test-concurrency.sh` | Two-connection race test |
+
+Deno is not installed locally, so `npm run functions:check` needs Docker:
+
+```bash
+docker run --rm -v "C:\Users\yasse\Projects\duch-crm\supabase\functions:/fn:ro" denoland/deno:latest sh -c "cp -r /fn/* /tmp && cd /tmp && deno check shopify-webhook/index.ts"
+```
+
+**Seed logins** — password `duch-dev-password` for all:
+`admin@duch.local`, `stock@duch.local`, `sales@duch.local`, `packing@duch.local`.
+
+**On a phone:** `http://192.168.1.6:5173` — the address changes with DHCP, and
+`http://` must be typed in full because phone browsers silently upgrade to
+https and the dev server has no certificate.
+
+---
+
+## Working agreements with this user
+
+- **Check the live docs.** Shopify and Supabase APIs change; do not answer from
+  memory. Shopify Admin API is pinned to **2026-07**.
+- **Every schema change is a migration.** Never edit the database by hand.
+- **Never commit secrets.** The service role key bypasses all security and
+  belongs only in Edge Functions and the Worker, never in a `VITE_` variable.
+- **Verify by running, not by reading.** Nearly every real bug in this project
+  was found by executing something — the tests, the app in a browser, the
+  toolchain. Several were found only by driving the UI as a specific role.
+- Tell the user plainly when something is unverified.
+
+---
+
+## Traps already hit — do not rediscover these
+
+**pgTAP defines `public.has_role(name)` returning `text`.** Our helper is
+`has_any_role` for exactly that reason. Never name a function `has_role`.
+
+**A `CASE` returning string literals into an enum column needs an explicit
+cast.** This has bitten three times. Write `… end::public.some_enum`.
+
+**`revoke execute … from authenticated` does nothing on its own** — Postgres
+grants EXECUTE to `PUBLIC` by default. Always `revoke … from public, anon,
+authenticated`.
+
+**`supabase test db` runs against the seeded database.** Test fixtures must not
+collide with seed rows (phone numbers are uniquely indexed; only one location
+may be default), and assertions must be scoped to their own fixtures. An
+assertion that sums across the whole database passes only while the database
+is empty.
+
+**Vite's `envDir` points at the repo root** so there is one `.env`, and Vite
+**proxies Supabase at `/supabase`** so a phone needs one reachable port rather
+than two. In development the client talks to its own origin.
+
+**`navigator.clipboard` does not exist on a non-secure origin**, which
+includes the LAN address the user opens on their phone. Anything copying to
+the clipboard needs the `execCommand` fallback used in `AccountantSummary`.
+
+**Modals must cap their height and scroll.** A tall form otherwise puts the
+confirm button below the fold with no way to reach it.
+
+**Seeded `auth.users` rows need empty-string token columns** (`confirmation_token`
+and friends), or every sign-in fails with "Database error querying schema",
+which the UI reports as a wrong password.
+
+---
+
+## The design decisions that look wrong until explained
+
+Full reasoning is in [DECISIONS.md](DECISIONS.md). The short version:
+
+**Stock is an append-only ledger.** `stock_movements` is never updated or
+deleted; mistakes are corrected by appending the opposite movement.
+`stock_levels` is a trigger-maintained running total whose row lock is what
+stops two cashiers selling the same last item. Proven by a two-connection test.
+
+**We mirror Shopify's `available`, not `on_hand`.** Writing `on_hand`
+double-counts website orders and destroys a unit per sale.
+
+**A webhook from Shopify never changes stock.** It is classified as echo,
+agreement or divergence and recorded. Only the nightly job opens a sync issue,
+and only a person resolves one — because Shopify's webhooks do not arrive in
+order.
+
+**Orders have two statuses.** `fulfillment_status` (where the goods are) and
+`payment_status` (where the money is). With cash on delivery they move on
+completely separate timelines. An order becomes `paid` in exactly one place:
+when the settlement containing it is reviewed.
+
+**Nothing moves stock while goods are in a van.** Returns are recorded when
+the parcel is physically checked in, per item with a count. A parcel that
+arrives short stays open as a discrepancy. This is the user's anti-theft
+control and he cares about it.
+
+**Failed deliveries and post-delivery returns are separate.** A refusal at the
+door and a size exchange have different causes and different fixes.
+
+---
+
+## How this business actually works
+
+Recorded from the user; most of the design follows from it. Fuller version in
+[docs/phase-3-orders-and-returns.md](docs/phase-3-orders-and-returns.md).
+
+- A pickup car comes **every day**, taking parcels out and bringing returns
+  back **batched** from the courier's station.
+- **Every order is phoned to confirm before it ships**, cash on delivery or not.
+- **Refusals are above average.** The two dominant reasons are the customer
+  not answering, and the customer opening the parcel at the door and declining.
+- A refusal costs a **full shipping fee**; a non-response costs a small one. So
+  the expensive failure is the opened-and-refused one, which is a
+  product-expectation problem rather than a delivery one.
+- Delivery takes three to five days; a refusal comes back within two or three.
+  A shipping cohort is treated as final after **14 days**.
+- An opened-and-refused garment just needs **repackaging** — it goes back into
+  sellable stock.
+- The courier's statement **cannot be exported and has no API**. It is typed in
+  by hand with their paper alongside.
+- The customer pays shipping on top, and it sits inside the amount the courier
+  collects.
+- **The accountant keeps a paper ledger.** What he needs is products and
+  prices — "this transfer was three hoodies at 1,450 and two cargos at 1,850"
+  — not order numbers. Today the user types that into WhatsApp by hand.
+
+---
+
+## Where things live
+
+```
+apps/dashboard      React 19 + Vite + Refine (headless) + Tailwind v4
+apps/worker         Cloudflare Worker, cron only
+packages/shared     Enums, money maths, date formatting
+supabase/migrations Every schema change, in order
+supabase/functions  shopify-webhook, shopify-import-products,
+                    push-inventory, reconcile-stock
+supabase/tests      pgTAP suites
+tests/              vitest
+docs/               getting-started, shopify-app-setup,
+                    phase-3-orders-and-returns, accurate-integration
+```
+
+---
+
+## Open questions for the user
+
+1. Does the accountant message wording actually suit his ledger? He has not
+   reviewed one yet.
+2. Phone feel of the confirmation-call step in the packing queue, and of
+   counting a pile of returns at check-in. He has the app on his phone.
+3. Damaged returns — currently recorded on the line but with no countable
+   damaged-stock bucket. He said "just repackaging, that's it", so this may
+   never be needed.
+
+---
+
+## What to do next
+
+In rough priority order. Ask the user rather than assuming.
+
+1. **Printable invoices** — the last piece of Phase 3. An A5 bilingual PDF,
+   properly laid out in Arabic, replacing the thermal receipt for orders.
+2. **Deployment** — walk him through `docs/getting-started.md` Part B onwards.
+   Nothing is live and this unblocks real use.
+3. **Accurate integration** — the moment their docs arrive. Replaces manual
+   tracking-code entry and drives every status from `in_transit` onwards.
+4. **Wholesale**, then **staff chat and analytics**, then the **Meta inbox**.
+
+There is local demo data in the database — orders `ACC-P-1001`–`1004` and
+statement `ACC-STMT-2026-42`. `npm run db:reset` clears it.
