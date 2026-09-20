@@ -19,8 +19,29 @@ import {
 } from '../components/ui';
 import {
   AccountantSummary,
+  type Breakdown,
+  type ProductRow,
   type StatementLine,
 } from '../components/AccountantSummary';
+
+interface ParcelPreview {
+  found: boolean;
+  tracking_number: string;
+  order_number?: string;
+  customer_name?: string | null;
+  goods_egp?: number;
+  shipping_egp?: number;
+  expected_egp?: number;
+  already_on?: string | null;
+  items?: Array<{
+    sku: string;
+    title: string;
+    variant_title: string | null;
+    quantity: number;
+    unit_price_egp: number;
+    total_egp: number;
+  }>;
+}
 
 /**
  * The outcomes a line on their statement can be, delivered first because that
@@ -304,6 +325,9 @@ function SettlementDetail({
 
   const [header, setHeader] = useState<SettlementRow | null>(null);
   const [lines, setLines] = useState<StatementLine[] | null>(null);
+  const [products, setProducts] = useState<ProductRow[]>([]);
+  const [breakdown, setBreakdown] = useState<Breakdown | null>(null);
+  const [preview, setPreview] = useState<ParcelPreview | null>(null);
   const [tracking, setTracking] = useState('');
   const [outcome, setOutcome] = useState<string>('delivered');
   const [collected, setCollected] = useState('');
@@ -317,19 +341,56 @@ function SettlementDetail({
   const codeBox = useRef<HTMLInputElement>(null);
 
   const load = useCallback(async () => {
-    const [head, detail] = await Promise.all([
+    const [head, detail, productRows, breakdownRow] = await Promise.all([
       supabase.from('v_settlements').select('*').eq('id', settlementId).single(),
       supabase.from('v_settlement_statement').select('*').eq('settlement_id', settlementId),
+      supabase
+        .from('v_settlement_products')
+        .select('*')
+        .eq('settlement_id', settlementId)
+        .order('total_egp', { ascending: false }),
+      supabase
+        .from('v_settlement_breakdown')
+        .select('*')
+        .eq('settlement_id', settlementId)
+        .maybeSingle(),
     ]);
     const row = head.data as SettlementRow | null;
     setHeader(row);
     setNetReceived(row?.net_received_egp == null ? '' : String(row.net_received_egp));
     setLines((detail.data ?? []) as StatementLine[]);
+    setProducts((productRows.data ?? []) as ProductRow[]);
+    setBreakdown((breakdownRow.data ?? null) as Breakdown | null);
   }, [settlementId]);
 
   useEffect(() => {
     void load();
   }, [load]);
+
+  // Show what is in the parcel while the code is being typed, so it can be
+  // checked against their paper before the line is committed. This is also
+  // where a parcel already entered on another statement announces itself.
+  useEffect(() => {
+    const code = tracking.trim();
+    if (code.length < 4) {
+      setPreview(null);
+      return;
+    }
+
+    let cancelled = false;
+    const timer = setTimeout(() => {
+      supabase
+        .rpc('lookup_shipment_for_settlement', { p_tracking: code })
+        .then(({ data }) => {
+          if (!cancelled) setPreview((data ?? null) as ParcelPreview | null);
+        });
+    }, 250);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [tracking]);
 
   const addLine = useCallback(
     async (code: string) => {
@@ -360,6 +421,7 @@ function SettlementDetail({
       setTracking('');
       setCollected('');
       setFee('');
+      setPreview(null);
       codeBox.current?.focus();
       await load();
     },
@@ -496,6 +558,8 @@ function SettlementDetail({
               </Button>
             </div>
           </div>
+
+          {preview ? <ParcelCard preview={preview} /> : null}
         </Card>
       ) : null}
 
@@ -629,8 +693,81 @@ function SettlementDetail({
             net_received_egp: header.net_received_egp,
           }}
           lines={lines}
+          products={products}
+          breakdown={breakdown}
         />
       ) : null}
+    </div>
+  );
+}
+
+/**
+ * What is in the parcel whose code is being typed.
+ *
+ * The point is checking against their paper before committing: the order, who
+ * it went to, what was in it, and what the courier should have collected. If
+ * it has already been entered on another statement, that is the first thing
+ * shown, because keying the same parcel twice is the likely slip when working
+ * down a page of them.
+ */
+function ParcelCard({ preview }: { preview: ParcelPreview }) {
+  const { t, locale } = useLocale();
+
+  if (!preview.found) {
+    return (
+      <p className="rounded-lg bg-stone-50 px-3 py-2 text-sm text-stone-600">
+        {t('settlements.previewNotFound')}
+      </p>
+    );
+  }
+
+  return (
+    <div className="rounded-lg border border-duch-line bg-stone-50 p-3">
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="tabular text-sm font-extrabold">{preview.order_number}</span>
+        <span className="text-sm text-stone-600">{preview.customer_name ?? '—'}</span>
+        {preview.already_on ? (
+          <Badge tone="bad">
+            {t('settlements.previewAlreadyOn', { reference: preview.already_on })}
+          </Badge>
+        ) : null}
+      </div>
+
+      <ul className="mt-2 divide-y divide-duch-line">
+        {(preview.items ?? []).map((item, index) => (
+          <li key={`${item.sku}:${index}`} className="flex items-center gap-3 py-1.5 text-sm">
+            <span className="tabular w-8 text-center text-base font-bold">{item.quantity}</span>
+            <span className="min-w-0 flex-1">
+              <span className="block truncate font-semibold">{item.title}</span>
+              <span className="tabular block text-xs text-stone-500">
+                {item.sku}
+                {item.variant_title ? ` · ${item.variant_title}` : ''}
+              </span>
+            </span>
+            <span className="tabular text-sm">
+              {formatEGP(Number(item.unit_price_egp), locale)}
+            </span>
+            <span className="tabular w-24 text-end font-semibold">
+              {formatEGP(Number(item.total_egp), locale)}
+            </span>
+          </li>
+        ))}
+      </ul>
+
+      <dl className="mt-2 space-y-0.5 border-t border-duch-line pt-2 text-xs">
+        <div className="flex justify-between">
+          <dt className="text-stone-500">{t('settlements.previewGoods')}</dt>
+          <dd className="tabular">{formatEGP(Number(preview.goods_egp ?? 0), locale)}</dd>
+        </div>
+        <div className="flex justify-between">
+          <dt className="text-stone-500">{t('settlements.previewShipping')}</dt>
+          <dd className="tabular">{formatEGP(Number(preview.shipping_egp ?? 0), locale)}</dd>
+        </div>
+        <div className="flex justify-between text-sm font-bold">
+          <dt>{t('settlements.previewExpects')}</dt>
+          <dd className="tabular">{formatEGP(Number(preview.expected_egp ?? 0), locale)}</dd>
+        </div>
+      </dl>
     </div>
   );
 }

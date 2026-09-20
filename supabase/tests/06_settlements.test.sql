@@ -4,7 +4,7 @@
 -- ---------------------------------------------------------------------------
 
 begin;
-select plan(21);
+select plan(30);
 
 -- --- Fixtures --------------------------------------------------------------
 
@@ -159,11 +159,32 @@ select throws_ok(
 
 -- --- What it cost ----------------------------------------------------------
 
+-- Scoped to this statement. The view rolls up by month across everything, so
+-- asserting a bare figure on it would only pass on an empty database - and
+-- would then break the first time anyone else's data shared the month.
 select is(
-  (select cost_egp from public.v_refusal_costs
-    where outcome = 'returned_refused'),
+  (select sum(-sl.net_egp)
+     from public.settlement_lines sl
+    where sl.settlement_id = 'b2b2b2b2-0000-0000-0000-0000000000f1'
+      and sl.outcome <> 'delivered'
+      and sl.net_egp < 0),
   70.00::numeric,
   'The refusal shows up as a real, countable cost'
+);
+
+-- And the monthly view agrees with the lines underneath it, whatever else is
+-- in the month.
+select is(
+  (select cost_egp from public.v_refusal_costs
+    where outcome = 'returned_refused'
+      and month = date_trunc('month', current_date)::date),
+  (select sum(-sl.net_egp)
+     from public.settlement_lines sl
+     join public.courier_settlements s on s.id = sl.settlement_id
+    where sl.outcome = 'returned_refused'
+      and sl.net_egp < 0
+      and date_trunc('month', s.received_at)::date = date_trunc('month', current_date)::date),
+  'And the monthly rollup matches the lines it is built from'
 );
 
 -- --- Money is not for everyone ---------------------------------------------
@@ -258,6 +279,68 @@ select throws_ok(
   '23514',
   null,
   'Nothing can be added to a statement that has already been signed off'
+);
+
+-- --- What the money was for -----------------------------------------------
+--
+-- The accountant records products and prices, not order numbers. The rollup
+-- has to tie out: goods plus the shipping customers paid, less what the
+-- courier charged, equals the transfer.
+
+select is(
+  (select title from public.v_settlement_products
+    where settlement_id = 'b2b2b2b2-0000-0000-0000-0000000000f1'),
+  'Settle Tee',
+  'A statement knows which products the money came from'
+);
+
+select is(
+  (select quantity from public.v_settlement_products
+    where settlement_id = 'b2b2b2b2-0000-0000-0000-0000000000f1'),
+  1,
+  'With the quantity sold, which is what he writes in the ledger'
+);
+
+select is(
+  (select goods_egp from public.v_settlement_breakdown
+    where settlement_id = 'b2b2b2b2-0000-0000-0000-0000000000f1'),
+  1000.00::numeric,
+  'The goods value counts only the deliveries - a refusal brought nothing in'
+);
+
+select is(
+  (select goods_egp + shipping_egp - fees_egp from public.v_settlement_breakdown
+    where settlement_id = 'b2b2b2b2-0000-0000-0000-0000000000f1'),
+  (select net_egp from public.v_settlement_breakdown
+    where settlement_id = 'b2b2b2b2-0000-0000-0000-0000000000f1'),
+  'Goods plus shipping less the courier charges equals the transfer'
+);
+
+select is(
+  (select collection_difference_egp from public.v_settlement_breakdown
+    where settlement_id = 'b2b2b2b2-0000-0000-0000-0000000000f1'),
+  0.00::numeric,
+  'And nothing is left unaccounted for'
+);
+
+-- --- Checking a parcel before entering it ----------------------------------
+
+select is(
+  (public.lookup_shipment_for_settlement('ACC-SETTLE-0001') #>> '{items,0,title}'),
+  'Settle Tee',
+  'Typing a code shows what was in that parcel, to check against their paper'
+);
+
+select is(
+  public.lookup_shipment_for_settlement('ACC-SETTLE-0001') ->> 'already_on',
+  'ACC-STMT-9001',
+  'And says so if the parcel is already on another statement'
+);
+
+select is(
+  (public.lookup_shipment_for_settlement('NOT-A-REAL-CODE') ->> 'found')::boolean,
+  false,
+  'An unknown code says so rather than silently matching nothing'
 );
 
 select * from finish();
