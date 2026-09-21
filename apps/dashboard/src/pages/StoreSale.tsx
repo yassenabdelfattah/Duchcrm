@@ -39,11 +39,23 @@ interface BasketLine {
 export interface CompletedSale {
   order_id: string;
   order_number: string;
+  channel: OrderChannel;
+  shipping_egp: number;
   total_egp: number;
   payment_method: PaymentMethod;
   created_at: string;
   lines: BasketLine[];
 }
+
+/**
+ * The channels an order can be taken through by hand.
+ *
+ * `wholesale` is deliberately absent: it is Phase 4 and has its own pricing
+ * and terms, so offering it here would create orders the wholesale flow does
+ * not yet know how to finish.
+ */
+const ORDER_CHANNELS = ['store', 'online', 'dm'] as const;
+type OrderChannel = (typeof ORDER_CHANNELS)[number];
 
 /** A fresh key per sale. Reused across retries of the same sale, never between sales. */
 const newIdempotencyKey = () =>
@@ -58,7 +70,10 @@ export function StoreSale() {
   const [searching, setSearching] = useState(false);
   const [basket, setBasket] = useState<BasketLine[]>([]);
   const [payment, setPayment] = useState<PaymentMethod>('cash');
+  const [channel, setChannel] = useState<OrderChannel>('store');
+  const [customerName, setCustomerName] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
+  const [shipping, setShipping] = useState('');
   const [note, setNote] = useState('');
   const [discount, setDiscount] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -238,23 +253,41 @@ export function StoreSale() {
     try {
       let customerId: string | null = null;
       const phone = normalizeEgyptianPhone(customerPhone);
+      const name = customerName.trim();
+
+      // The phone is what identifies a person across channels, so it is what
+      // we match on. A name on its own still gets a customer record - a
+      // walk-in who gives a name and no number used to be recorded as nobody
+      // at all, and the name vanished with them.
       if (phone) {
         const { data: existing } = await supabase
           .from('customers')
-          .select('id')
+          .select('id, full_name')
           .eq('phone', phone)
           .maybeSingle();
 
         if (existing) {
           customerId = existing.id as string;
+          // Fill in a name we did not have before, but never overwrite one:
+          // the record may have been corrected by hand since.
+          if (name && !existing.full_name) {
+            await supabase.from('customers').update({ full_name: name }).eq('id', customerId);
+          }
         } else {
           const { data: created } = await supabase
             .from('customers')
-            .insert({ phone })
+            .insert({ phone, full_name: name || null })
             .select('id')
             .single();
           customerId = (created?.id as string | undefined) ?? null;
         }
+      } else if (name) {
+        const { data: created } = await supabase
+          .from('customers')
+          .insert({ full_name: name })
+          .select('id')
+          .single();
+        customerId = (created?.id as string | undefined) ?? null;
       }
 
       const { data, error: rpcError } = await supabase.rpc('create_store_sale', {
@@ -270,6 +303,10 @@ export function StoreSale() {
         p_customer_id: customerId,
         p_discount_egp: Number(discount) || 0,
         p_note: note || null,
+        p_channel: channel,
+        // Shipping is only offered for something being sent, so a shop sale
+        // cannot carry a stale figure left in the box by the previous order.
+        p_shipping_egp: channel === 'store' ? 0 : Number(shipping) || 0,
       });
 
       if (rpcError) {
@@ -294,6 +331,8 @@ export function StoreSale() {
       setCompleted({
         order_id: order.id,
         order_number: order.order_number,
+        channel,
+        shipping_egp: channel === 'store' ? 0 : Number(shipping) || 0,
         total_egp: Number(order.total_egp),
         payment_method: payment,
         created_at: order.created_at,
@@ -326,7 +365,12 @@ export function StoreSale() {
     setNote('');
     setDiscount('');
     setCustomerPhone('');
+    setCustomerName('');
+    setShipping('');
     setPayment('cash');
+    // The channel deliberately survives: someone working through a batch of
+    // Instagram orders should not have it snap back to the shop counter
+    // between each one, and record the next five against the wrong channel.
     idempotencyKey.current = newIdempotencyKey();
     searchBox.current?.focus();
   }
@@ -347,13 +391,31 @@ export function StoreSale() {
             {t('sale.success', { orderNumber: completed.order_number })}
           </p>
           <p className="tabular mt-1 text-2xl font-extrabold text-emerald-900">
-            {formatEGP(completed.total_egp, locale)}
+            {formatEGP(completed.total_egp + completed.shipping_egp, locale)}
           </p>
+          {completed.shipping_egp > 0 ? (
+            <p className="tabular text-xs text-emerald-800">
+              {t('sale.includesShipping', {
+                amount: formatEGP(completed.shipping_egp, locale),
+              })}
+            </p>
+          ) : null}
+
+          {/* A shipped order is not finished, and saying "sale recorded" and
+              printing a till receipt would suggest it was. It is in the
+              packing queue waiting for its confirmation call. */}
+          {completed.channel !== 'store' ? (
+            <p className="mt-2 text-sm text-emerald-900">{t('sale.queuedForPacking')}</p>
+          ) : null}
+
           <div className="mt-4 flex flex-wrap gap-2">
-            <Button onClick={() => window.print()}>{t('sale.printReceipt')}</Button>
-            {/* The till roll is the default; a customer who wants a proper
-                document asks for one, and wholesale buyers always do. */}
-            <Button variant="secondary" onClick={() => setShowInvoice(true)}>
+            {completed.channel === 'store' ? (
+              <Button onClick={() => window.print()}>{t('sale.printReceipt')}</Button>
+            ) : null}
+            <Button
+              variant={completed.channel === 'store' ? 'secondary' : 'primary'}
+              onClick={() => setShowInvoice(true)}
+            >
               {t('sale.printInvoice')}
             </Button>
             <Button variant="secondary" onClick={startAnother}>
@@ -361,7 +423,10 @@ export function StoreSale() {
             </Button>
           </div>
         </Card>
-        <Receipt sale={completed} />
+
+        {/* The thermal receipt is for a customer standing at the counter.
+            Nobody is standing there for an Instagram order. */}
+        {completed.channel === 'store' ? <Receipt sale={completed} /> : null}
       </div>
     );
   }
@@ -481,6 +546,23 @@ export function StoreSale() {
           the basket grows past the fold. */}
       <Card className="h-fit lg:sticky lg:top-20">
         <div className="space-y-3">
+          {/* Where the order came from. This decides far more than it looks:
+              a shop sale is finished when it is rung up, while anything else
+              has to be confirmed, packed and shipped, so it starts at the
+              front of the packing queue. */}
+          <Field label={t('sale.channel')}>
+            <Select
+              value={channel}
+              onChange={(event) => setChannel(event.target.value as OrderChannel)}
+            >
+              {ORDER_CHANNELS.map((option) => (
+                <option key={option} value={option}>
+                  {t(`channel.${option}`)}
+                </option>
+              ))}
+            </Select>
+          </Field>
+
           <Field label={t('sale.paymentMethod')}>
             <Select
               value={payment}
@@ -494,15 +576,41 @@ export function StoreSale() {
             </Select>
           </Field>
 
-          <Field label={t('sale.customer')}>
+          {/* Two boxes, not one. The single box only ever read a phone
+              number: type a name into it and the name was silently thrown
+              away, along with the customer record. */}
+          <Field label={t('sale.customerName')}>
             <Input
-              value={customerPhone}
-              onChange={(event) => setCustomerPhone(event.target.value)}
-              placeholder={t('sale.customerPlaceholder')}
-              inputMode="tel"
+              value={customerName}
+              onChange={(event) => setCustomerName(event.target.value)}
+              placeholder={t('sale.customerNamePlaceholder')}
               autoComplete="off"
             />
           </Field>
+
+          <Field label={t('sale.customerPhone')} hint={t('sale.customerPhoneHint')}>
+            <Input
+              value={customerPhone}
+              onChange={(event) => setCustomerPhone(event.target.value)}
+              placeholder="01xxxxxxxxx"
+              inputMode="tel"
+              autoComplete="off"
+              dir="ltr"
+            />
+          </Field>
+
+          {/* Shipping only means anything for something being sent. */}
+          {channel !== 'store' ? (
+            <Field label={t('sale.shipping')}>
+              <Input
+                value={shipping}
+                onChange={(event) => setShipping(event.target.value)}
+                inputMode="decimal"
+                placeholder="0"
+                className="tabular"
+              />
+            </Field>
+          ) : null}
 
           <Field label={t('sale.discount')}>
             <Input

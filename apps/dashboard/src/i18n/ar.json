@@ -60,17 +60,26 @@
     "insufficient": "المخزون غير كافٍ للصنف {{sku}}. ربما باعه أحد الزملاء للتو.",
     "success": "تم تسجيل البيع {{orderNumber}}",
     "printReceipt": "طباعة الإيصال",
-    "printInvoice": "فاتورة",
+    "printInvoice": "طباعة الفاتورة",
     "newSale": "بيع جديد",
     "noResults": "لا توجد نتائج.",
-    "inStock": "المتاح {{count}}"
+    "inStock": "المتاح {{count}}",
+    "channel": "مصدر الطلب",
+    "customerName": "اسم العميل",
+    "customerNamePlaceholder": "اختياري",
+    "customerPhone": "رقم الهاتف",
+    "customerPhoneHint": "اختياري، لكنه ما يربط العميل بطلباته السابقة",
+    "shipping": "الشحن",
+    "includesShipping": "شامل {{amount}} شحن",
+    "queuedForPacking": "أُضيف الطلب إلى قائمة التجهيز، في انتظار مكالمة التأكيد."
   },
   "payment": {
     "cash": "نقدي",
     "card": "بطاقة",
     "instapay": "إنستاباي",
     "cod": "الدفع عند الاستلام",
-    "bank_transfer": "تحويل بنكي"
+    "bank_transfer": "تحويل بنكي",
+    "deferred": "آجل"
   },
   "stock": {
     "title": "المخزون",
@@ -183,7 +192,7 @@
     "requiresPrepayment": "يجب الدفع المقدم",
     "onHold": "مؤجل حتى {{date}}",
     "printSlip": "بوليصة التجهيز",
-    "printInvoice": "فاتورة",
+    "printInvoice": "طباعة الفاتورة",
     "newOrders": "{{count}} جديد",
     "refresh": "تحديث"
   },
@@ -328,5 +337,11 @@
     "returned_no_response": "لم يرد",
     "returned_other": "مرتجعة",
     "adjustment": "تسوية"
+  },
+  "channel": {
+    "store": "المحل",
+    "online": "الموقع",
+    "dm": "سوشيال ميديا",
+    "wholesale": "جملة"
   }
 }

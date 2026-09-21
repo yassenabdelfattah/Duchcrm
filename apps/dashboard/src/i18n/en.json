@@ -60,17 +60,26 @@
     "insufficient": "Not enough stock for {{sku}}. Someone may have just sold the last one.",
     "success": "Sale {{orderNumber}} recorded",
     "printReceipt": "Print receipt",
-    "printInvoice": "Invoice",
+    "printInvoice": "Print invoice",
     "newSale": "Start another sale",
     "noResults": "Nothing matched that.",
-    "inStock": "{{count}} in stock"
+    "inStock": "{{count}} in stock",
+    "channel": "Order source",
+    "customerName": "Customer name",
+    "customerNamePlaceholder": "Optional",
+    "customerPhone": "Phone number",
+    "customerPhoneHint": "Optional, but it is what links a customer to their past orders",
+    "shipping": "Shipping",
+    "includesShipping": "Includes {{amount}} shipping",
+    "queuedForPacking": "Added to the packing queue, waiting for its confirmation call."
   },
   "payment": {
     "cash": "Cash",
     "card": "Card",
     "instapay": "InstaPay",
     "cod": "Cash on delivery",
-    "bank_transfer": "Bank transfer"
+    "bank_transfer": "Bank transfer",
+    "deferred": "Paying later"
   },
   "stock": {
     "title": "Stock",
@@ -183,7 +192,7 @@
     "requiresPrepayment": "Prepayment required",
     "onHold": "On hold until {{date}}",
     "printSlip": "Packing slip",
-    "printInvoice": "Invoice",
+    "printInvoice": "Print invoice",
     "newOrders": "{{count}} new",
     "refresh": "Refresh"
   },
@@ -328,5 +337,11 @@
     "returned_no_response": "No response",
     "returned_other": "Returned",
     "adjustment": "Adjustment"
+  },
+  "channel": {
+    "store": "Shop",
+    "online": "Website",
+    "dm": "Social media",
+    "wholesale": "Wholesale"
   }
 }

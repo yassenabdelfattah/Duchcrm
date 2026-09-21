@@ -44,7 +44,19 @@ export const RECORDING_REASONS: readonly StockMovementReason[] = [
 export const SALES_CHANNELS = ['store', 'online', 'dm', 'wholesale'] as const;
 export type SalesChannel = (typeof SALES_CHANNELS)[number];
 
-export const PAYMENT_METHODS = ['cash', 'card', 'instapay', 'cod', 'bank_transfer'] as const;
+/**
+ * `deferred` is a tab: the goods go now and the money is owed. It is the one
+ * method here that does not mean the money has arrived, other than `cod`,
+ * where the courier is holding it.
+ */
+export const PAYMENT_METHODS = [
+  'cash',
+  'card',
+  'instapay',
+  'cod',
+  'bank_transfer',
+  'deferred',
+] as const;
 export type PaymentMethod = (typeof PAYMENT_METHODS)[number];
 
 export const ORDER_STATUSES = ['draft', 'confirmed', 'completed', 'cancelled', 'refunded'] as const;
