@@ -25,11 +25,11 @@ most of the design.
 
 **Built and tested:** Phases 1, 2 and 3 complete.
 
-- 21 migrations, 9 pgTAP suites, **171 database assertions**
+- 23 migrations, 10 pgTAP suites, **190 database assertions**
 - **61 TypeScript assertions** (webhook HMAC, money arithmetic, invoice
   totals, Shopify token exchange)
-- 10 screens, 4 Edge Functions, 1 Cloudflare Worker
-- 29 commits, working tree clean
+- 11 screens, 4 Edge Functions, 1 Cloudflare Worker
+- 38 commits, working tree clean
 
 **Not built:** wholesale (Phase 4), staff chat and analytics (Phase 5), Meta
 inbox (Phase 6).
@@ -40,14 +40,16 @@ Supabase project `yyzrhizisdjpwcnnqiwr` (eu-west-1) is real and working.
 
 | | |
 |---|---|
-| Schema | All 21 migrations pushed. The seed is **not** pushed, deliberately. |
+| Schema | All 23 migrations pushed. The seed is **not** pushed, deliberately. |
 | Edge Functions | All four deployed. |
 | Shopify | Dev Dashboard app connected. Catalogue imported: 47 products, 402 variants, 402 distinct SKUs. |
 | Location | `النزهه`, default, linked to Shopify location `90745733441`. |
 | Stock | **None.** No movements, no opening balance. |
 | Pushes to Shopify | **Off.** See below. |
-| Cloudflare | Nothing. Neither Pages nor the Worker. |
+| Dashboard | Live at **https://duch-crm.yassentah.workers.dev** - a Workers project (not Pages), built from GitHub on every push to `master`. |
+| Worker (cron) | **Not deployed**, on purpose. |
 | Webhooks | Not registered. |
+| Staff | Six accounts, all admin for the trial. |
 
 **It is a trial, not a launch.** Staff are going to try the app and give
 feedback before anything real runs on it, so `shopify_push_enabled` is
@@ -56,11 +58,13 @@ The Worker is undeployed and opening stock unimported for related reasons.
 **Read [docs/going-live.md](docs/going-live.md) before turning any of that
 on**; the order matters and the trial ledger has to be cleared first.
 
-**Left to do:** push the repo to `github.com/yassenabdelfattah/Duchcrm` and
-connect Cloudflare Pages, register the webhooks, make the first admin.
-21 variants are priced at zero (puffer jackets, crewneck sweaters) and there
-are two `H Genuine Leather Slipper` products differing only in case — both
-for the user to fix in Shopify.
+**Left to do:** register the webhooks. 21 variants are priced at zero
+(puffer jackets and crewneck sweaters still in production — the user adds
+prices when they are ready, so this is not a fault).
+
+**No staff screen exists.** Accounts are created in the Supabase dashboard
+and roles are set in SQL — see getting-started B4. This is the first thing
+to build if the trial turns into daily use.
 
 **Blocked:** the Accurate Logistics integration, waiting on their API docs.
 See [docs/accurate-integration.md](docs/accurate-integration.md) for the eight
@@ -85,7 +89,7 @@ be started without elevation, so if it will not come up, ask the user.
 |---|---|
 | `supabase start` | Local Postgres, auth, storage |
 | `npm run db:reset` | Reapply every migration and the seed |
-| `npm run db:test` | 171 pgTAP assertions |
+| `npm run db:test` | 190 pgTAP assertions |
 | `npm test` | 61 vitest assertions |
 | `npm run typecheck` | All three workspaces |
 | `npm run build` | What Cloudflare runs. Uses `.env.production`, so it points at the **real** project even locally. `npm run dev` still uses `.env`. |
