@@ -1,0 +1,29 @@
+// The dashboard, served as static assets from a Worker.
+//
+// Cloudflare's dashboard now creates Workers rather than Pages projects, and
+// a Workers build runs `npx wrangler deploy` at the end. Without this file
+// that command has nothing to deploy and fails with "Missing entry-point to
+// Worker script or to assets directory", even though the build itself
+// succeeded.
+//
+// There is no `main`: nothing here runs Worker code. Every request is either
+// a file from the build output or the app's own index.html.
+//
+// NOTE: the scheduled jobs are a *different* Worker, configured in
+// apps/worker/wrangler.toml and deployed from that directory. Wrangler
+// searches upwards for its config, so `cd apps/worker && npx wrangler deploy`
+// still picks up that one rather than this.
+{
+  "name": "duch-crm",
+  "compatibility_date": "2026-09-21",
+  "assets": {
+    "directory": "apps/dashboard/dist",
+
+    // The dashboard is a single-page app: /queue and /sell are React Router
+    // paths, not files on disk. Without this, opening one directly or
+    // refreshing it returns 404 - which staff would hit constantly, since a
+    // phone left on the packing queue reloads the page whenever the browser
+    // reclaims memory.
+    "not_found_handling": "single-page-application"
+  }
+}
