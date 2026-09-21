@@ -30,7 +30,6 @@ interface ParcelPreview {
   order_number?: string;
   customer_name?: string | null;
   goods_egp?: number;
-  shipping_egp?: number;
   expected_egp?: number;
   already_on?: string | null;
   items?: Array<{
@@ -758,10 +757,6 @@ function ParcelCard({ preview }: { preview: ParcelPreview }) {
         <div className="flex justify-between">
           <dt className="text-stone-500">{t('settlements.previewGoods')}</dt>
           <dd className="tabular">{formatEGP(Number(preview.goods_egp ?? 0), locale)}</dd>
-        </div>
-        <div className="flex justify-between">
-          <dt className="text-stone-500">{t('settlements.previewShipping')}</dt>
-          <dd className="tabular">{formatEGP(Number(preview.shipping_egp ?? 0), locale)}</dd>
         </div>
         <div className="flex justify-between text-sm font-bold">
           <dt>{t('settlements.previewExpects')}</dt>

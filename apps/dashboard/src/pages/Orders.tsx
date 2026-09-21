@@ -30,6 +30,9 @@ interface OrderRow {
   discount_egp: number;
   cancelled_at: string | null;
   customers: { full_name: string | null; phone: string | null } | null;
+  // An order can be shipped more than once - sent, refused, sent again - so
+  // this is a list, newest first, and the current code is the first of them.
+  shipments: Array<{ tracking_number: string | null; status: string | null }>;
 }
 
 const PAGE_SIZE = 50;
@@ -51,19 +54,37 @@ export function Orders() {
       .select(
         'id, order_number, channel, created_at, fulfillment_status, payment_status,' +
           ' payment_method, total_egp, shipping_egp, subtotal_egp, discount_egp, cancelled_at,' +
-          ' customers ( full_name, phone )',
+          ' customers ( full_name, phone ),' +
+          ' shipments ( tracking_number, status, created_at )',
       )
       .order('created_at', { ascending: false })
       .limit(PAGE_SIZE);
 
     const trimmed = term.trim();
     if (trimmed) {
-      // Order number only. Searching the customer's name or number means
-      // filtering on an embedded table, which PostgREST will not do from
-      // here - the orders screen would have to query customers first. The
-      // number is what people quote down the phone anyway.
-      const escaped = trimmed.replace(/[%,]/g, '');
-      query = query.ilike('order_number', `%${escaped}%`);
+      // Order number or courier tracking code - the two numbers anyone
+      // actually quotes down the phone.
+      //
+      // Tracking needs its own query first. PostgREST will not accept an
+      // embedded column inside `or`: it answers "failed to parse logic tree"
+      // and returns nothing, which looks exactly like "no such order". So
+      // the shipments are matched separately and folded in by id.
+      const escaped = trimmed.replace(/[%,()]/g, '');
+
+      const { data: shipmentMatches } = await supabase
+        .from('shipments')
+        .select('order_id')
+        .ilike('tracking_number', `%${escaped}%`)
+        .not('order_id', 'is', null)
+        .limit(PAGE_SIZE);
+
+      const matchedOrderIds = (shipmentMatches ?? [])
+        .map((row) => row.order_id as string)
+        .filter(Boolean);
+
+      query = matchedOrderIds.length
+        ? query.or(`order_number.ilike.%${escaped}%,id.in.(${matchedOrderIds.join(',')})`)
+        : query.ilike('order_number', `%${escaped}%`);
     }
 
     const { data, error: queryError } = await query;
@@ -134,6 +155,7 @@ export function Orders() {
           {rows.map((row) => {
             const totals = calculateInvoiceTotals(row);
             const cancelled = row.cancelled_at !== null;
+            const tracking = row.shipments?.find((s) => s.tracking_number)?.tracking_number ?? null;
             // Cash on delivery becomes paid when its settlement is reviewed,
             // never here - the database refuses it, so the button is not
             // offered either.
@@ -153,6 +175,11 @@ export function Orders() {
                     <p className="text-xs text-stone-500">
                       {formatDateTime(row.created_at, locale)}
                     </p>
+                    {tracking ? (
+                      <p className="tabular text-xs font-semibold text-stone-700" dir="ltr">
+                        {tracking}
+                      </p>
+                    ) : null}
                   </div>
 
                   <div className="min-w-0 flex-1">

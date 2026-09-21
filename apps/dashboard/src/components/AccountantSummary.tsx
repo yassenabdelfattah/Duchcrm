@@ -25,7 +25,6 @@ export interface ProductRow {
 
 export interface Breakdown {
   goods_egp: number;
-  shipping_egp: number;
   collected_egp: number;
   fees_egp: number;
   net_egp: number;
@@ -88,12 +87,10 @@ export function AccountantSummary({
       out.push('');
     }
 
+    // No shipping line. The customer paid it at the door and Accurate kept
+    // it, so it never reaches the transfer he is reconciling - printing it
+    // here only gives him a number he has to be told to ignore.
     out.push(`${t('settlements.goodsTotal')}: ${formatEGP(Number(breakdown.goods_egp), locale)}`);
-    if (Number(breakdown.shipping_egp) !== 0) {
-      out.push(
-        `${t('settlements.shippingTotal')}: ${formatEGP(Number(breakdown.shipping_egp), locale)}`,
-      );
-    }
     if (Number(breakdown.collection_difference_egp) !== 0) {
       out.push(
         `${t('settlements.collectionDifference')}: ${formatEGP(Number(breakdown.collection_difference_egp), locale)}`,
@@ -220,12 +217,6 @@ export function AccountantSummary({
       {/* How those products become the figure that reached the bank. */}
       <dl className="space-y-1 border-t border-duch-line pt-3 text-sm">
         <Line label={t('settlements.goodsTotal')} value={formatEGP(Number(breakdown.goods_egp), locale)} />
-        {Number(breakdown.shipping_egp) !== 0 ? (
-          <Line
-            label={t('settlements.shippingTotal')}
-            value={formatEGP(Number(breakdown.shipping_egp), locale)}
-          />
-        ) : null}
         {Number(breakdown.collection_difference_egp) !== 0 ? (
           <Line
             label={t('settlements.collectionDifference')}

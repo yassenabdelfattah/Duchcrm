@@ -4,7 +4,7 @@
 -- ---------------------------------------------------------------------------
 
 begin;
-select plan(30);
+select plan(35);
 
 -- --- Fixtures --------------------------------------------------------------
 
@@ -64,12 +64,18 @@ values ('b2b2b2b2-0000-0000-0000-0000000000f1', 'ACC-STMT-9001',
 
 -- A delivered line needs only the courier's code: the CRM already knows what
 -- that parcel was worth, so the collected amount fills itself in.
+--
+-- It fills in the GOODS, not what the customer handed over. Accurate keeps
+-- the shipping fee the customer pays at the door, so on a 1,000 tee with 70
+-- shipping the customer pays 1,070, Accurate keeps the 70, and 1,000 reaches
+-- the bank. The 70 was never Duch's money, and there is no courier fee to
+-- deduct from a delivered parcel because the customer already paid it.
 select is(
   (select (public.add_settlement_line(
-     'b2b2b2b2-0000-0000-0000-0000000000f1', 'ACC-SETTLE-0001', 'delivered', null, 70
+     'b2b2b2b2-0000-0000-0000-0000000000f1', 'ACC-SETTLE-0001', 'delivered', null, 0
    )).collected_egp),
-  1070.00::numeric,
-  'A delivered line pre-fills the amount the courier should have collected'
+  1000.00::numeric,
+  'A delivered line pre-fills the goods value, not what the customer handed over'
 );
 
 select is(
@@ -82,10 +88,12 @@ select is(
 select is(
   (select net_egp from public.settlement_lines where tracking_number = 'ACC-SETTLE-0001'),
   1000.00::numeric,
-  'Net of the courier fee, the delivered order brought in the goods value'
+  'The delivered order brought in the goods value'
 );
 
--- A refusal collects nothing and still costs a full shipping fee.
+-- A refusal collects nothing and still costs a full shipping fee. This one
+-- is a real cost to Duch: nobody paid it at a door, so unlike a delivered
+-- parcel it genuinely comes off the transfer.
 select is(
   (select (public.add_settlement_line(
      'b2b2b2b2-0000-0000-0000-0000000000f1', 'ACC-SETTLE-0002', 'returned_refused', null, 70
@@ -233,10 +241,10 @@ values ('b2b2b2b2-0000-0000-0000-0000000000f2', 'ACC-STMT-9002', current_date, 5
 
 select is(
   (select (public.add_settlement_line(
-     'b2b2b2b2-0000-0000-0000-0000000000f2', 'ACC-SETTLE-0003', 'delivered', null, 70
+     'b2b2b2b2-0000-0000-0000-0000000000f2', 'ACC-SETTLE-0003', 'delivered', null, 0
    )).net_egp),
   500.00::numeric,
-  'The line lands with the fee they charged taken off'
+  'A delivered line brings in the goods value'
 );
 
 select throws_ok(
@@ -253,7 +261,7 @@ select is(
      (select id from public.settlement_lines where tracking_number = 'ACC-SETTLE-0003'),
      null, null, 100
    )).net_egp),
-  470.00::numeric,
+  400.00::numeric,
   'A mis-keyed fee can be corrected in place'
 );
 
@@ -284,8 +292,9 @@ select throws_ok(
 -- --- What the money was for -----------------------------------------------
 --
 -- The accountant records products and prices, not order numbers. The rollup
--- has to tie out: goods plus the shipping customers paid, less what the
--- courier charged, equals the transfer.
+-- has to tie out: goods less what the courier charged equals the transfer.
+-- Shipping is not in it at all - the customer paid it at the door and
+-- Accurate kept it, so it never reaches the transfer being reconciled.
 
 select is(
   (select title from public.v_settlement_products
@@ -309,11 +318,11 @@ select is(
 );
 
 select is(
-  (select goods_egp + shipping_egp - fees_egp from public.v_settlement_breakdown
+  (select goods_egp - fees_egp from public.v_settlement_breakdown
     where settlement_id = 'b2b2b2b2-0000-0000-0000-0000000000f1'),
   (select net_egp from public.v_settlement_breakdown
     where settlement_id = 'b2b2b2b2-0000-0000-0000-0000000000f1'),
-  'Goods plus shipping less the courier charges equals the transfer'
+  'Goods less the courier charges equals the transfer'
 );
 
 select is(
@@ -341,6 +350,56 @@ select is(
   (public.lookup_shipment_for_settlement('NOT-A-REAL-CODE') ->> 'found')::boolean,
   false,
   'An unknown code says so rather than silently matching nothing'
+);
+
+-- --- Charges that belong to no parcel -------------------------------------
+--
+-- A statement is not only a list of parcels: it carries packaging charges, a
+-- fee for handling returns, a correction for something they got wrong last
+-- month. Without somewhere to put those, a statement cannot be balanced, and
+-- an unbalanced statement cannot be closed at all.
+
+select is(
+  (select (public.add_settlement_adjustment(
+     'b2b2b2b2-0000-0000-0000-0000000000f2', 'packaging', -200
+   )).net_egp),
+  -200.00::numeric,
+  'A deduction comes off the statement'
+);
+
+select is(
+  (select (public.add_settlement_adjustment(
+     'b2b2b2b2-0000-0000-0000-0000000000f2', 'correction for last month', 80
+   )).net_egp),
+  80.00::numeric,
+  'And a credit goes on it'
+);
+
+-- Both columns are constrained non-negative, so the sign has to pick the
+-- column. Getting that wrong would silently flip a deduction into income.
+select is(
+  (select fee_egp from public.settlement_lines
+    where settlement_id = 'b2b2b2b2-0000-0000-0000-0000000000f2' and note = 'packaging'),
+  200.00::numeric,
+  'A deduction is recorded as a fee, not as a negative collection'
+);
+
+select throws_ok(
+  $$ select public.add_settlement_adjustment(
+       'b2b2b2b2-0000-0000-0000-0000000000f2', '   ', -50
+     ) $$,
+  '22023',
+  null,
+  'An unlabelled deduction is refused - it is the one nobody can explain later'
+);
+
+-- An adjustment has no order on purpose. Counting it as an unmatched parcel
+-- would turn a real warning - a code that matched nothing - into noise.
+select is(
+  (select unmatched_lines from public.v_settlement_totals
+    where settlement_id = 'b2b2b2b2-0000-0000-0000-0000000000f2'),
+  0::bigint,
+  'An adjustment is not mistaken for a parcel nobody could match'
 );
 
 select * from finish();
