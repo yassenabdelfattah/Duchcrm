@@ -25,11 +25,11 @@ most of the design.
 
 **Built and tested:** Phases 1, 2 and 3 complete.
 
-- 27 migrations, 11 pgTAP suites, **217 database assertions**
+- 28 migrations, 11 pgTAP suites, **217 database assertions**
 - **65 TypeScript assertions** (webhook HMAC, money arithmetic, invoice
   totals, Shopify token exchange, Cairo dates)
 - 12 screens, 4 Edge Functions, 1 Cloudflare Worker
-- 42 commits, working tree clean
+- 44 commits, working tree clean
 
 **Not built:** wholesale (Phase 4), staff chat and analytics (Phase 5), Meta
 inbox (Phase 6).
@@ -40,7 +40,7 @@ Supabase project `yyzrhizisdjpwcnnqiwr` (eu-west-1) is real and working.
 
 | | |
 |---|---|
-| Schema | All 27 migrations pushed. The seed is **not** pushed, deliberately. |
+| Schema | All 28 migrations pushed. The seed is **not** pushed, deliberately. |
 | Edge Functions | All four deployed. |
 | Shopify | Dev Dashboard app connected. Catalogue imported: 47 products, 402 variants, 402 distinct SKUs. |
 | Location | `النزهه`, default, linked to Shopify location `90745733441`. |
@@ -65,11 +65,6 @@ prices when they are ready, so this is not a fault).
 **No staff screen exists.** Accounts are created in the Supabase dashboard
 and roles are set in SQL — see getting-started B4. This is the first thing
 to build if the trial turns into daily use.
-
-**The settlements screen is half finished.** `add_settlement_adjustment`
-exists and is tested, and `add_settlement_line` already takes a note, but
-neither has a button. Picking open orders from `v_unsettled_orders` instead
-of typing tracking codes is not built either. All three were asked for.
 
 **Eight reporting views still have no screen**: refusal costs, customer
 reliability, return cohorts, stock valuation, courier custody, custody
