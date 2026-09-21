@@ -343,5 +343,13 @@
     "online": "الموقع",
     "dm": "سوشيال ميديا",
     "wholesale": "جملة"
+  },
+  "orders": {
+    "title": "الطلبات",
+    "searchPlaceholder": "ابحث برقم الطلب",
+    "empty": "لا توجد طلبات.",
+    "markPaid": "تم التحصيل",
+    "cancelled": "ملغي",
+    "owed": "مستحق {{amount}}"
   }
 }

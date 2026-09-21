@@ -219,8 +219,14 @@ order.
 
 **Orders have two statuses.** `fulfillment_status` (where the goods are) and
 `payment_status` (where the money is). With cash on delivery they move on
-completely separate timelines. An order becomes `paid` in exactly one place:
-when the settlement containing it is reviewed.
+completely separate timelines.
+
+**Cash the courier collected becomes `paid` in exactly one place:** when the
+settlement containing it is reviewed. `mark_order_paid` refuses a
+cash-on-delivery order outright, so that rule cannot be worked around from
+the orders screen. Money that never went near a courier — a tab, a transfer
+that landed late — is settled there instead, and the change is recorded with
+a name against it.
 
 **Nothing moves stock while goods are in a van.** Returns are recorded when
 the parcel is physically checked in, per item with a count. A parcel that

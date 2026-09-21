@@ -176,6 +176,37 @@ Line items copy the SKU, title and price at the moment of sale rather than
 joining to the product. Prices and product names change; a receipt reprinted
 six months from now must still show what was actually sold.
 
+### The channel decides how an order starts
+
+One screen takes every kind of order, and what it produces is not the same
+thing each time. A shop sale is handed over as it is rung up, so it is born
+delivered. An order taken over Instagram has to be confirmed by phone,
+packed and shipped, so it starts at the front of the packing queue exactly
+like one from the website.
+
+Before this, both were recorded as counter sales. An order sitting in a box
+in the back room claimed it had been handed to a customer, and money nobody
+had counted claimed it had arrived.
+
+### Two ways an order becomes paid, and only two
+
+The rule was one: reviewing the courier settlement that contained it. That
+exists so cash collected at somebody's front door is only recognised once it
+has actually been counted against the courier's paper, and it has not moved
+— `mark_order_paid` refuses a cash-on-delivery order outright, and a test
+pins that refusal.
+
+What it did not cover is money that never went near a courier. A regular
+takes a hoodie and pays on Thursday; a transfer lands the next morning.
+Those were being recorded as paid immediately, because there was nowhere
+else to put them. Now they are a tab: the goods leave, the money is owed,
+and someone settles it from the orders screen with their name against the
+change.
+
+So: the courier's cash is settled by reviewing a statement, and everything
+else is settled by a person saying so. Both are recorded. Neither can be
+done by editing a row.
+
 ---
 
 ## 3. Two cashiers, one hoodie

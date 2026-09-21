@@ -343,5 +343,13 @@
     "online": "Website",
     "dm": "Social media",
     "wholesale": "Wholesale"
+  },
+  "orders": {
+    "title": "Orders",
+    "searchPlaceholder": "Search by order number",
+    "empty": "No orders yet.",
+    "markPaid": "Mark paid",
+    "cancelled": "Cancelled",
+    "owed": "{{amount}} owed"
   }
 }

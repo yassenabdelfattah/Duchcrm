@@ -11,6 +11,7 @@ import { Layout } from './components/Layout';
 import { Spinner } from './components/ui';
 import { Dashboard } from './pages/Dashboard';
 import { Login } from './pages/Login';
+import { Orders } from './pages/Orders';
 import { PackingQueue } from './pages/PackingQueue';
 import { Pending } from './pages/Pending';
 import { Products } from './pages/Products';
@@ -81,7 +82,8 @@ function RefineApp() {
         { name: 'products', list: '/products', meta: { label: 'nav.products' } },
         { name: 'stock', list: '/stock', meta: { label: 'nav.stock' } },
         { name: 'sale', create: '/sell', meta: { label: 'nav.sell' } },
-        { name: 'orders', list: '/queue', meta: { label: 'nav.queue' } },
+        { name: 'orders', list: '/orders', meta: { label: 'nav.orders' } },
+        { name: 'packing', list: '/queue', meta: { label: 'nav.queue' } },
         { name: 'returns', list: '/returns', meta: { label: 'nav.returns' } },
         { name: 'settlements', list: '/settlements', meta: { label: 'nav.settlements' } },
         { name: 'sync_issues', list: '/sync', meta: { label: 'nav.sync' } },
@@ -104,6 +106,7 @@ function RefineApp() {
           <Route element={<Layout />}>
             <Route index element={<Dashboard />} />
             <Route path="/sell" element={<StoreSale />} />
+            <Route path="/orders" element={<Orders />} />
             <Route path="/queue" element={<PackingQueue />} />
             <Route path="/returns" element={<Returns />} />
             <Route path="/settlements" element={<Settlements />} />

@@ -15,6 +15,9 @@ interface NavItem {
 const NAV_ITEMS: NavItem[] = [
   { to: '/', labelKey: 'nav.dashboard', capability: 'stock.read', icon: '▦' },
   { to: '/sell', labelKey: 'nav.sell', capability: 'sales.create', icon: '＋' },
+  // Everyone who can see a sale can look one up again. Settling a tab is
+  // gated inside the screen, and by the database underneath it.
+  { to: '/orders', labelKey: 'nav.orders', capability: 'sales.read', icon: '≡' },
   { to: '/queue', labelKey: 'nav.queue', capability: 'orders.queue', icon: '☰' },
   { to: '/returns', labelKey: 'nav.returns', capability: 'orders.queue', icon: '↩' },
   { to: '/stock', labelKey: 'nav.stock', capability: 'stock.read', icon: '▤' },
