@@ -96,21 +96,17 @@ customers; the API and the token endpoint only answer on the Shopify one.
 
 ## 2. Find your location ID
 
-The CRM mirrors stock at exactly one Shopify location. Finding its numeric ID
-takes two steps now, because there is no token lying around to use.
-
-Exchange your client id and secret for a token — it is good for 24 hours,
-which is plenty for a one-off lookup:
+The CRM mirrors stock at exactly one Shopify location. Ask the import
+function for the list rather than building a token by hand — it already has
+the credentials, and it returns the numeric id rather than the `gid://` form:
 
 ```bash
-curl -s -X POST "https://ducheg.myshopify.com/admin/oauth/access_token" -d "grant_type=client_credentials" -d "client_id=YOUR_CLIENT_ID" -d "client_secret=YOUR_CLIENT_SECRET"
+curl.exe -s -X POST "$SUPABASE_URL/functions/v1/shopify-import-products" -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" -H "Content-Type: application/json" -d "{\"list_locations\": true}"
 ```
 
-Then use the `access_token` from that response:
-
-```bash
-curl -s -X POST "https://ducheg.myshopify.com/admin/api/2026-07/graphql.json" -H "X-Shopify-Access-Token: THE_TOKEN_FROM_ABOVE" -H "Content-Type: application/json" -d '{"query":"{ locations(first: 10) { nodes { id name isActive } } }"}'
-```
+On Windows use `curl.exe`, not `curl`. In PowerShell `curl` is an alias for
+`Invoke-WebRequest`, which rejects repeated `-d` flags with a confusing
+parameter-binding error.
 
 You will get IDs shaped like `gid://shopify/Location/1234567890`. The CRM wants
 the number on the end only:

@@ -212,6 +212,24 @@ update public.staff set role = 'admin', is_active = true
 
 After that you can approve everyone else from inside the CRM.
 
+### B5. Create your location
+
+The local test data includes a shop, but **the seed is not pushed to your
+real project** — `supabase db push` sends migrations only, which is correct:
+you do not want fake products and `duch.local` logins in production. It does
+mean a freshly pushed project has no location at all, and without one there
+is nothing to sell from, nothing to hold stock, and nothing for Shopify to
+link to.
+
+Create it once, in the SQL editor, naming it whatever you call the shop:
+
+```sql
+insert into public.locations (name, type, is_default, is_active)
+values ('النزهه', 'store', true, true);
+```
+
+Part C step 2 then links it to the matching Shopify location.
+
 ---
 
 ## Part C — connect Shopify

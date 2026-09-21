@@ -31,6 +31,17 @@ interface ImportRequest {
   /** Which CRM location the opening stock belongs to. */
   location_id?: string;
   dry_run?: boolean;
+  /**
+   * Return the store's Shopify locations and do nothing else.
+   *
+   * Setup needs the numeric location id before anything can sync, and the
+   * documented way to get it was a curl with a hand-made token - which meant
+   * running the client credentials exchange by hand first, and which breaks
+   * outright in PowerShell, where `curl` is an alias for Invoke-WebRequest
+   * and rejects repeated -d flags. Asking the function is the same question
+   * through a path that already works.
+   */
+  list_locations?: boolean;
 }
 
 interface ShopifyVariantNode {
@@ -78,6 +89,29 @@ Deno.serve(withErrorReporting(async (req: Request): Promise<Response> => {
     body = (await req.json()) as ImportRequest;
   } catch {
     body = {};
+  }
+
+  if (body.list_locations) {
+    const result = await shopifyGraphQL<{
+      locations: { nodes: Array<{ id: string; name: string; isActive: boolean }> };
+    }>(`{ locations(first: 50) { nodes { id name isActive } } }`);
+
+    if (result.errors?.length) {
+      return json(
+        { error: 'shopify_query_failed', detail: result.errors.map((e) => e.message) },
+        502,
+      );
+    }
+
+    return json({
+      ok: true,
+      locations: (result.data?.locations.nodes ?? []).map((node) => ({
+        // The numeric tail is what SHOPIFY_LOCATION_ID wants, not the gid.
+        shopify_location_id: parseGid(node.id),
+        name: node.name,
+        is_active: node.isActive,
+      })),
+    });
   }
 
   const summary = {
