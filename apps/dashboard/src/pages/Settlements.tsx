@@ -61,6 +61,7 @@ interface SettlementRow {
   received_at: string | null;
   net_received_egp: number | null;
   status: 'draft' | 'reviewed' | 'exported';
+  note: string | null;
   line_count: number;
   collected_egp: number;
   fees_egp: number;
@@ -336,11 +337,16 @@ function SettlementDetail({
   const [toast, setToast] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [trackingFocused, setTrackingFocused] = useState(false);
+  const [lineNote, setLineNote] = useState('');
+  const [adjLabel, setAdjLabel] = useState('');
+  const [adjAmount, setAdjAmount] = useState('');
+  const [settlementNote, setSettlementNote] = useState('');
+  const [openOrders, setOpenOrders] = useState<AwaitingRow[]>([]);
 
   const codeBox = useRef<HTMLInputElement>(null);
 
   const load = useCallback(async () => {
-    const [head, detail, productRows, breakdownRow] = await Promise.all([
+    const [head, detail, productRows, breakdownRow, waiting] = await Promise.all([
       supabase.from('v_settlements').select('*').eq('id', settlementId).single(),
       supabase.from('v_settlement_statement').select('*').eq('settlement_id', settlementId),
       supabase
@@ -353,6 +359,15 @@ function SettlementDetail({
         .select('*')
         .eq('settlement_id', settlementId)
         .maybeSingle(),
+      // Parcels delivered and not yet on any statement. Typing a tracking
+      // code off their paper still works and is faster when you have the
+      // paper in front of you; this is for the other half of the job, where
+      // you are chasing what has not been paid for yet.
+      supabase
+        .from('v_awaiting_settlement')
+        .select('order_id, order_number, tracking_number, cod_amount_egp, days_waiting, customer_name, fulfillment_status')
+        .order('days_waiting', { ascending: false })
+        .limit(100),
     ]);
     const row = head.data as SettlementRow | null;
     setHeader(row);
@@ -360,7 +375,52 @@ function SettlementDetail({
     setLines((detail.data ?? []) as StatementLine[]);
     setProducts((productRows.data ?? []) as ProductRow[]);
     setBreakdown((breakdownRow.data ?? null) as Breakdown | null);
+    setOpenOrders((waiting.data ?? []) as AwaitingRow[]);
+    setSettlementNote(row?.note ?? '');
   }, [settlementId]);
+
+  /**
+   * A charge that belongs to no parcel: packaging, a returns handling fee, a
+   * correction for last month. Without these a statement cannot be made to
+   * balance, and an unbalanced statement cannot be closed at all.
+   */
+  async function addAdjustment() {
+    const amount = Number(adjAmount);
+    if (!adjLabel.trim() || !Number.isFinite(amount) || amount === 0) {
+      setError(t('settlements.adjustmentIncomplete'));
+      return;
+    }
+
+    setBusy(true);
+    setError(null);
+    const { error: rpcError } = await supabase.rpc('add_settlement_adjustment', {
+      p_settlement_id: settlementId,
+      p_label: adjLabel.trim(),
+      p_amount_egp: amount,
+    });
+    setBusy(false);
+
+    if (rpcError) {
+      setError(rpcError.message);
+      return;
+    }
+    setAdjLabel('');
+    setAdjAmount('');
+    await load();
+  }
+
+  async function saveSettlementNote() {
+    const { error: updateError } = await supabase
+      .from('courier_settlements')
+      .update({ note: settlementNote.trim() || null })
+      .eq('id', settlementId);
+
+    if (updateError) {
+      setError(updateError.message);
+      return;
+    }
+    setToast(t('settlements.noteSaved'));
+  }
 
   useEffect(() => {
     void load();
@@ -407,7 +467,7 @@ function SettlementDetail({
         // keying only the code for a normal delivered line.
         p_collected_egp: collected === '' ? null : Number(collected),
         p_fee_egp: fee === '' ? 0 : Number(fee),
-        p_note: null,
+        p_note: lineNote.trim() || null,
       });
 
       setBusy(false);
@@ -420,11 +480,12 @@ function SettlementDetail({
       setTracking('');
       setCollected('');
       setFee('');
+      setLineNote('');
       setPreview(null);
       codeBox.current?.focus();
       await load();
     },
-    [collected, fee, load, outcome, settlementId],
+    [collected, fee, lineNote, load, outcome, settlementId],
   );
 
   useBarcodeScanner((scanned) => void addLine(scanned), {
@@ -558,6 +619,97 @@ function SettlementDetail({
             </div>
           </div>
 
+          {/* Why this line is not what was expected. The place to write "they
+              charged us twice" while it is still in front of you. */}
+          <Field label={t('settlements.lineNote')}>
+            <Input
+              value={lineNote}
+              onChange={(e) => setLineNote(e.target.value)}
+              placeholder={t('settlements.lineNoteHint')}
+            />
+          </Field>
+
+          {/* Parcels delivered and not yet on any statement, oldest first.
+              The other half of the job: not "what is on their paper" but
+              "what have they still not paid us for". */}
+          {openOrders.length > 0 ? (
+            <details className="rounded-lg border border-duch-line">
+              <summary className="cursor-pointer px-3 py-2 text-xs font-bold text-stone-600">
+                {t('settlements.pickOpen', { count: openOrders.length })}
+              </summary>
+              <ul className="max-h-64 divide-y divide-duch-line overflow-y-auto">
+                {openOrders.map((row) => (
+                  <li key={row.order_id} className="flex items-center gap-3 px-3 py-2 text-sm">
+                    <span className="min-w-0 flex-1">
+                      <span className="tabular block font-semibold" dir="ltr">
+                        {row.order_number}
+                      </span>
+                      <span className="block text-xs text-stone-500">
+                        <bdi>{row.customer_name ?? '—'}</bdi>
+                        {' · '}
+                        {t('settlements.waitingDays', { count: Math.floor(row.days_waiting) })}
+                      </span>
+                    </span>
+                    <span className="tabular text-xs text-stone-500" dir="ltr">
+                      {row.tracking_number ?? '—'}
+                    </span>
+                    <Button
+                      variant="secondary"
+                      className="min-h-9"
+                      disabled={busy || !row.tracking_number}
+                      onClick={() => void addLine(row.tracking_number ?? '')}
+                    >
+                      {t('settlements.add')}
+                    </Button>
+                  </li>
+                ))}
+              </ul>
+            </details>
+          ) : null}
+
+          {/* Charges against the whole statement rather than any one parcel. */}
+          <div className="grid gap-3 border-t border-duch-line pt-3 sm:grid-cols-[2fr_1fr_auto]">
+            <Field label={t('settlements.adjustmentLabel')}>
+              <Input
+                value={adjLabel}
+                onChange={(e) => setAdjLabel(e.target.value)}
+                placeholder={t('settlements.adjustmentHint')}
+              />
+            </Field>
+            <Field label={t('settlements.adjustmentAmount')} hint={t('settlements.adjustmentSign')}>
+              <Input
+                value={adjAmount}
+                onChange={(e) => setAdjAmount(e.target.value)}
+                inputMode="decimal"
+                className="tabular"
+                dir="ltr"
+                placeholder="-200"
+              />
+            </Field>
+            <div className="flex items-end">
+              <Button variant="secondary" onClick={() => void addAdjustment()} disabled={busy}>
+                {t('settlements.addAdjustment')}
+              </Button>
+            </div>
+          </div>
+
+          {/* A note on the statement itself - which day their driver came,
+              what was disputed. It outlives whoever typed it in. */}
+          <div className="grid gap-3 border-t border-duch-line pt-3 sm:grid-cols-[1fr_auto]">
+            <Field label={t('settlements.note')}>
+              <Input
+                value={settlementNote}
+                onChange={(e) => setSettlementNote(e.target.value)}
+                placeholder={t('settlements.noteHint')}
+              />
+            </Field>
+            <div className="flex items-end">
+              <Button variant="secondary" onClick={() => void saveSettlementNote()}>
+                {t('app.save')}
+              </Button>
+            </div>
+          </div>
+
           {preview ? <ParcelCard preview={preview} /> : null}
         </Card>
       ) : null}
@@ -585,12 +737,20 @@ function SettlementDetail({
                     {line.tracking_number ?? '—'}
                   </td>
                   <td className="px-4 py-3">
+                    {/* An adjustment has no order on purpose, so its note is
+                        its name. Only a line that should have matched a
+                        parcel and did not is a problem worth flagging. */}
                     <span className="tabular block font-semibold">
-                      {line.order_number ?? (
-                        <Badge tone="bad">{t('settlements.unmatched')}</Badge>
-                      )}
+                      {line.order_number ??
+                        (line.outcome === 'adjustment' ? (
+                          <bdi className="font-semibold">{line.note ?? '—'}</bdi>
+                        ) : (
+                          <Badge tone="bad">{t('settlements.unmatched')}</Badge>
+                        ))}
                     </span>
-                    <span className="block text-xs text-stone-500">{line.customer_name ?? ''}</span>
+                    <span className="block text-xs text-stone-500">
+                      {line.outcome === 'adjustment' ? '' : (line.customer_name ?? '')}
+                    </span>
                   </td>
                   <td className="px-4 py-3 text-xs">
                     {t(`settlementOutcome.${line.outcome}`)}

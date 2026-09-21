@@ -4,6 +4,7 @@ import { useLocale } from '../i18n';
 import { Button, Card, EmptyState } from './ui';
 
 export interface StatementLine {
+  note: string | null;
   line_id: string;
   tracking_number: string | null;
   outcome: string;

@@ -330,7 +330,20 @@
     "courierCharges": "Courier charges",
     "collectionDifference": "Collection difference",
     "noProducts": "No delivered orders on this statement yet.",
-    "copyManually": "Selected — copy it with your keyboard or a long press."
+    "copyManually": "Selected — copy it with your keyboard or a long press.",
+    "lineNote": "Note on this line",
+    "lineNoteHint": "Optional — e.g. they collected a different amount",
+    "pickOpen": "Pick from {{count}} parcels not yet settled",
+    "waitingDays": "{{count}} days waiting",
+    "adjustmentLabel": "Charge or credit",
+    "adjustmentHint": "e.g. packaging",
+    "adjustmentAmount": "Amount",
+    "adjustmentSign": "Negative takes money off",
+    "addAdjustment": "Add line",
+    "note": "Note on this statement",
+    "noteHint": "Optional",
+    "noteSaved": "Note saved.",
+    "adjustmentIncomplete": "Give it a description and an amount that is not zero."
   },
   "settlementOutcome": {
     "delivered": "Delivered and collected",

@@ -330,7 +330,20 @@
     "courierCharges": "خصومات المندوب",
     "collectionDifference": "فرق في التحصيل",
     "noProducts": "لا توجد طلبات مسلَّمة في هذا الكشف بعد.",
-    "copyManually": "تم التحديد — انسخه من لوحة المفاتيح أو بالضغط المطوّل."
+    "copyManually": "تم التحديد — انسخه من لوحة المفاتيح أو بالضغط المطوّل.",
+    "lineNote": "ملاحظة على السطر",
+    "lineNoteHint": "اختياري — مثلاً: حصّلوا مبلغ مختلف",
+    "pickOpen": "اختر من {{count}} شحنة لم تُحصَّل بعد",
+    "waitingDays": "منذ {{count}} يوم",
+    "adjustmentLabel": "خصم أو إضافة",
+    "adjustmentHint": "مثلاً: مصاريف تغليف",
+    "adjustmentAmount": "المبلغ",
+    "adjustmentSign": "بالسالب للخصم",
+    "addAdjustment": "أضف بند",
+    "note": "ملاحظة على الكشف",
+    "noteHint": "اختياري",
+    "noteSaved": "تم حفظ الملاحظة.",
+    "adjustmentIncomplete": "اكتب وصفاً ومبلغاً لا يساوي صفراً."
   },
   "settlementOutcome": {
     "delivered": "تم التسليم والتحصيل",
