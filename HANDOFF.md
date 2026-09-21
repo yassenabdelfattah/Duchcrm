@@ -26,16 +26,41 @@ most of the design.
 **Built and tested:** Phases 1, 2 and 3 complete.
 
 - 21 migrations, 9 pgTAP suites, **171 database assertions**
-- **41 TypeScript assertions** (webhook HMAC, money arithmetic, invoice totals)
+- **61 TypeScript assertions** (webhook HMAC, money arithmetic, invoice
+  totals, Shopify token exchange)
 - 10 screens, 4 Edge Functions, 1 Cloudflare Worker
-- 19 commits, working tree clean
+- 29 commits, working tree clean
 
 **Not built:** wholesale (Phase 4), staff chat and analytics (Phase 5), Meta
 inbox (Phase 6).
 
-**Not deployed.** Nothing is live. No Shopify custom app exists, no secrets
-set, nothing pushed to Cloudflare. The user has a Supabase project and a
-Cloudflare account, both empty. See [docs/getting-started.md](docs/getting-started.md).
+### Deployment: half live
+
+Supabase project `yyzrhizisdjpwcnnqiwr` (eu-west-1) is real and working.
+
+| | |
+|---|---|
+| Schema | All 21 migrations pushed. The seed is **not** pushed, deliberately. |
+| Edge Functions | All four deployed. |
+| Shopify | Dev Dashboard app connected. Catalogue imported: 47 products, 402 variants, 402 distinct SKUs. |
+| Location | `النزهه`, default, linked to Shopify location `90745733441`. |
+| Stock | **None.** No movements, no opening balance. |
+| Pushes to Shopify | **Off.** See below. |
+| Cloudflare | Nothing. Neither Pages nor the Worker. |
+| Webhooks | Not registered. |
+
+**It is a trial, not a launch.** Staff are going to try the app and give
+feedback before anything real runs on it, so `shopify_push_enabled` is
+`false` — otherwise a test sale would change what duch.store actually sells.
+The Worker is undeployed and opening stock unimported for related reasons.
+**Read [docs/going-live.md](docs/going-live.md) before turning any of that
+on**; the order matters and the trial ledger has to be cleared first.
+
+**Left to do:** push the repo to `github.com/yassenabdelfattah/Duchcrm` and
+connect Cloudflare Pages, register the webhooks, make the first admin.
+21 variants are priced at zero (puffer jackets, crewneck sweaters) and there
+are two `H Genuine Leather Slipper` products differing only in case — both
+for the user to fix in Shopify.
 
 **Blocked:** the Accurate Logistics integration, waiting on their API docs.
 See [docs/accurate-integration.md](docs/accurate-integration.md) for the eight
@@ -139,6 +164,30 @@ confirm button below the fold with no way to reach it.
 **Seeded `auth.users` rows need empty-string token columns** (`confirmation_token`
 and friends), or every sign-in fails with "Database error querying schema",
 which the UI reports as a wrong password.
+
+**In PowerShell, `curl` is not curl.** It is an alias for
+`Invoke-WebRequest`, which rejects repeated `-d` flags with a parameter
+binding error that says nothing about the real problem. Every command handed
+to this user needs `curl.exe`, or PowerShell-native syntax. This cost time
+twice in one session.
+
+**Shopify retired admin-created custom apps.** There is no permanent `shpat_`
+token to copy any more; a Dev Dashboard app holds a client id and secret, and
+the token exchanged from them expires after 24 hours. `_shared/shopify-token.ts`
+handles it. See [docs/shopify-app-setup.md](docs/shopify-app-setup.md).
+
+**A Shopify client id is 32 hex characters.** Half a deployment session went
+into an `application_cannot_be_found` that turned out to be a 14-character
+value in `SHOPIFY_CLIENT_ID`. The functions now report the *shape* of the
+credentials they were given — length, stray quotes, surrounding whitespace —
+without revealing them. Read that before checking anything in the Shopify
+admin.
+
+**`DELETE` on `stock_movements` is refused by a trigger.** That is
+deliberate. `TRUNCATE` is the way past it for the one legitimate case, and
+because that also bypasses the trigger maintaining `stock_levels`, that table
+must be truncated in the same statement. See
+[docs/going-live.md](docs/going-live.md).
 
 **Latin text inside a right-to-left block gets reordered.** An address stored
 as "8 Abbas El Akkad, Nasr City" renders with the house number at the far end
@@ -248,14 +297,17 @@ docs/               getting-started, shopify-app-setup,
 
 In rough priority order. Ask the user rather than assuming.
 
-1. **Deployment** — walk him through `docs/getting-started.md` Part B onwards.
-   Nothing is live and this unblocks real use. Needs him at the keyboard for
-   the Shopify custom app and the secrets, so book it as its own session.
-2. **Accurate integration** — the moment their docs arrive. Replaces manual
+1. **Finish the deployment.** Push to GitHub, connect Cloudflare Pages,
+   register the webhooks, make the first admin. Then staff can trial it on
+   their phones, which is the point.
+2. **Run the trial**, collect feedback, change the flow. Expect this to take
+   a while and to produce most of the remaining work.
+3. **Go live** — [docs/going-live.md](docs/going-live.md), in order.
+4. **Accurate integration** — the moment their docs arrive. Replaces manual
    tracking-code entry and drives every status from `in_transit` onwards.
-3. **Wholesale**, then **staff chat and analytics**, then the **Meta inbox**.
+5. **Wholesale**, then **staff chat and analytics**, then the **Meta inbox**.
 
-There is local demo data in the database — orders `ACC-P-1001`–`1004` and
-statement `ACC-STMT-2026-42`. Alongside it is test residue from verifying the
-invoice and the race test: a `RACE-TEST-HOOD` variant and a handful of
-`S2609-…` store sales. `npm run db:reset` clears all of it.
+The local database was reset on 2026-09-20, so the old demo orders are gone.
+What is there now is the standard seed plus whatever the race test last left
+behind (a `RACE-TEST-HOOD` variant). `npm run db:reset` clears it. None of
+this touches the production project, which has no stock at all.
