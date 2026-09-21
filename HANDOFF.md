@@ -86,7 +86,7 @@ be started without elevation, so if it will not come up, ask the user.
 | `supabase start` | Local Postgres, auth, storage |
 | `npm run db:reset` | Reapply every migration and the seed |
 | `npm run db:test` | 171 pgTAP assertions |
-| `npm test` | 36 vitest assertions |
+| `npm test` | 61 vitest assertions |
 | `npm run typecheck` | All three workspaces |
 | `npm run build` | What Cloudflare Pages runs |
 | `npm run dev` | Dashboard on :5173, also on the LAN |
