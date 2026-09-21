@@ -197,20 +197,41 @@ This lets the app know your role without an extra request. It is a convenience
 only — every security decision reads the database directly, so the CRM is
 correct without it, just marginally slower.
 
-### B4. Make yourself the admin
+### B4. Create the accounts, and make yourself the admin
 
-Sign up through the app with your real email. New accounts are deliberately
-created **inactive with no role**, so nobody can see anything until an admin
-approves them — including you, the first time.
+**The app has no sign-up screen.** That is deliberate — this is an internal
+tool for about ten people, and a public sign-up form on a shop's CRM invites
+exactly the wrong kind of attention. It does mean accounts are created for
+people rather than by them.
 
-Then in the Supabase dashboard's SQL editor:
+In the Supabase dashboard: **Authentication → Users → Add user**, with
+*Auto Confirm User* ticked so they are not waiting on a confirmation email.
+
+A trigger creates the matching `staff` row automatically, **inactive and as
+`sales`**, so a new account can sign in and sees only the holding screen
+until someone gives it a role. That is the intended default: an account that
+exists is not yet an account that can do anything.
+
+Make yourself the admin, in the SQL editor:
 
 ```sql
 update public.staff set role = 'admin', is_active = true
  where id = (select id from auth.users where email = 'you@duch.store');
 ```
 
-After that you can approve everyone else from inside the CRM.
+And for everyone else, once their accounts exist — roles are
+`admin`, `stock_manager`, `sales`, `packing`:
+
+```sql
+update public.staff s set role = 'packing', is_active = true
+  from auth.users u
+ where u.id = s.id and u.email = 'hassan@duch.store';
+```
+
+**There is no staff screen in the CRM yet**, so every activation and role
+change is one of these statements. For a ten-person trial that is a handful
+of SQL lines, once. It is the obvious first thing to build if the trial
+turns into daily use.
 
 ### B5. Create your location
 

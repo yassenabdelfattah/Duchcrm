@@ -88,7 +88,7 @@ be started without elevation, so if it will not come up, ask the user.
 | `npm run db:test` | 171 pgTAP assertions |
 | `npm test` | 61 vitest assertions |
 | `npm run typecheck` | All three workspaces |
-| `npm run build` | What Cloudflare Pages runs |
+| `npm run build` | What Cloudflare runs. Uses `.env.production`, so it points at the **real** project even locally. `npm run dev` still uses `.env`. |
 | `npm run dev` | Dashboard on :5173, also on the LAN |
 | `bash scripts/test-concurrency.sh` | Two-connection race test |
 

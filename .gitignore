@@ -8,6 +8,8 @@ coverage/
 .env
 .env.*
 !.env.example
+# Production build config, committed deliberately - see the file header.
+!.env.production
 .dev.vars
 .wrangler/
 
