@@ -3,11 +3,20 @@ import { createClient } from '@supabase/supabase-js';
 const configuredUrl = import.meta.env.VITE_SUPABASE_URL;
 const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
-if (!configuredUrl || !anonKey) {
-  throw new Error(
-    'VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY must be set. Copy .env.example to .env.',
-  );
-}
+/**
+ * Which of the two are missing, or null when the app is configured.
+ *
+ * These are baked in at build time, so "missing" means the build did not
+ * have them - not something a reload will fix. Throwing here used to take
+ * the whole app down before React mounted, leaving a white page whose only
+ * explanation was a line in the browser console. Staff do not open the
+ * console; they report that the app is broken. main.tsx renders this
+ * instead.
+ */
+export const missingConfig: string[] = [
+  !configuredUrl ? 'VITE_SUPABASE_URL' : null,
+  !anonKey ? 'VITE_SUPABASE_ANON_KEY' : null,
+].filter((name): name is string => name !== null);
 
 /**
  * Where the API lives.
@@ -29,7 +38,9 @@ function resolveApiUrl(configured: string): string {
   return configured;
 }
 
-const url = resolveApiUrl(configuredUrl);
+// A placeholder when unconfigured: createClient() rejects an empty string,
+// and main.tsx shows the configuration screen instead of ever using this.
+const url = configuredUrl ? resolveApiUrl(configuredUrl) : 'https://unconfigured.invalid';
 
 /**
  * The browser client.
@@ -39,7 +50,10 @@ const url = resolveApiUrl(configuredUrl);
  * protects the data. The service role key, which bypasses RLS, must never
  * appear in this app; it lives only in Edge Functions and the Worker.
  */
-export const supabase = createClient(url, anonKey, {
+// `||`, not `??`: an unset Vite variable is an empty string rather than
+// undefined, and createClient rejects an empty key with "supabaseKey is
+// required" before the configuration screen can render.
+export const supabase = createClient(url, anonKey || 'unconfigured', {
   auth: {
     persistSession: true,
     autoRefreshToken: true,
