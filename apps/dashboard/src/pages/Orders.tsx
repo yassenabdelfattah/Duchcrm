@@ -6,6 +6,7 @@ import type { StaffIdentity } from '../providers/authProvider';
 import { useLocale } from '../i18n';
 import { Badge, Button, Card, EmptyState, ErrorNote, Input, Spinner } from '../components/ui';
 import { Invoice } from '../components/Invoice';
+import { OrderEditor } from '../components/OrderEditor';
 
 /**
  * Every order, findable.
@@ -29,6 +30,8 @@ interface OrderRow {
   subtotal_egp: number;
   discount_egp: number;
   cancelled_at: string | null;
+  note: string | null;
+  customer_id: string | null;
   customers: { full_name: string | null; phone: string | null } | null;
   // An order can be shipped more than once - sent, refused, sent again - so
   // this is a list, newest first, and the current code is the first of them.
@@ -46,6 +49,7 @@ export function Orders() {
   const [search, setSearch] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [invoiceId, setInvoiceId] = useState<string | null>(null);
+  const [editing, setEditing] = useState<OrderRow | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
 
   const load = useCallback(async (term: string) => {
@@ -54,6 +58,7 @@ export function Orders() {
       .select(
         'id, order_number, channel, created_at, fulfillment_status, payment_status,' +
           ' payment_method, total_egp, shipping_egp, subtotal_egp, discount_egp, cancelled_at,' +
+          ' note, customer_id,' +
           ' customers ( full_name, phone ),' +
           ' shipments ( tracking_number, status, created_at )',
       )
@@ -146,6 +151,14 @@ export function Orders() {
 
       {error ? <ErrorNote>{error}</ErrorNote> : null}
 
+      {editing ? (
+        <OrderEditor
+          order={editing}
+          onClose={() => setEditing(null)}
+          onSaved={() => void load(search)}
+        />
+      ) : null}
+
       {!rows ? (
         <Spinner label={t('app.loading')} />
       ) : rows.length === 0 ? (
@@ -223,9 +236,22 @@ export function Orders() {
                     </span>
                   ) : null}
 
+                  {/* Editing is offered even on a locked order: the customer's
+                      name and the note are still correctable, and the editor
+                      says which parts are fixed. */}
+                  {maySettle && !cancelled ? (
+                    <Button
+                      variant="secondary"
+                      className="ms-auto"
+                      onClick={() => setEditing(row)}
+                    >
+                      {t('orders.edit')}
+                    </Button>
+                  ) : null}
+
                   <Button
                     variant="secondary"
-                    className="ms-auto"
+                    className={maySettle && !cancelled ? undefined : 'ms-auto'}
                     onClick={() => setInvoiceId(row.id)}
                   >
                     {t('sale.printInvoice')}

@@ -168,7 +168,12 @@ select set_config('request.jwt.claims', '', true);
 
 -- --- The last admin cannot be removed --------------------------------------
 
-delete from public.staff where role = 'admin' and id <> 'cccccccc-0000-0000-0000-00000000000a';
+-- Deactivate the other admins rather than deleting them. Staff who have
+-- touched the ledger cannot be deleted at all now - attribution on an
+-- append-only table is not erasable - and deleting rows this test did not
+-- create was reaching into whatever else happened to be in the database.
+update public.staff set is_active = false
+ where role = 'admin' and id <> 'cccccccc-0000-0000-0000-00000000000a';
 
 select throws_ok(
   $$ update public.staff set is_active = false

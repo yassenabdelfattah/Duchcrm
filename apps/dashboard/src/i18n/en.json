@@ -351,7 +351,13 @@
     "empty": "No orders yet.",
     "markPaid": "Mark paid",
     "cancelled": "Cancelled",
-    "owed": "{{amount}} owed"
+    "owed": "{{amount}} owed",
+    "edit": "Edit",
+    "items": "Items",
+    "addItem": "Add an item by SKU or name",
+    "badPhone": "That phone number is not valid.",
+    "lockedPaid": "This order has been paid for, so its money and contents cannot change. Only the note and the customer details can be corrected.",
+    "lockedCancelled": "This order was cancelled."
   },
   "reports": {
     "title": "Reports and log",
