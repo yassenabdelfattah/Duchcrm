@@ -25,11 +25,11 @@ most of the design.
 
 **Built and tested:** Phases 1, 2 and 3 complete.
 
-- 23 migrations, 10 pgTAP suites, **190 database assertions**
-- **61 TypeScript assertions** (webhook HMAC, money arithmetic, invoice
-  totals, Shopify token exchange)
-- 11 screens, 4 Edge Functions, 1 Cloudflare Worker
-- 38 commits, working tree clean
+- 27 migrations, 11 pgTAP suites, **217 database assertions**
+- **65 TypeScript assertions** (webhook HMAC, money arithmetic, invoice
+  totals, Shopify token exchange, Cairo dates)
+- 12 screens, 4 Edge Functions, 1 Cloudflare Worker
+- 42 commits, working tree clean
 
 **Not built:** wholesale (Phase 4), staff chat and analytics (Phase 5), Meta
 inbox (Phase 6).
@@ -40,7 +40,7 @@ Supabase project `yyzrhizisdjpwcnnqiwr` (eu-west-1) is real and working.
 
 | | |
 |---|---|
-| Schema | All 23 migrations pushed. The seed is **not** pushed, deliberately. |
+| Schema | All 27 migrations pushed. The seed is **not** pushed, deliberately. |
 | Edge Functions | All four deployed. |
 | Shopify | Dev Dashboard app connected. Catalogue imported: 47 products, 402 variants, 402 distinct SKUs. |
 | Location | `النزهه`, default, linked to Shopify location `90745733441`. |
@@ -66,6 +66,16 @@ prices when they are ready, so this is not a fault).
 and roles are set in SQL — see getting-started B4. This is the first thing
 to build if the trial turns into daily use.
 
+**The settlements screen is half finished.** `add_settlement_adjustment`
+exists and is tested, and `add_settlement_line` already takes a note, but
+neither has a button. Picking open orders from `v_unsettled_orders` instead
+of typing tracking codes is not built either. All three were asked for.
+
+**Eight reporting views still have no screen**: refusal costs, customer
+reliability, return cohorts, stock valuation, courier custody, custody
+exceptions, unsettled orders, return check-in summary. They are built and
+tested. The Reports screen surfaces daily sales and the activity log only.
+
 **Blocked:** the Accurate Logistics integration, waiting on their API docs.
 See [docs/accurate-integration.md](docs/accurate-integration.md) for the eight
 questions their docs need to answer. Do not guess their endpoints.
@@ -89,8 +99,8 @@ be started without elevation, so if it will not come up, ask the user.
 |---|---|
 | `supabase start` | Local Postgres, auth, storage |
 | `npm run db:reset` | Reapply every migration and the seed |
-| `npm run db:test` | 190 pgTAP assertions |
-| `npm test` | 61 vitest assertions |
+| `npm run db:test` | 217 pgTAP assertions |
+| `npm test` | 65 vitest assertions |
 | `npm run typecheck` | All three workspaces |
 | `npm run build` | What Cloudflare runs. Uses `.env.production`, so it points at the **real** project even locally. `npm run dev` still uses `.env`. |
 | `npm run dev` | Dashboard on :5173, also on the LAN |
@@ -187,6 +197,18 @@ credentials they were given — length, stray quotes, surrounding whitespace —
 without revealing them. Read that before checking anything in the Shopify
 admin.
 
+**Staff are deactivated, never deleted.** `stock_movements` and
+`order_events` reference `staff` with `on delete restrict`, because they are
+append-only and a ledger that forgets who did something is not much of a
+ledger. Before that was fixed, deleting a staff member failed with
+"stock_movements is append-only; UPDATE is not permitted", which says
+nothing about staff.
+
+**Settlements count goods, never shipping.** Accurate keeps the shipping fee
+the customer pays at the door, so it never reaches the transfer. A delivered
+line carries no courier fee; a refusal does, because nobody paid for that
+delivery.
+
 **`DELETE` on `stock_movements` is refused by a trigger.** That is
 deliberate. `TRUNCATE` is the way past it for the one legitimate case, and
 because that also bypasses the trigger maintaining `stock_levels`, that table
@@ -220,6 +242,11 @@ double-counts website orders and destroys a unit per sale.
 agreement or divergence and recorded. Only the nightly job opens a sync issue,
 and only a person resolves one — because Shopify's webhooks do not arrive in
 order.
+
+**An order can be edited, but only while its money is still open.** Paid, or
+on a courier statement, and everything except the note is refused - those
+figures have been counted. Changing the basket appends a correcting
+`adjustment` movement rather than rewriting the original sale.
 
 **Orders have two statuses.** `fulfillment_status` (where the goods are) and
 `payment_status` (where the money is). With cash on delivery they move on
