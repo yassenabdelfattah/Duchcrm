@@ -35,3 +35,30 @@ export function formatDate(value: string | Date, locale: 'ar' | 'en' = 'en'): st
   if (Number.isNaN(date.getTime())) return '';
   return formatter(locale, { dateStyle: 'medium' }, 'date').format(date);
 }
+
+/**
+ * Today in Cairo, as `YYYY-MM-DD`.
+ *
+ * Not `new Date().toISOString().slice(0, 10)`, which is the UTC date. Egypt
+ * runs summer time, so between roughly 9pm and midnight Cairo the UTC date is
+ * still yesterday - and a report defaulting to "today" would silently open on
+ * the wrong day every evening, which is when the shop is busiest.
+ *
+ * `en-CA` is used because it formats as YYYY-MM-DD, which is what a date
+ * input expects.
+ */
+export function cairoDate(value: string | Date = new Date()): string {
+  const date = typeof value === 'string' ? new Date(value) : value;
+  if (Number.isNaN(date.getTime())) return '';
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: CAIRO,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(date);
+}
+
+/** `cairoDate` shifted by whole days. Negative goes back. */
+export function cairoDatePlusDays(days: number, from: Date = new Date()): string {
+  return cairoDate(new Date(from.getTime() + days * 86_400_000));
+}

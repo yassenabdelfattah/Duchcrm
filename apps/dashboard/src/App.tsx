@@ -15,6 +15,7 @@ import { Orders } from './pages/Orders';
 import { PackingQueue } from './pages/PackingQueue';
 import { Pending } from './pages/Pending';
 import { Products } from './pages/Products';
+import { Reports } from './pages/Reports';
 import { Returns } from './pages/Returns';
 import { Settlements } from './pages/Settlements';
 import { Stock } from './pages/Stock';
@@ -112,6 +113,7 @@ function RefineApp() {
             <Route path="/settlements" element={<Settlements />} />
             <Route path="/stock" element={<Stock />} />
             <Route path="/products" element={<Products />} />
+            <Route path="/reports" element={<Reports />} />
             <Route path="/sync" element={<SyncIssues />} />
           </Route>
         </Route>

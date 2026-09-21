@@ -7,6 +7,7 @@ import {
   toPiastres,
 } from '../packages/shared/src/money';
 import { normalizeEgyptianPhone } from '../packages/shared/src/schemas';
+import { cairoDate, cairoDatePlusDays } from '../packages/shared/src/datetime';
 
 /**
  * Basket arithmetic. The database recomputes all of this before it writes an
@@ -163,5 +164,32 @@ describe('calculateInvoiceTotals', () => {
       total_egp: 1450.1,
     });
     expect(totals.payable_egp).toBe(1520.3);
+  });
+});
+
+describe('cairoDate', () => {
+  // Egypt observes summer time, so Cairo runs 2 or 3 hours ahead of UTC
+  // depending on the month. A report that defaults to "today" using the UTC
+  // date opens on the wrong day every evening.
+  it('returns the Cairo date, not the UTC one, late in the evening', () => {
+    // 22:30 in Cairo during summer time is 19:30 UTC the same day.
+    expect(cairoDate(new Date('2026-09-21T19:30:00Z'))).toBe('2026-09-21');
+  });
+
+  it('is still the Cairo day after UTC has rolled over', () => {
+    // 01:30 UTC on the 22nd is 04:30 on the 22nd in Cairo - same day here.
+    expect(cairoDate(new Date('2026-09-22T01:30:00Z'))).toBe('2026-09-22');
+  });
+
+  it('puts late Cairo evening on the Cairo day, where UTC would still say yesterday', () => {
+    // 23:30 Cairo on 21 September is 20:30 UTC on 21 September in summer, but
+    // in winter (UTC+2) 23:30 Cairo on 1 January is 21:30 UTC the same day.
+    expect(cairoDate(new Date('2026-01-01T21:30:00Z'))).toBe('2026-01-01');
+  });
+
+  it('counts back whole days from today', () => {
+    const from = new Date('2026-09-21T12:00:00Z');
+    expect(cairoDatePlusDays(-7, from)).toBe('2026-09-14');
+    expect(cairoDatePlusDays(0, from)).toBe('2026-09-21');
   });
 });

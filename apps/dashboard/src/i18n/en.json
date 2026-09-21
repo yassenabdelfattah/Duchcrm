@@ -23,7 +23,8 @@
     "staff": "Staff",
     "queue": "Packing queue",
     "returns": "Returns",
-    "settlements": "Settlements"
+    "settlements": "Settlements",
+    "reports": "Reports"
   },
   "auth": {
     "signIn": "Sign in",
@@ -351,5 +352,41 @@
     "markPaid": "Mark paid",
     "cancelled": "Cancelled",
     "owed": "{{amount}} owed"
+  },
+  "reports": {
+    "title": "Reports and log",
+    "from": "From",
+    "to": "To",
+    "preset": {
+      "today": "Today",
+      "week": "7 days",
+      "month": "30 days",
+      "quarter": "90 days"
+    },
+    "tab": {
+      "summary": "Summary",
+      "log": "Log"
+    },
+    "kind": {
+      "all": "All",
+      "stock": "Stock",
+      "order": "Orders"
+    },
+    "orders": "orders",
+    "revenue": "Revenue",
+    "units": "Units",
+    "averageOrder": "Average order",
+    "byChannel": "By source",
+    "byPayment": "By payment method",
+    "byDay": "Day by day",
+    "noSales": "No sales in this period.",
+    "noActivity": "No activity in this period.",
+    "when": "When",
+    "who": "By",
+    "what": "Event",
+    "item": "Item",
+    "change": "Change",
+    "system": "System",
+    "truncated": "Showing the most recent {{count}} entries. Narrow the dates to see the rest."
   }
 }
