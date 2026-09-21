@@ -47,7 +47,29 @@ interface ActivityRow {
   note: string | null;
 }
 
-type Tab = 'summary' | 'log';
+interface RefusalRow {
+  month: string;
+  outcome: string;
+  occurrences: number;
+  fees_egp: number | null;
+  cost_egp: number | null;
+}
+
+interface ReliabilityRow {
+  customer_id: string;
+  full_name: string | null;
+  phone: string | null;
+  governorate: string | null;
+  requires_prepayment: boolean;
+  orders_placed: number;
+  delivered: number;
+  refusals: number;
+  returns_after_delivery: number;
+  refusal_pct: number | null;
+  last_order_at: string | null;
+}
+
+type Tab = 'summary' | 'log' | 'refusals';
 
 const ACTIVITY_LIMIT = 300;
 
@@ -61,6 +83,8 @@ export function Reports() {
 
   const [sales, setSales] = useState<SalesRow[] | null>(null);
   const [activity, setActivity] = useState<ActivityRow[] | null>(null);
+  const [refusals, setRefusals] = useState<RefusalRow[] | null>(null);
+  const [reliability, setReliability] = useState<ReliabilityRow[] | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
@@ -83,15 +107,43 @@ export function Reports() {
 
     if (kind !== 'all') activityQuery = activityQuery.eq('kind', kind);
 
-    const [salesResult, activityResult] = await Promise.all([salesQuery, activityQuery]);
+    // Refusal costs are rolled up by month, so the range is widened to whole
+    // months rather than silently dropping the month the range starts in.
+    const refusalQuery = supabase
+      .from('v_refusal_costs')
+      .select('*')
+      .gte('month', `${from.slice(0, 7)}-01`)
+      .lte('month', `${to.slice(0, 7)}-01`)
+      .order('month', { ascending: false });
 
-    if (salesResult.error || activityResult.error) {
-      setError(salesResult.error?.message ?? activityResult.error?.message ?? null);
+    // Reliability is a lifetime picture of a person, not a period - someone
+    // who refused three parcels last year is still worth knowing about.
+    const reliabilityQuery = supabase
+      .from('v_customer_reliability')
+      .select('*')
+      .gt('orders_placed', 0)
+      .order('refusals', { ascending: false })
+      .order('orders_placed', { ascending: false })
+      .limit(50);
+
+    const [salesResult, activityResult, refusalResult, reliabilityResult] = await Promise.all([
+      salesQuery,
+      activityQuery,
+      refusalQuery,
+      reliabilityQuery,
+    ]);
+
+    const firstError =
+      salesResult.error ?? activityResult.error ?? refusalResult.error ?? reliabilityResult.error;
+    if (firstError) {
+      setError(firstError.message);
       return;
     }
 
     setSales((salesResult.data ?? []) as SalesRow[]);
     setActivity((activityResult.data ?? []) as unknown as ActivityRow[]);
+    setRefusals((refusalResult.data ?? []) as RefusalRow[]);
+    setReliability((reliabilityResult.data ?? []) as ReliabilityRow[]);
   }, [from, to, kind]);
 
   useEffect(() => {
@@ -201,7 +253,7 @@ export function Reports() {
       </Card>
 
       <div className="flex gap-2">
-        {(['summary', 'log'] as const).map((value) => (
+        {(['summary', 'log', 'refusals'] as const).map((value) => (
           <button
             key={value}
             type="button"
@@ -297,7 +349,8 @@ export function Reports() {
             )}
           </div>
         )
-      ) : !activity ? (
+      ) : tab === 'log' ? (
+        !activity ? (
         <Spinner label={t('app.loading')} />
       ) : (
         <div className="space-y-3">
@@ -386,6 +439,112 @@ export function Reports() {
               ) : null}
             </Card>
           )}
+        </div>
+      )
+      ) : !refusals || !reliability ? (
+        <Spinner label={t('app.loading')} />
+      ) : (
+        <div className="space-y-4">
+          {/* What refusals actually cost. A refusal pays a full shipping fee
+              for a parcel that came back, so this is money spent on nothing -
+              the most expensive failure in this business and the one that was
+              invisible until now. */}
+          <Card>
+            <h2 className="mb-1 text-sm font-bold">{t('reports.refusalCost')}</h2>
+            <p className="mb-3 text-xs text-stone-500">{t('reports.refusalCostHelp')}</p>
+
+            {refusals.length === 0 ? (
+              <p className="text-sm text-stone-500">{t('reports.noRefusals')}</p>
+            ) : (
+              <>
+                <p className="tabular mb-3 text-2xl font-extrabold text-red-700">
+                  {formatEGP(
+                    sumMoney(refusals.map((row) => Number(row.cost_egp ?? 0))),
+                    locale,
+                  )}
+                </p>
+                <ul className="space-y-1 text-sm">
+                  {refusals.map((row) => (
+                    <li
+                      key={`${row.month}:${row.outcome}`}
+                      className="flex items-baseline justify-between gap-3"
+                    >
+                      <span>
+                        <span className="tabular text-xs text-stone-500" dir="ltr">
+                          {row.month.slice(0, 7)}
+                        </span>{' '}
+                        {t(`settlementOutcome.${row.outcome}`)}
+                      </span>
+                      <span className="flex items-baseline gap-3">
+                        <span className="tabular text-xs text-stone-500">
+                          {t('reports.occurrences', { count: row.occurrences })}
+                        </span>
+                        <span className="tabular font-semibold text-red-700">
+                          {formatEGP(Number(row.cost_egp ?? 0), locale)}
+                        </span>
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </>
+            )}
+          </Card>
+
+          {/* Who refuses. Not to punish anyone - to decide who should be
+              asked to pay up front, which is the one lever that stops a
+              refusal costing anything at all. */}
+          <Card>
+            <h2 className="mb-1 text-sm font-bold">{t('reports.reliability')}</h2>
+            <p className="mb-3 text-xs text-stone-500">{t('reports.reliabilityHelp')}</p>
+
+            {reliability.length === 0 ? (
+              <p className="text-sm text-stone-500">{t('reports.noCustomers')}</p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-duch-line text-xs text-stone-500">
+                      <th className="py-2 text-start font-bold">{t('reports.customer')}</th>
+                      <th className="py-2 text-end font-bold">{t('reports.ordersPlaced')}</th>
+                      <th className="py-2 text-end font-bold">{t('reports.refused')}</th>
+                      <th className="py-2 text-end font-bold">{t('reports.refusalRate')}</th>
+                      <th className="py-2 text-end font-bold">{t('reports.prepay')}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {reliability.map((row) => {
+                      const pct = Number(row.refusal_pct ?? 0);
+                      return (
+                        <tr key={row.customer_id} className="border-b border-stone-100">
+                          <td className="py-2">
+                            <bdi className="block font-semibold">{row.full_name ?? '—'}</bdi>
+                            <span className="tabular block text-xs text-stone-500" dir="ltr">
+                              {row.phone ?? ''}
+                            </span>
+                          </td>
+                          <td className="tabular py-2 text-end">{row.orders_placed}</td>
+                          <td className="tabular py-2 text-end font-semibold">{row.refusals}</td>
+                          <td
+                            className={cx(
+                              'tabular py-2 text-end font-semibold',
+                              // A third of orders coming back is a pattern,
+                              // not bad luck.
+                              pct >= 33 ? 'text-red-700' : pct > 0 ? 'text-amber-700' : '',
+                            )}
+                          >
+                            {pct > 0 ? `${pct}%` : '—'}
+                          </td>
+                          <td className="py-2 text-end text-xs">
+                            {row.requires_prepayment ? t('reports.prepayYes') : ''}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </Card>
         </div>
       )}
     </div>

@@ -4,7 +4,7 @@
 -- ---------------------------------------------------------------------------
 
 begin;
-select plan(35);
+select plan(36);
 
 -- --- Fixtures --------------------------------------------------------------
 
@@ -400,6 +400,15 @@ select is(
     where settlement_id = 'b2b2b2b2-0000-0000-0000-0000000000f2'),
   0::bigint,
   'An adjustment is not mistaken for a parcel nobody could match'
+);
+
+-- A charge for packaging is not the cost of a refused delivery. Refusal cost
+-- is the number this business watches hardest, and letting other courier
+-- charges leak into it would overstate it by whatever they billed that month.
+select is(
+  (select count(*)::int from public.v_refusal_costs where outcome = 'adjustment'),
+  0,
+  'An adjustment never counts as a refusal cost'
 );
 
 select * from finish();

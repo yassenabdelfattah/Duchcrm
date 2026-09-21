@@ -384,7 +384,8 @@
     },
     "tab": {
       "summary": "Summary",
-      "log": "Log"
+      "log": "Log",
+      "refusals": "Refusals"
     },
     "kind": {
       "all": "All",
@@ -406,6 +407,19 @@
     "item": "Item",
     "change": "Change",
     "system": "System",
-    "truncated": "Showing the most recent {{count}} entries. Narrow the dates to see the rest."
+    "truncated": "Showing the most recent {{count}} entries. Narrow the dates to see the rest.",
+    "refusalCost": "What refusals cost",
+    "refusalCostHelp": "A refused parcel pays a full shipping fee and comes back with nothing to show for it. This is money spent on nothing.",
+    "noRefusals": "No refused parcels in this period.",
+    "occurrences": "{{count}} parcels",
+    "reliability": "Customers and refusals",
+    "reliabilityHelp": "Who refuses delivery. Useful for deciding who should be asked to pay up front.",
+    "noCustomers": "No customers yet.",
+    "ordersPlaced": "Orders",
+    "refused": "Refused",
+    "refusalRate": "Refusal rate",
+    "prepay": "Prepay",
+    "prepayYes": "Required",
+    "customer": "Customer"
   }
 }

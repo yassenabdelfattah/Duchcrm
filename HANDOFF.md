@@ -25,7 +25,7 @@ most of the design.
 
 **Built and tested:** Phases 1, 2 and 3 complete.
 
-- 28 migrations, 11 pgTAP suites, **217 database assertions**
+- 29 migrations, 11 pgTAP suites, **218 database assertions**
 - **65 TypeScript assertions** (webhook HMAC, money arithmetic, invoice
   totals, Shopify token exchange, Cairo dates)
 - 12 screens, 4 Edge Functions, 1 Cloudflare Worker
@@ -40,7 +40,7 @@ Supabase project `yyzrhizisdjpwcnnqiwr` (eu-west-1) is real and working.
 
 | | |
 |---|---|
-| Schema | All 28 migrations pushed. The seed is **not** pushed, deliberately. |
+| Schema | All 29 migrations pushed. The seed is **not** pushed, deliberately. |
 | Edge Functions | All four deployed. |
 | Shopify | Dev Dashboard app connected. Catalogue imported: 47 products, 402 variants, 402 distinct SKUs. |
 | Location | `النزهه`, default, linked to Shopify location `90745733441`. |
@@ -66,10 +66,10 @@ prices when they are ready, so this is not a fault).
 and roles are set in SQL — see getting-started B4. This is the first thing
 to build if the trial turns into daily use.
 
-**Eight reporting views still have no screen**: refusal costs, customer
-reliability, return cohorts, stock valuation, courier custody, custody
-exceptions, unsettled orders, return check-in summary. They are built and
-tested. The Reports screen surfaces daily sales and the activity log only.
+**Six reporting views still have no screen**: return cohorts, stock
+valuation, courier custody, custody exceptions, unsettled orders, return
+check-in summary. They are built and tested. Reports covers daily sales, the
+activity log, refusal costs and customer reliability.
 
 **Blocked:** the Accurate Logistics integration, waiting on their API docs.
 See [docs/accurate-integration.md](docs/accurate-integration.md) for the eight
@@ -94,7 +94,7 @@ be started without elevation, so if it will not come up, ask the user.
 |---|---|
 | `supabase start` | Local Postgres, auth, storage |
 | `npm run db:reset` | Reapply every migration and the seed |
-| `npm run db:test` | 217 pgTAP assertions |
+| `npm run db:test` | 218 pgTAP assertions |
 | `npm test` | 65 vitest assertions |
 | `npm run typecheck` | All three workspaces |
 | `npm run build` | What Cloudflare runs. Uses `.env.production`, so it points at the **real** project even locally. `npm run dev` still uses `.env`. |
