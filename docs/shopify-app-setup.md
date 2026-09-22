@@ -147,14 +147,18 @@ Format **JSON**, API version **2026-07**, and the URL above.
 
 Create one for each of:
 
-| Event | What the CRM does with it |
-|---|---|
-| `Inventory level update` | Classifies it as our own echo, agreement, or an unexplained difference. Never changes stock. |
-| `Product update` | Keeps titles, prices and barcodes current |
-| `Order creation` | Phase 3 — stored now so it can be backfilled |
-| `Order update` | Phase 3 |
-| `Order cancellation` | Phase 3 |
-| `Refund create` | Phase 3 |
+Seven topics, which is what `shopify-webhook` actually handles — anything
+else is recorded and ignored with `unhandled_topic`.
+
+| Shopify event | Topic | What the CRM does with it |
+|---|---|---|
+| Inventory level update | `inventory_levels/update` | Classifies it as our own echo, agreement, or an unexplained difference. Never changes stock. |
+| Product update | `products/update` | Keeps titles, prices and barcodes current |
+| Product creation | `products/create` | Picks up a product added in Shopify without a re-import |
+| Order creation | `orders/create` | Website orders |
+| Order update | `orders/updated` | |
+| Order cancellation | `orders/cancelled` | |
+| Refund create | `refunds/create` | |
 
 The Phase 3 topics are worth registering now. Their payloads are stored from
 day one, so when those handlers are written they can be replayed from
