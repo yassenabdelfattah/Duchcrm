@@ -29,12 +29,12 @@ most of the design.
 - **65 TypeScript assertions** (webhook HMAC, money arithmetic, invoice
   totals, Shopify token exchange, Cairo dates)
 - 12 screens, 4 Edge Functions, 1 Cloudflare Worker
-- 44 commits, working tree clean
+- 48 commits, working tree clean
 
 **Not built:** wholesale (Phase 4), staff chat and analytics (Phase 5), Meta
 inbox (Phase 6).
 
-### Deployment: half live
+### Deployment: live, but deliberately not driving anything
 
 Supabase project `yyzrhizisdjpwcnnqiwr` (eu-west-1) is real and working.
 
@@ -48,7 +48,7 @@ Supabase project `yyzrhizisdjpwcnnqiwr` (eu-west-1) is real and working.
 | Pushes to Shopify | **Off.** See below. |
 | Dashboard | Live at **https://duch-crm.yassentah.workers.dev** - a Workers project (not Pages), built from GitHub on every push to `master`. |
 | Worker (cron) | **Not deployed**, on purpose. |
-| Webhooks | Not registered. |
+| Webhooks | All seven registered and verified. A real `products/update` was received, signature checked, product updated. An unsigned request gets `401 invalid_signature`. |
 | Staff | Six accounts, all admin for the trial. |
 
 **It is a trial, not a launch.** Staff are going to try the app and give
@@ -58,18 +58,24 @@ The Worker is undeployed and opening stock unimported for related reasons.
 **Read [docs/going-live.md](docs/going-live.md) before turning any of that
 on**; the order matters and the trial ledger has to be cleared first.
 
-**Left to do:** register the webhooks. 21 variants are priced at zero
-(puffer jackets and crewneck sweaters still in production — the user adds
-prices when they are ready, so this is not a fault).
+21 variants are priced at zero (puffer jackets and crewneck sweaters still
+in production — the user adds prices when they are ready, so this is not a
+fault).
 
 **No staff screen exists.** Accounts are created in the Supabase dashboard
 and roles are set in SQL — see getting-started B4. This is the first thing
-to build if the trial turns into daily use.
+to build if the trial turns into daily use, and the next thing the user was
+going to be asked about.
 
-**Six reporting views still have no screen**: return cohorts, stock
-valuation, courier custody, custody exceptions, unsettled orders, return
-check-in summary. They are built and tested. Reports covers daily sales, the
-activity log, refusal costs and customer reliability.
+**Four reporting views still have no screen**: return cohorts, stock
+valuation, unsettled orders, return check-in summary. Reports covers daily
+sales, the activity log, refusal costs, customer reliability and courier
+custody.
+
+**Housekeeping owed:** a junk draft settlement referenced `xxxxx` sits in
+production from someone's trial, with an order number typed into the
+tracking field. Delete it before a real statement is entered - under the
+corrected arithmetic it will show a difference.
 
 **Blocked:** the Accurate Logistics integration, waiting on their API docs.
 See [docs/accurate-integration.md](docs/accurate-integration.md) for the eight
@@ -138,6 +144,16 @@ https and the dev server has no certificate.
   was found by executing something — the tests, the app in a browser, the
   toolchain. Several were found only by driving the UI as a specific role.
 - Tell the user plainly when something is unverified.
+- **He runs PowerShell.** Every command handed over needs PowerShell syntax
+  or `curl.exe`. Do not put SQL in a shell-tagged code block: the app puts a
+  Run button on those and he will paste it into a terminal.
+- **He is decisive and dislikes being asked what could be worked out.**
+  Recommend, then act. Do ask about money behaviour, irreversible actions,
+  and anything where guessing wrong means rework - those he answers happily.
+- When he says a thing is wrong, check before agreeing or disagreeing. He was
+  right about the duplicate product being already fixed, and right that the
+  reporting surface was thin. Both were worth verifying rather than
+  accepting or arguing.
 
 ---
 
@@ -174,6 +190,24 @@ confirm button below the fold with no way to reach it.
 and friends), or every sign-in fails with "Database error querying schema",
 which the UI reports as a wrong password.
 
+**Ten reporting views once existed with no screen reading them.** Five now
+have one. When adding a feature, check `information_schema.views` for what
+is already built before writing SQL - the analysis usually exists.
+
+**PostgREST will not filter on an embedded column inside `or`.** It answers
+"failed to parse logic tree" and returns nothing, which looks exactly like
+"no rows matched". Query the other table first and fold the ids in with
+`id.in.(...)` - see the tracking search in `Orders.tsx`.
+
+**`CREATE OR REPLACE VIEW` can only append columns.** Renaming, reordering
+or removing one fails with "cannot change name of view column". Drop and
+recreate, and check nothing depends on it first.
+
+**Dates must be resolved in SQL, in `Africa/Cairo`.** Egypt observes summer
+time, so it is UTC+2 or UTC+3 depending on the month. A UTC date puts
+everything after 9pm on the wrong day. `cairoDate()` in shared does the
+client side; views use `at time zone 'Africa/Cairo'`.
+
 **In PowerShell, `curl` is not curl.** It is an alias for
 `Invoke-WebRequest`, which rejects repeated `-d` flags with a parameter
 binding error that says nothing about the real problem. Every command handed
@@ -209,6 +243,18 @@ deliberate. `TRUNCATE` is the way past it for the one legitimate case, and
 because that also bypasses the trigger maintaining `stock_levels`, that table
 must be truncated in the same statement. See
 [docs/going-live.md](docs/going-live.md).
+
+**Settlements count goods, never shipping.** Accurate keeps the shipping fee
+the customer pays at the door, so it never reaches the transfer. A delivered
+line carries no courier fee; a refusal does, because nobody paid for that
+delivery. The old model collected the shipping and deducted it again, which
+netted correctly but made someone type the courier's own fee onto every
+parcel.
+
+**Adjustments are settlement lines with no order.** Twice now they have
+leaked somewhere meant for parcels: labelled "unknown code" on the statement,
+and counted as a refusal cost. If you add anything that filters on
+`outcome <> 'delivered'`, decide explicitly what it does with `adjustment`.
 
 **Latin text inside a right-to-left block gets reordered.** An address stored
 as "8 Abbas El Akkad, Nasr City" renders with the house number at the far end
@@ -293,6 +339,22 @@ Recorded from the user; most of the design follows from it. Fuller version in
 
 ## Where things live
 
+### The twelve screens
+
+| Route | What it is for |
+|---|---|
+| `/` | Dashboard: today's takings, low stock, **overdue parcels**, sync issues |
+| `/sell` | Takes any order - shop, website or DM - with shipping and payment method |
+| `/orders` | Every order, searchable by number or tracking. Invoice, settle a tab, edit |
+| `/queue` | Packing queue: confirmation call, pack, hand over |
+| `/returns` | Checking returns back in, per item with a count |
+| `/stock` | Levels and adjustments |
+| `/products` | Catalogue |
+| `/reports` | Four tabs: summary · log · refusals · custody |
+| `/settlements` | Entering the courier's statement |
+| `/sync` | Shopify divergences |
+| `/login`, `/pending` | |
+
 ```
 apps/dashboard      React 19 + Vite + Refine (headless) + Tailwind v4
 apps/worker         Cloudflare Worker, cron only
@@ -302,9 +364,13 @@ supabase/functions  shopify-webhook, shopify-import-products,
                     push-inventory, reconcile-stock
 supabase/tests      pgTAP suites
 tests/              vitest
-docs/               getting-started, shopify-app-setup,
+docs/               getting-started, shopify-app-setup, going-live,
                     phase-3-orders-and-returns, accurate-integration
 ```
+
+**Read [docs/going-live.md](docs/going-live.md) before touching pushes, the
+Worker, or opening stock.** It is the ordered sequence out of trial mode,
+and it explains why each thing is currently switched off.
 
 ---
 
@@ -327,19 +393,23 @@ docs/               getting-started, shopify-app-setup,
 
 ## What to do next
 
-In rough priority order. Ask the user rather than assuming.
+In rough priority order. Ask the user rather than assuming — he is decisive
+and dislikes being asked things that could be worked out, but he does want
+to be asked about money behaviour and anything irreversible.
 
-1. **Finish the deployment.** Push to GitHub, connect Cloudflare Pages,
-   register the webhooks, make the first admin. Then staff can trial it on
-   their phones, which is the point.
-2. **Run the trial**, collect feedback, change the flow. Expect this to take
-   a while and to produce most of the remaining work.
-3. **Go live** — [docs/going-live.md](docs/going-live.md), in order.
-4. **Accurate integration** — the moment their docs arrive. Replaces manual
+1. **A staff screen.** Adding a person or changing a role is SQL today. This
+   was agreed as the next thing to build.
+2. **The four remaining views**: return cohorts, stock valuation, unsettled
+   orders, return check-in summary.
+3. **Run the trial**, collect feedback, change the flow. Expect this to
+   produce most of the remaining work.
+4. **Go live** — [docs/going-live.md](docs/going-live.md), in order. Nothing
+   in that list should be switched on piecemeal.
+5. **Accurate integration** — the moment their docs arrive. Replaces manual
    tracking-code entry and drives every status from `in_transit` onwards.
-5. **Wholesale**, then **staff chat and analytics**, then the **Meta inbox**.
+6. **Wholesale**, then **staff chat and analytics**, then the **Meta inbox**.
 
-The local database was reset on 2026-09-20, so the old demo orders are gone.
-What is there now is the standard seed plus whatever the race test last left
-behind (a `RACE-TEST-HOOD` variant). `npm run db:reset` clears it. None of
-this touches the production project, which has no stock at all.
+The local database carries trial fixtures created while building: a
+`RACE-TEST-HOOD` variant, several `S26…`/`D26…`/`W26…` orders, parcels in
+custody (`ACC-CUST-OK`, `ACC-CUST-LATE`, `ACC-CUST-SHORT`) and a refusing
+customer. `npm run db:reset` clears all of it. None of it touches production.
