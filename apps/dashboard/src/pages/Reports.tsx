@@ -69,7 +69,33 @@ interface ReliabilityRow {
   last_order_at: string | null;
 }
 
-type Tab = 'summary' | 'log' | 'refusals';
+interface CustodyRow {
+  shipment_id: string;
+  tracking_number: string | null;
+  status: string;
+  handed_over_at: string | null;
+  cod_amount_egp: number | null;
+  order_number: string;
+  customer_name: string | null;
+  governorate: string | null;
+  days_in_custody: number;
+  units_out: number;
+}
+
+interface DiscrepancyRow {
+  return_id: string;
+  order_number: string;
+  tracking_number: string | null;
+  sku: string;
+  quantity_expected: number;
+  quantity_received: number;
+  quantity_missing: number;
+  condition_note: string | null;
+  customer_name: string | null;
+  received_at: string | null;
+}
+
+type Tab = 'summary' | 'log' | 'refusals' | 'custody';
 
 const ACTIVITY_LIMIT = 300;
 
@@ -85,6 +111,9 @@ export function Reports() {
   const [activity, setActivity] = useState<ActivityRow[] | null>(null);
   const [refusals, setRefusals] = useState<RefusalRow[] | null>(null);
   const [reliability, setReliability] = useState<ReliabilityRow[] | null>(null);
+  const [custody, setCustody] = useState<CustodyRow[] | null>(null);
+  const [overdueIds, setOverdueIds] = useState<Set<string>>(new Set());
+  const [shortfalls, setShortfalls] = useState<DiscrepancyRow[] | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
@@ -126,15 +155,52 @@ export function Reports() {
       .order('orders_placed', { ascending: false })
       .limit(50);
 
-    const [salesResult, activityResult, refusalResult, reliabilityResult] = await Promise.all([
+    // Custody is "right now", not a period: a parcel that has been with the
+    // courier for three weeks does not stop mattering because the date range
+    // says last month.
+    const custodyQuery = supabase
+      .from('v_courier_custody')
+      .select('*')
+      .order('days_in_custody', { ascending: false })
+      .limit(200);
+
+    // The same rows the database already decides are overdue. Recomputing
+    // the thresholds here would mean two definitions of "too long" that
+    // could drift apart.
+    const exceptionsQuery = supabase.from('v_custody_exceptions').select('shipment_id');
+
+    const shortfallQuery = supabase
+      .from('v_return_discrepancies')
+      .select('*')
+      .order('received_at', { ascending: false })
+      .limit(100);
+
+    const [
+      salesResult,
+      activityResult,
+      refusalResult,
+      reliabilityResult,
+      custodyResult,
+      exceptionsResult,
+      shortfallResult,
+    ] = await Promise.all([
       salesQuery,
       activityQuery,
       refusalQuery,
       reliabilityQuery,
+      custodyQuery,
+      exceptionsQuery,
+      shortfallQuery,
     ]);
 
     const firstError =
-      salesResult.error ?? activityResult.error ?? refusalResult.error ?? reliabilityResult.error;
+      salesResult.error ??
+      activityResult.error ??
+      refusalResult.error ??
+      reliabilityResult.error ??
+      custodyResult.error ??
+      exceptionsResult.error ??
+      shortfallResult.error;
     if (firstError) {
       setError(firstError.message);
       return;
@@ -144,6 +210,11 @@ export function Reports() {
     setActivity((activityResult.data ?? []) as unknown as ActivityRow[]);
     setRefusals((refusalResult.data ?? []) as RefusalRow[]);
     setReliability((reliabilityResult.data ?? []) as ReliabilityRow[]);
+    setCustody((custodyResult.data ?? []) as CustodyRow[]);
+    setOverdueIds(
+      new Set((exceptionsResult.data ?? []).map((row) => row.shipment_id as string)),
+    );
+    setShortfalls((shortfallResult.data ?? []) as DiscrepancyRow[]);
   }, [from, to, kind]);
 
   useEffect(() => {
@@ -253,7 +324,7 @@ export function Reports() {
       </Card>
 
       <div className="flex gap-2">
-        {(['summary', 'log', 'refusals'] as const).map((value) => (
+        {(['summary', 'log', 'refusals', 'custody'] as const).map((value) => (
           <button
             key={value}
             type="button"
@@ -441,7 +512,8 @@ export function Reports() {
           )}
         </div>
       )
-      ) : !refusals || !reliability ? (
+      ) : tab === 'refusals' ? (
+        !refusals || !reliability ? (
         <Spinner label={t('app.loading')} />
       ) : (
         <div className="space-y-4">
@@ -543,6 +615,148 @@ export function Reports() {
                   </tbody>
                 </table>
               </div>
+            )}
+          </Card>
+        </div>
+      )
+      ) : !custody || !shortfalls ? (
+        <Spinner label={t('app.loading')} />
+      ) : (
+        <div className="space-y-4">
+          {/* How much is outside the building right now. Not a report about
+              the past - a count of goods somebody else is holding. */}
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            <Stat label={t('custody.parcels')} value={String(custody.length)} />
+            <Stat
+              label={t('custody.units')}
+              value={String(custody.reduce((n, r) => n + Number(r.units_out), 0))}
+            />
+            <Stat
+              label={t('custody.value')}
+              value={formatEGP(
+                sumMoney(custody.map((r) => Number(r.cod_amount_egp ?? 0))),
+                locale,
+              )}
+            />
+            <Stat label={t('custody.overdue')} value={String(overdueIds.size)} />
+          </div>
+
+          {/* Delivery takes three to five days and a refusal comes back
+              within two or three. Anything on this list has stopped moving,
+              and the owner has said plainly that this - not the courier's
+              own tracking - is the control he cares about. */}
+          {overdueIds.size > 0 ? (
+            <Card className="border-red-200 bg-red-50">
+              <h2 className="mb-1 text-sm font-bold text-red-900">{t('custody.overdueTitle')}</h2>
+              <p className="mb-3 text-xs text-red-800">{t('custody.overdueHelp')}</p>
+              <ul className="space-y-2">
+                {custody
+                  .filter((row) => overdueIds.has(row.shipment_id))
+                  .map((row) => (
+                    <li
+                      key={row.shipment_id}
+                      className="flex flex-wrap items-baseline gap-3 text-sm"
+                    >
+                      <span className="tabular font-extrabold" dir="ltr">
+                        {row.tracking_number ?? '—'}
+                      </span>
+                      <span className="tabular text-xs text-stone-600" dir="ltr">
+                        {row.order_number}
+                      </span>
+                      <span className="min-w-0 flex-1 text-xs">
+                        <bdi>{row.customer_name ?? '—'}</bdi>
+                      </span>
+                      <span className="text-xs">{t(`fulfillment.${row.status}`)}</span>
+                      <span className="tabular font-bold text-red-700">
+                        {t('custody.days', { count: Math.floor(row.days_in_custody) })}
+                      </span>
+                    </li>
+                  ))}
+              </ul>
+            </Card>
+          ) : null}
+
+          <Card>
+            <h2 className="mb-3 text-sm font-bold">{t('custody.allTitle')}</h2>
+            {custody.length === 0 ? (
+              <p className="text-sm text-stone-500">{t('custody.none')}</p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-duch-line text-xs text-stone-500">
+                      <th className="py-2 text-start font-bold">{t('queue.trackingNumber')}</th>
+                      <th className="py-2 text-start font-bold">{t('reports.customer')}</th>
+                      <th className="py-2 text-start font-bold">{t('custody.state')}</th>
+                      <th className="py-2 text-end font-bold">{t('custody.unitsShort')}</th>
+                      <th className="py-2 text-end font-bold">{t('custody.withThem')}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {custody.map((row) => {
+                      const late = overdueIds.has(row.shipment_id);
+                      return (
+                        <tr key={row.shipment_id} className="border-b border-stone-100">
+                          <td className="tabular py-2" dir="ltr">
+                            {row.tracking_number ?? '—'}
+                            <span className="block text-xs text-stone-500">
+                              {row.order_number}
+                            </span>
+                          </td>
+                          <td className="py-2">
+                            <bdi>{row.customer_name ?? '—'}</bdi>
+                            <span className="block text-xs text-stone-500">
+                              <bdi>{row.governorate ?? ''}</bdi>
+                            </span>
+                          </td>
+                          <td className="py-2 text-xs">{t(`fulfillment.${row.status}`)}</td>
+                          <td className="tabular py-2 text-end">{row.units_out}</td>
+                          <td
+                            className={cx(
+                              'tabular py-2 text-end font-semibold',
+                              late ? 'text-red-700' : '',
+                            )}
+                          >
+                            {t('custody.days', { count: Math.floor(row.days_in_custody) })}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </Card>
+
+          {/* A parcel that came back short. Not a suspicion like the aged
+              list above - a counted shortfall, recorded at check-in. */}
+          <Card className={shortfalls.length > 0 ? 'border-red-200' : undefined}>
+            <h2 className="mb-1 text-sm font-bold">{t('custody.shortTitle')}</h2>
+            <p className="mb-3 text-xs text-stone-500">{t('custody.shortHelp')}</p>
+            {shortfalls.length === 0 ? (
+              <p className="text-sm text-stone-500">{t('custody.noShort')}</p>
+            ) : (
+              <ul className="space-y-2">
+                {shortfalls.map((row) => (
+                  <li
+                    key={`${row.return_id}:${row.sku}`}
+                    className="flex flex-wrap items-baseline gap-3 text-sm"
+                  >
+                    <span className="tabular font-semibold" dir="ltr">
+                      {row.sku}
+                    </span>
+                    <span className="tabular text-xs text-stone-500" dir="ltr">
+                      {row.order_number}
+                    </span>
+                    <span className="min-w-0 flex-1 text-xs">
+                      <bdi>{row.condition_note ?? ''}</bdi>
+                    </span>
+                    <span className="tabular font-bold text-red-700">
+                      {t('custody.missing', { count: row.quantity_missing })}
+                    </span>
+                  </li>
+                ))}
+              </ul>
             )}
           </Card>
         </div>

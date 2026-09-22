@@ -146,7 +146,8 @@
     "revenueToday": "Revenue today",
     "lowStock": "Low or out of stock",
     "openIssues": "Open sync issues",
-    "recentMovements": "Recent stock movements"
+    "recentMovements": "Recent stock movements",
+    "overdueParcels": "Overdue parcels"
   },
   "queue": {
     "title": "Packing queue",
@@ -385,7 +386,8 @@
     "tab": {
       "summary": "Summary",
       "log": "Log",
-      "refusals": "Refusals"
+      "refusals": "Refusals",
+      "custody": "With courier"
     },
     "kind": {
       "all": "All",
@@ -421,5 +423,23 @@
     "prepay": "Prepay",
     "prepayYes": "Required",
     "customer": "Customer"
+  },
+  "custody": {
+    "parcels": "Parcels with courier",
+    "units": "Units outside",
+    "value": "Cash to collect",
+    "overdue": "Overdue",
+    "overdueTitle": "Parcels that have stopped moving",
+    "overdueHelp": "Delivery takes three to five days and a refusal comes back within two or three. Anything past that needs a phone call.",
+    "allTitle": "Everything with the courier right now",
+    "none": "Nothing is with the courier.",
+    "state": "State",
+    "unitsShort": "Units",
+    "withThem": "With them",
+    "days": "{{count}} days",
+    "shortTitle": "Came back short",
+    "shortHelp": "A counted shortfall recorded at check-in — not a suspicion, a confirmed loss.",
+    "noShort": "No shortfalls recorded.",
+    "missing": "{{count}} missing"
   }
 }

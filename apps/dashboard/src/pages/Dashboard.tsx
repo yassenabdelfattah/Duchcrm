@@ -12,6 +12,7 @@ interface Totals {
   revenue: number;
   lowStock: number;
   openIssues: number;
+  overdueParcels: number;
 }
 
 interface MovementRow {
@@ -55,7 +56,7 @@ export function Dashboard() {
     const since = cairoStartOfDay();
 
     async function load() {
-      const [orders, low, issues, feed] = await Promise.all([
+      const [orders, low, issues, feed, overdue] = await Promise.all([
         supabase
           .from('orders')
           .select('total_egp')
@@ -71,6 +72,12 @@ export function Dashboard() {
           .select('id, created_at, quantity_delta, reason, sku, product_title, staff_name')
           .order('created_at', { ascending: false })
           .limit(12),
+        // Parcels the courier has stopped moving. This belongs on the front
+        // page rather than buried in a report: it is the owner's anti-theft
+        // control, and it only works if somebody sees it every day.
+        supabase
+          .from('v_custody_exceptions')
+          .select('shipment_id', { count: 'exact', head: true }),
       ]);
 
       if (cancelled) return;
@@ -81,6 +88,7 @@ export function Dashboard() {
         revenue: orderRows.reduce((sum, row) => sum + Number(row.total_egp), 0),
         lowStock: low.count ?? 0,
         openIssues: issues.count ?? 0,
+        overdueParcels: overdue.count ?? 0,
       });
       setMovements((feed.data ?? []) as MovementRow[]);
     }
@@ -97,7 +105,7 @@ export function Dashboard() {
     <div className="space-y-5">
       <h1 className="text-lg font-extrabold">{t('dashboard.title')}</h1>
 
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
         <Stat label={t('dashboard.salesToday')} value={String(totals.orders)} />
         <Stat label={t('dashboard.revenueToday')} value={formatEGP(totals.revenue, locale)} />
         <Stat
@@ -105,6 +113,12 @@ export function Dashboard() {
           value={String(totals.lowStock)}
           to="/stock"
           tone={totals.lowStock > 0 ? 'warn' : undefined}
+        />
+        <Stat
+          label={t('dashboard.overdueParcels')}
+          value={String(totals.overdueParcels)}
+          to="/reports"
+          tone={totals.overdueParcels > 0 ? 'bad' : undefined}
         />
         {maySeeSync ? (
           <Stat

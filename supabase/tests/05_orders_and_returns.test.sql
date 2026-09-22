@@ -132,8 +132,12 @@ select is(
 
 -- --- Custody begins at handover --------------------------------------------
 
+-- Scoped to this test's own order. An unscoped count over the whole view
+-- only passes while the database happens to be empty, and quietly starts
+-- failing the moment anyone else's parcel is with the courier.
 select is_empty(
-  $$ select shipment_id from public.v_courier_custody $$,
+  $$ select shipment_id from public.v_courier_custody
+      where order_id = 'a1a1a1a1-0000-0000-0000-0000000000aa' $$,
   'Nothing is in courier custody until it is physically handed over'
 );
 
@@ -252,7 +256,8 @@ select is(
 );
 
 select is_empty(
-  $$ select shipment_id from public.v_courier_custody $$,
+  $$ select shipment_id from public.v_courier_custody
+      where order_id = 'a1a1a1a1-0000-0000-0000-0000000000aa' $$,
   'And nothing is left in courier custody'
 );
 

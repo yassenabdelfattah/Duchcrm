@@ -189,11 +189,16 @@ select is_empty(
   'And it is off the list of what is still owed to us'
 );
 
+-- Scoped to this return. The summary view rolls up by day across everything,
+-- so asserting a bare zero on it passes only while nobody else has recorded
+-- a shortfall today.
 select is(
-  (select units_missing from public.v_return_checkin_summary
-    where received_date = (now() at time zone 'Africa/Cairo')::date),
+  (select coalesce(sum(rl.quantity_missing), 0)
+     from public.return_lines rl
+     join public.returns r on r.id = rl.return_id
+    where r.order_id = 'e5e5e5e5-0000-0000-0000-0000000000a1'),
   0::bigint,
-  'The day''s summary shows nothing missing once the shortfall is resolved'
+  'Nothing is missing on this return once the shortfall is resolved'
 );
 
 -- --- A code we have never seen --------------------------------------------
