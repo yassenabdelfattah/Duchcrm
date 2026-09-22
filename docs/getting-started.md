@@ -212,26 +212,25 @@ A trigger creates the matching `staff` row automatically, **inactive and as
 until someone gives it a role. That is the intended default: an account that
 exists is not yet an account that can do anything.
 
-Make yourself the admin, in the SQL editor:
+Make yourself the admin, in the SQL editor. This first one has to be SQL —
+there is no admin yet to do it from the app:
 
 ```sql
 update public.staff set role = 'admin', is_active = true
  where id = (select id from auth.users where email = 'you@duch.store');
 ```
 
-And for everyone else, once their accounts exist — roles are
-`admin`, `stock_manager`, `sales`, `packing`:
+**Everyone else is done from the app.** Sign in and open **Staff** in the
+nav (admin only). Each new account you add in the Supabase dashboard shows
+up there automatically, inactive and as `sales` — pick its real role and
+switch it on. Roles are `admin`, `stock_manager`, `sales`, `packing`. The SQL
+equivalent still works if you need it:
 
 ```sql
 update public.staff s set role = 'packing', is_active = true
   from auth.users u
  where u.id = s.id and u.email = 'hassan@duch.store';
 ```
-
-**There is no staff screen in the CRM yet**, so every activation and role
-change is one of these statements. For a ten-person trial that is a handful
-of SQL lines, once. It is the obvious first thing to build if the trial
-turns into daily use.
 
 ### B5. Create your location
 

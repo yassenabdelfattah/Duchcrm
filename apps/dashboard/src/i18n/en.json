@@ -441,5 +441,28 @@
     "shortHelp": "A counted shortfall recorded at check-in — not a suspicion, a confirmed loss.",
     "noShort": "No shortfalls recorded.",
     "missing": "{{count}} missing"
+  },
+  "staff": {
+    "title": "Staff",
+    "empty": "No staff accounts yet.",
+    "addHint": "New logins are created in the Supabase dashboard (Authentication → Users). They show up here automatically, inactive, ready to activate.",
+    "name": "Name",
+    "email": "Email",
+    "phone": "Phone",
+    "role": "Role",
+    "status": "Status",
+    "active": "Active",
+    "pending": "Pending approval",
+    "you": "You",
+    "edit": "Edit",
+    "editTitle": "Edit {{name}}",
+    "activateAndSetRole": "Activate this account and give it a role.",
+    "createdAt": "Account created"
+  },
+  "role": {
+    "admin": "Admin",
+    "stock_manager": "Stock manager",
+    "sales": "Sales",
+    "packing": "Packing"
   }
 }

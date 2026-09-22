@@ -25,6 +25,7 @@ const NAV_ITEMS: NavItem[] = [
   { to: '/reports', labelKey: 'nav.reports', capability: 'sales.read', icon: '▧' },
   { to: '/settlements', labelKey: 'nav.settlements', capability: 'settlements.manage', icon: '₤' },
   { to: '/sync', labelKey: 'nav.sync', capability: 'sync.read', icon: '⇄' },
+  { to: '/staff', labelKey: 'nav.staff', capability: 'staff.read', icon: '☺' },
 ];
 
 export function Layout() {

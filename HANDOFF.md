@@ -23,12 +23,12 @@ most of the design.
 
 ## State of play
 
-**Built and tested:** Phases 1, 2 and 3 complete.
+**Built and tested:** Phases 1, 2 and 3 complete, plus the staff screen.
 
-- 29 migrations, 11 pgTAP suites, **218 database assertions**
+- 30 migrations, 12 pgTAP suites, **224 database assertions**
 - **65 TypeScript assertions** (webhook HMAC, money arithmetic, invoice
   totals, Shopify token exchange, Cairo dates)
-- 12 screens, 4 Edge Functions, 1 Cloudflare Worker
+- 13 screens, 4 Edge Functions, 1 Cloudflare Worker
 - 48 commits, working tree clean
 
 **Not built:** wholesale (Phase 4), staff chat and analytics (Phase 5), Meta
@@ -62,10 +62,15 @@ on**; the order matters and the trial ledger has to be cleared first.
 in production — the user adds prices when they are ready, so this is not a
 fault).
 
-**No staff screen exists.** Accounts are created in the Supabase dashboard
-and roles are set in SQL — see getting-started B4. This is the first thing
-to build if the trial turns into daily use, and the next thing the user was
-going to be asked about.
+**The staff screen (`/staff`) is built**, admin only. It replaces the SQL
+from getting-started B4 for activating a new signup and changing a role.
+Creating the login itself stays a Supabase dashboard action, deliberately —
+B4 explains why there is no in-app sign-up form. A new account still shows
+up on the screen automatically, inactive, because the signup trigger already
+makes one; an admin gives it a role and switches it on from there. Reading
+email needed a new admin-only `staff_directory()` function, since
+`auth.users` is not exposed to PostgREST and a security_invoker view (the
+pattern every other view here uses) cannot read it.
 
 **Four reporting views still have no screen**: return cohorts, stock
 valuation, unsettled orders, return check-in summary. Reports covers daily
@@ -339,7 +344,7 @@ Recorded from the user; most of the design follows from it. Fuller version in
 
 ## Where things live
 
-### The twelve screens
+### The thirteen screens
 
 | Route | What it is for |
 |---|---|
@@ -353,6 +358,7 @@ Recorded from the user; most of the design follows from it. Fuller version in
 | `/reports` | Four tabs: summary · log · refusals · custody |
 | `/settlements` | Entering the courier's statement |
 | `/sync` | Shopify divergences |
+| `/staff` | Activate a signup and set its role. Admin only |
 | `/login`, `/pending` | |
 
 ```
@@ -397,17 +403,15 @@ In rough priority order. Ask the user rather than assuming — he is decisive
 and dislikes being asked things that could be worked out, but he does want
 to be asked about money behaviour and anything irreversible.
 
-1. **A staff screen.** Adding a person or changing a role is SQL today. This
-   was agreed as the next thing to build.
-2. **The four remaining views**: return cohorts, stock valuation, unsettled
+1. **The four remaining views**: return cohorts, stock valuation, unsettled
    orders, return check-in summary.
-3. **Run the trial**, collect feedback, change the flow. Expect this to
+2. **Run the trial**, collect feedback, change the flow. Expect this to
    produce most of the remaining work.
-4. **Go live** — [docs/going-live.md](docs/going-live.md), in order. Nothing
+3. **Go live** — [docs/going-live.md](docs/going-live.md), in order. Nothing
    in that list should be switched on piecemeal.
-5. **Accurate integration** — the moment their docs arrive. Replaces manual
+4. **Accurate integration** — the moment their docs arrive. Replaces manual
    tracking-code entry and drives every status from `in_transit` onwards.
-6. **Wholesale**, then **staff chat and analytics**, then the **Meta inbox**.
+5. **Wholesale**, then **staff chat and analytics**, then the **Meta inbox**.
 
 The local database carries trial fixtures created while building: a
 `RACE-TEST-HOOD` variant, several `S26…`/`D26…`/`W26…` orders, parcels in

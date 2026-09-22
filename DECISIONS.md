@@ -305,3 +305,22 @@ Three separate mechanisms, all solving the same class of problem:
   feature.
 - **Accurate Logistics.** No endpoints have been guessed. Nothing will be
   written until their API documentation is provided.
+
+---
+
+## 9. The staff screen manages roles, not logins
+
+The staff screen lets an admin activate a signup and set its role. It
+deliberately does not let an admin create a new login from the app.
+
+Creating one would mean giving an Edge Function the service role key's power
+to call Supabase's Admin API and mint an `auth.users` row - a new
+elevated-privilege surface, reachable from the browser, for a capability
+this project already has a working, if manual, answer for: **Authentication
+→ Users → Add user** in the Supabase dashboard. The signup trigger already
+turns that into an inactive `staff` row with no further code, which is what
+the screen actually needed to solve - see getting-started.md B4.
+
+If this becomes real friction, the fix is a narrowly-scoped Edge Function
+that checks the caller is an admin before calling `auth.admin.createUser`,
+not a general-purpose one.

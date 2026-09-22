@@ -18,6 +18,7 @@ import { Products } from './pages/Products';
 import { Reports } from './pages/Reports';
 import { Returns } from './pages/Returns';
 import { Settlements } from './pages/Settlements';
+import { Staff } from './pages/Staff';
 import { Stock } from './pages/Stock';
 import { StoreSale } from './pages/StoreSale';
 import { SyncIssues } from './pages/SyncIssues';
@@ -88,6 +89,7 @@ function RefineApp() {
         { name: 'returns', list: '/returns', meta: { label: 'nav.returns' } },
         { name: 'settlements', list: '/settlements', meta: { label: 'nav.settlements' } },
         { name: 'sync_issues', list: '/sync', meta: { label: 'nav.sync' } },
+        { name: 'staff', list: '/staff', meta: { label: 'nav.staff' } },
       ]}
       options={{
         syncWithLocation: true,
@@ -115,6 +117,7 @@ function RefineApp() {
             <Route path="/products" element={<Products />} />
             <Route path="/reports" element={<Reports />} />
             <Route path="/sync" element={<SyncIssues />} />
+            <Route path="/staff" element={<Staff />} />
           </Route>
         </Route>
 
