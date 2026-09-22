@@ -251,7 +251,8 @@
     "sessionDamaged": "Damaged",
     "sessionMissing": "Missing",
     "nextParcel": "Next parcel",
-    "chase": "Chase"
+    "chase": "Chase",
+    "everyoneTitle": "Everyone, day by day"
   },
   "returnReason": {
     "no_response": "Never answered",
@@ -387,7 +388,10 @@
       "summary": "Summary",
       "log": "Log",
       "refusals": "Refusals",
-      "custody": "With courier"
+      "custody": "With courier",
+      "cohorts": "Return rate",
+      "valuation": "Stock value",
+      "unsettled": "Unsettled"
     },
     "kind": {
       "all": "All",
@@ -422,7 +426,22 @@
     "refusalRate": "Refusal rate",
     "prepay": "Prepay",
     "prepayYes": "Required",
-    "customer": "Customer"
+    "customer": "Customer",
+    "cohortsTitle": "Return rate by shipping week",
+    "cohortsHelp": "Measured against the week a parcel was handed over, not the week it came back. A cohort younger than 14 days is still moving and will get worse before it settles.",
+    "noCohorts": "No shipped cohorts yet.",
+    "cohortWeek": "Week shipped",
+    "cohortShipped": "Shipped",
+    "cohortFailed": "Failed at the door",
+    "cohortReturned": "Returned after delivery",
+    "cohortStillMoving": "Still moving",
+    "noValuation": "Nothing in stock to value.",
+    "valuationTotal": "Total stock value",
+    "valuationCost": "Unit cost",
+    "valuationValue": "Value",
+    "noUnsettled": "Nothing delivered is waiting on its money.",
+    "unsettledTotal": "Total owed",
+    "unsettledAmount": "Amount"
   },
   "custody": {
     "parcels": "Parcels with courier",

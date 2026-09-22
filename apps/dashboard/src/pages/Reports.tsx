@@ -1,13 +1,16 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useGetIdentity } from '@refinedev/core';
 import {
   cairoDate,
   cairoDatePlusDays,
+  can,
   formatDateTime,
   formatEGP,
   sumMoney,
 } from '@duch/shared';
 import { supabase } from '../lib/supabase';
 import { useLocale } from '../i18n';
+import type { StaffIdentity } from '../providers/authProvider';
 import { Card, EmptyState, ErrorNote, Input, Spinner, cx } from '../components/ui';
 
 /**
@@ -95,12 +98,52 @@ interface DiscrepancyRow {
   received_at: string | null;
 }
 
-type Tab = 'summary' | 'log' | 'refusals' | 'custody';
+interface CohortRow {
+  cohort_week: string;
+  shipped: number;
+  failed_deliveries: number;
+  post_delivery_returns: number;
+  failed_delivery_pct: number | null;
+  post_delivery_pct: number | null;
+  is_mature: boolean;
+}
+
+interface ValuationRow {
+  variant_id: string;
+  sku: string;
+  product_title: string;
+  location_name: string;
+  quantity: number;
+  cost_egp: number;
+  stock_value_egp: number;
+}
+
+interface UnsettledRow {
+  order_id: string;
+  order_number: string;
+  total_egp: number;
+  shipping_egp: number;
+  payment_method: string;
+  tracking_number: string | null;
+  delivered_at: string | null;
+  cod_amount_egp: number | null;
+  days_since_delivery: number;
+  customer_name: string | null;
+}
+
+type Tab = 'summary' | 'log' | 'refusals' | 'custody' | 'cohorts' | 'valuation' | 'unsettled';
 
 const ACTIVITY_LIMIT = 300;
 
 export function Reports() {
   const { t, locale } = useLocale();
+  const { data: identity } = useGetIdentity<StaffIdentity>();
+  // Stock valuation carries cost - the margin - so its tab is hidden from
+  // whoever cannot read variant_costs, the same admin/stock_manager pairing
+  // used everywhere else cost shows up. The database would already return
+  // nothing for anyone else, but showing an always-empty tab is worse than
+  // not showing it.
+  const mayViewValuation = can(identity?.role, 'stock.adjust');
 
   const [from, setFrom] = useState(() => cairoDatePlusDays(-29));
   const [to, setTo] = useState(() => cairoDate());
@@ -114,7 +157,17 @@ export function Reports() {
   const [custody, setCustody] = useState<CustodyRow[] | null>(null);
   const [overdueIds, setOverdueIds] = useState<Set<string>>(new Set());
   const [shortfalls, setShortfalls] = useState<DiscrepancyRow[] | null>(null);
+  const [cohorts, setCohorts] = useState<CohortRow[] | null>(null);
+  const [valuation, setValuation] = useState<ValuationRow[] | null>(null);
+  const [unsettled, setUnsettled] = useState<UnsettledRow[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  const tabs = useMemo(() => {
+    const base: Tab[] = ['summary', 'log', 'refusals', 'custody', 'cohorts'];
+    if (mayViewValuation) base.push('valuation');
+    base.push('unsettled');
+    return base;
+  }, [mayViewValuation]);
 
   const load = useCallback(async () => {
     setError(null);
@@ -175,6 +228,30 @@ export function Reports() {
       .order('received_at', { ascending: false })
       .limit(100);
 
+    // Weeks, not the from/to range: a cohort is only meaningful whole, and
+    // the picker above is for sales, not for this.
+    const cohortQuery = supabase
+      .from('v_return_cohorts')
+      .select('*')
+      .order('cohort_week', { ascending: false })
+      .limit(26);
+
+    // Cost-gated by RLS on variant_costs underneath - a sales or packing
+    // login just gets no rows back, per the comment on the view itself.
+    const valuationQuery = supabase
+      .from('v_stock_valuation')
+      .select('*')
+      .order('stock_value_egp', { ascending: false })
+      .limit(1000);
+
+    // "Right now", the same as custody above - an unsettled order does not
+    // stop mattering because the date range says last month.
+    const unsettledQuery = supabase
+      .from('v_unsettled_orders')
+      .select('*')
+      .order('days_since_delivery', { ascending: false })
+      .limit(200);
+
     const [
       salesResult,
       activityResult,
@@ -183,6 +260,9 @@ export function Reports() {
       custodyResult,
       exceptionsResult,
       shortfallResult,
+      cohortResult,
+      valuationResult,
+      unsettledResult,
     ] = await Promise.all([
       salesQuery,
       activityQuery,
@@ -191,6 +271,9 @@ export function Reports() {
       custodyQuery,
       exceptionsQuery,
       shortfallQuery,
+      cohortQuery,
+      valuationQuery,
+      unsettledQuery,
     ]);
 
     const firstError =
@@ -200,7 +283,10 @@ export function Reports() {
       reliabilityResult.error ??
       custodyResult.error ??
       exceptionsResult.error ??
-      shortfallResult.error;
+      shortfallResult.error ??
+      cohortResult.error ??
+      valuationResult.error ??
+      unsettledResult.error;
     if (firstError) {
       setError(firstError.message);
       return;
@@ -215,6 +301,9 @@ export function Reports() {
       new Set((exceptionsResult.data ?? []).map((row) => row.shipment_id as string)),
     );
     setShortfalls((shortfallResult.data ?? []) as DiscrepancyRow[]);
+    setCohorts((cohortResult.data ?? []) as CohortRow[]);
+    setValuation((valuationResult.data ?? []) as ValuationRow[]);
+    setUnsettled((unsettledResult.data ?? []) as UnsettledRow[]);
   }, [from, to, kind]);
 
   useEffect(() => {
@@ -323,8 +412,8 @@ export function Reports() {
         </div>
       </Card>
 
-      <div className="flex gap-2">
-        {(['summary', 'log', 'refusals', 'custody'] as const).map((value) => (
+      <div className="flex flex-wrap gap-2">
+        {tabs.map((value) => (
           <button
             key={value}
             type="button"
@@ -619,7 +708,8 @@ export function Reports() {
           </Card>
         </div>
       )
-      ) : !custody || !shortfalls ? (
+      ) : tab === 'custody' ? (
+      !custody || !shortfalls ? (
         <Spinner label={t('app.loading')} />
       ) : (
         <div className="space-y-4">
@@ -758,6 +848,167 @@ export function Reports() {
                 ))}
               </ul>
             )}
+          </Card>
+        </div>
+      )
+      ) : tab === 'cohorts' ? (
+        !cohorts ? (
+          <Spinner label={t('app.loading')} />
+        ) : cohorts.length === 0 ? (
+          <EmptyState title={t('reports.noCohorts')} />
+        ) : (
+          <Card className="overflow-x-auto">
+            <h2 className="mb-1 text-sm font-bold">{t('reports.cohortsTitle')}</h2>
+            <p className="mb-3 text-xs text-stone-500">{t('reports.cohortsHelp')}</p>
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-duch-line text-xs text-stone-500">
+                  <th className="py-2 text-start font-bold">{t('reports.cohortWeek')}</th>
+                  <th className="py-2 text-end font-bold">{t('reports.cohortShipped')}</th>
+                  <th className="py-2 text-end font-bold">{t('reports.cohortFailed')}</th>
+                  <th className="py-2 text-end font-bold">{t('reports.cohortReturned')}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {cohorts.map((row) => (
+                  <tr key={row.cohort_week} className="border-b border-stone-100">
+                    <td className="tabular py-2" dir="ltr">
+                      {row.cohort_week}
+                      {!row.is_mature ? (
+                        <span className="ms-2">
+                          <span className="rounded-full bg-stone-100 px-2 py-0.5 text-xs font-semibold text-stone-500">
+                            {t('reports.cohortStillMoving')}
+                          </span>
+                        </span>
+                      ) : null}
+                    </td>
+                    <td className="tabular py-2 text-end">{row.shipped}</td>
+                    <td className="tabular py-2 text-end font-semibold">
+                      {row.failed_deliveries}
+                      {row.failed_delivery_pct !== null ? (
+                        <span className="ms-1 text-xs text-stone-500">
+                          ({row.failed_delivery_pct}%)
+                        </span>
+                      ) : null}
+                    </td>
+                    <td className="tabular py-2 text-end font-semibold">
+                      {row.post_delivery_returns}
+                      {row.post_delivery_pct !== null ? (
+                        <span className="ms-1 text-xs text-stone-500">
+                          ({row.post_delivery_pct}%)
+                        </span>
+                      ) : null}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </Card>
+        )
+      ) : tab === 'valuation' ? (
+        !valuation ? (
+          <Spinner label={t('app.loading')} />
+        ) : valuation.length === 0 ? (
+          <EmptyState title={t('reports.noValuation')} />
+        ) : (
+          <div className="space-y-4">
+            <Stat
+              label={t('reports.valuationTotal')}
+              value={formatEGP(
+                sumMoney(valuation.map((row) => Number(row.stock_value_egp))),
+                locale,
+              )}
+            />
+            <Card className="overflow-x-auto p-0">
+              <table className="w-full text-sm">
+                <thead className="border-b border-duch-line bg-stone-50 text-xs uppercase text-stone-500">
+                  <tr>
+                    <th className="px-4 py-3 text-start font-semibold">{t('stock.product')}</th>
+                    <th className="px-4 py-3 text-start font-semibold">{t('stock.sku')}</th>
+                    <th className="px-4 py-3 text-end font-semibold">{t('stock.quantity')}</th>
+                    <th className="px-4 py-3 text-end font-semibold">{t('reports.valuationCost')}</th>
+                    <th className="px-4 py-3 text-end font-semibold">{t('reports.valuationValue')}</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-duch-line">
+                  {valuation.map((row) => (
+                    <tr key={`${row.variant_id}`}>
+                      <td className="px-4 py-3">
+                        <bdi className="block font-semibold">{row.product_title}</bdi>
+                        <span className="text-xs text-stone-500">{row.location_name}</span>
+                      </td>
+                      <td className="tabular px-4 py-3" dir="ltr">
+                        {row.sku}
+                      </td>
+                      <td className="tabular px-4 py-3 text-end">{row.quantity}</td>
+                      <td className="tabular px-4 py-3 text-end">
+                        {formatEGP(Number(row.cost_egp), locale)}
+                      </td>
+                      <td className="tabular px-4 py-3 text-end font-semibold">
+                        {formatEGP(Number(row.stock_value_egp), locale)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </Card>
+          </div>
+        )
+      ) : !unsettled ? (
+        <Spinner label={t('app.loading')} />
+      ) : unsettled.length === 0 ? (
+        <EmptyState title={t('reports.noUnsettled')} />
+      ) : (
+        <div className="space-y-4">
+          {/* Delivered, but the money has not landed on a settlement yet.
+              Not a period report - the age of the oldest row here is the
+              thing that matters, so it sorts to the top. */}
+          <Stat
+            label={t('reports.unsettledTotal')}
+            value={formatEGP(
+              sumMoney(unsettled.map((row) => Number(row.total_egp))),
+              locale,
+            )}
+          />
+          <Card className="overflow-x-auto p-0">
+            <table className="w-full text-sm">
+              <thead className="border-b border-duch-line bg-stone-50 text-xs uppercase text-stone-500">
+                <tr>
+                  <th className="px-4 py-3 text-start font-semibold">{t('orders.title')}</th>
+                  <th className="px-4 py-3 text-start font-semibold">{t('reports.customer')}</th>
+                  <th className="px-4 py-3 text-start font-semibold">{t('sale.paymentMethod')}</th>
+                  <th className="px-4 py-3 text-end font-semibold">{t('reports.unsettledAmount')}</th>
+                  <th className="px-4 py-3 text-end font-semibold">{t('custody.withThem')}</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-duch-line">
+                {unsettled.map((row) => (
+                  <tr key={row.order_id}>
+                    <td className="tabular px-4 py-3" dir="ltr">
+                      {row.order_number}
+                      <span className="block text-xs text-stone-500">
+                        {row.tracking_number ?? '—'}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3">
+                      <bdi>{row.customer_name ?? '—'}</bdi>
+                    </td>
+                    <td className="px-4 py-3 text-xs">{t(`payment.${row.payment_method}`)}</td>
+                    <td className="tabular px-4 py-3 text-end font-semibold">
+                      {formatEGP(Number(row.cod_amount_egp ?? row.total_egp), locale)}
+                    </td>
+                    <td
+                      className={cx(
+                        'tabular px-4 py-3 text-end font-semibold',
+                        row.days_since_delivery > 7 ? 'text-red-700' : '',
+                      )}
+                    >
+                      {t('custody.days', { count: Math.floor(row.days_since_delivery) })}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </Card>
         </div>
       )}

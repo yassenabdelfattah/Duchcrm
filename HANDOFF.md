@@ -26,7 +26,7 @@ most of the design.
 **Built and tested:** Phases 1, 2 and 3 complete, plus the staff screen.
 
 - 30 migrations, 12 pgTAP suites, **224 database assertions**
-- **65 TypeScript assertions** (webhook HMAC, money arithmetic, invoice
+- **68 TypeScript assertions** (webhook HMAC, money arithmetic, invoice
   totals, Shopify token exchange, Cairo dates)
 - 13 screens, 4 Edge Functions, 1 Cloudflare Worker
 - 48 commits, working tree clean
@@ -72,10 +72,21 @@ email needed a new admin-only `staff_directory()` function, since
 `auth.users` is not exposed to PostgREST and a security_invoker view (the
 pattern every other view here uses) cannot read it.
 
-**Four reporting views still have no screen**: return cohorts, stock
-valuation, unsettled orders, return check-in summary. Reports covers daily
-sales, the activity log, refusal costs, customer reliability and courier
-custody.
+**Reports now has all seven views.** Three new tabs - return rate (cohorts),
+stock value, unsettled orders - join summary, log, refusals and custody. The
+stock-value tab is hidden from anyone who cannot read `variant_costs`
+(sales, packing): the database would return nothing for them anyway, but an
+always-empty tab is worse than no tab. Return check-in summary sits on
+`/returns` instead, as an "everyone, day by day" table above the per-session
+tally already there - that tally resets on reload, so it cannot answer "how
+did today go" once a second phone joins in.
+
+Fixed along the way, not looked for: `formatDate`/`formatDateTime` now strip
+the LRM/RLM marks Intl embeds in an Arabic date, in the shared function
+itself rather than at each call site. Invoice.tsx used to do this locally;
+Returns.tsx's new table did not, and rendered `23/09/2026` as `232026/09/`
+until this was centralized. Found by looking at the actual screen, the same
+way the Invoice.tsx version of this bug was found.
 
 **Housekeeping owed:** a junk draft settlement referenced `xxxxx` sits in
 production from someone's trial, with an order number typed into the
@@ -267,8 +278,12 @@ of the line, and a numeric date renders back to front — 19/09/2026 becomes
 2026/09/19, which a reader can act on wrongly. Wrap anything that might be in
 either language in `<bdi>`, which isolates the run without dragging it to the
 other margin the way `dir="auto"` does. `Intl`'s Arabic date formats embed
-right-to-left marks that survive even that, so `Invoice.tsx` strips them.
-Found by printing an invoice and looking at it.
+right-to-left marks that survive even that. `formatDate`/`formatDateTime` in
+`packages/shared/src/datetime.ts` strip them now, so every caller gets this
+for free - it used to be `Invoice.tsx` stripping them locally, found by
+printing an invoice and looking at it, and then found a second time when a
+new table on `/returns` skipped that step and rendered `23/09/2026` as
+`232026/09/`.
 
 ---
 
@@ -403,15 +418,13 @@ In rough priority order. Ask the user rather than assuming — he is decisive
 and dislikes being asked things that could be worked out, but he does want
 to be asked about money behaviour and anything irreversible.
 
-1. **The four remaining views**: return cohorts, stock valuation, unsettled
-   orders, return check-in summary.
-2. **Run the trial**, collect feedback, change the flow. Expect this to
+1. **Run the trial**, collect feedback, change the flow. Expect this to
    produce most of the remaining work.
-3. **Go live** — [docs/going-live.md](docs/going-live.md), in order. Nothing
+2. **Go live** — [docs/going-live.md](docs/going-live.md), in order. Nothing
    in that list should be switched on piecemeal.
-4. **Accurate integration** — the moment their docs arrive. Replaces manual
+3. **Accurate integration** — the moment their docs arrive. Replaces manual
    tracking-code entry and drives every status from `in_transit` onwards.
-5. **Wholesale**, then **staff chat and analytics**, then the **Meta inbox**.
+4. **Wholesale**, then **staff chat and analytics**, then the **Meta inbox**.
 
 The local database carries trial fixtures created while building: a
 `RACE-TEST-HOOD` variant, several `S26…`/`D26…`/`W26…` orders, parcels in

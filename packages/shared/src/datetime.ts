@@ -24,16 +24,30 @@ function formatter(locale: 'ar' | 'en', options: Intl.DateTimeFormatOptions, key
   return cached;
 }
 
+// ar-EG's medium date style is numeric (23/09/2026) rather than spelled out,
+// and Intl embeds LRM/RLM marks around the numbers to keep them ordered
+// inside Arabic text. Those marks survive being wrapped in <bdi> - the
+// isolation the rest of the app relies on - because they are inside the
+// string itself, not the surrounding markup. Left in, a browser lays the day
+// out after the year: 23/09/2026 renders as 232026/09/. Stripped here once,
+// every caller gets a date nobody has to read twice, matching this module's
+// own promise of Latin digits in a fixed order regardless of language.
+const DIRECTION_MARKS = /[‎‏]/g;
+
 export function formatDateTime(value: string | Date, locale: 'ar' | 'en' = 'en'): string {
   const date = typeof value === 'string' ? new Date(value) : value;
   if (Number.isNaN(date.getTime())) return '';
-  return formatter(locale, { dateStyle: 'medium', timeStyle: 'short' }, 'datetime').format(date);
+  return formatter(locale, { dateStyle: 'medium', timeStyle: 'short' }, 'datetime')
+    .format(date)
+    .replace(DIRECTION_MARKS, '');
 }
 
 export function formatDate(value: string | Date, locale: 'ar' | 'en' = 'en'): string {
   const date = typeof value === 'string' ? new Date(value) : value;
   if (Number.isNaN(date.getTime())) return '';
-  return formatter(locale, { dateStyle: 'medium' }, 'date').format(date);
+  return formatter(locale, { dateStyle: 'medium' }, 'date')
+    .format(date)
+    .replace(DIRECTION_MARKS, '');
 }
 
 /**

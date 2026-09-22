@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { can } from '@duch/shared';
+import { can, formatDate } from '@duch/shared';
 import { useGetIdentity } from '@refinedev/core';
 import { supabase } from '../lib/supabase';
 import type { StaffIdentity } from '../providers/authProvider';
@@ -100,8 +100,16 @@ interface Session {
   missing: number;
 }
 
+interface CheckinDayRow {
+  received_date: string;
+  parcels: number;
+  units_back_in_stock: number;
+  units_damaged: number;
+  units_missing: number;
+}
+
 export function Returns() {
-  const { t } = useLocale();
+  const { t, locale } = useLocale();
   const { data: identity } = useGetIdentity<StaffIdentity>();
   const mayCheckIn = can(identity?.role, 'orders.pack');
 
@@ -117,16 +125,25 @@ export function Returns() {
   // number is that somebody notices it.
   const [session, setSession] = useState<Session>({ parcels: 0, back: 0, damaged: 0, missing: 0 });
   const [scanBoxFocused, setScanBoxFocused] = useState(false);
+  // Everyone's check-ins, not just this browser tab's - the session tally
+  // above resets the moment the page reloads, which a phone does on its own.
+  const [days, setDays] = useState<CheckinDayRow[] | null>(null);
 
   const scanBox = useRef<HTMLInputElement>(null);
 
   const load = useCallback(async () => {
-    const [inboundResult, shortResult] = await Promise.all([
+    const [inboundResult, shortResult, daysResult] = await Promise.all([
       supabase.from('v_returns_inbound').select('*').order('days_since_reported', { ascending: false }),
       supabase.from('v_return_discrepancies').select('*').limit(200),
+      supabase
+        .from('v_return_checkin_summary')
+        .select('*')
+        .order('received_date', { ascending: false })
+        .limit(7),
     ]);
     setInbound((inboundResult.data ?? []) as InboundRow[]);
     setShort((shortResult.data ?? []) as DiscrepancyRow[]);
+    setDays((daysResult.data ?? []) as CheckinDayRow[]);
   }, []);
 
   useEffect(() => {
@@ -225,6 +242,47 @@ export function Returns() {
               <Tally label={t('returns.sessionMissing')} value={session.missing} tone="bad" />
             </dl>
           ) : null}
+        </Card>
+      ) : null}
+
+      {mayCheckIn && days && days.length > 0 ? (
+        <Card className="overflow-x-auto">
+          <h2 className="mb-3 text-sm font-bold">{t('returns.everyoneTitle')}</h2>
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-duch-line text-xs text-stone-500">
+                <th className="py-2 text-start font-bold">{t('reports.when')}</th>
+                <th className="py-2 text-end font-bold">{t('returns.sessionParcels')}</th>
+                <th className="py-2 text-end font-bold">{t('returns.sessionBack')}</th>
+                <th className="py-2 text-end font-bold">{t('returns.sessionDamaged')}</th>
+                <th className="py-2 text-end font-bold">{t('returns.sessionMissing')}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {days.map((row) => (
+                <tr key={row.received_date} className="border-b border-stone-100">
+                  <td className="tabular py-2 text-xs" dir="ltr">
+                    {formatDate(row.received_date, locale)}
+                  </td>
+                  <td className="tabular py-2 text-end">{row.parcels}</td>
+                  <td className="tabular py-2 text-end text-emerald-600 font-semibold">
+                    {row.units_back_in_stock}
+                  </td>
+                  <td className="tabular py-2 text-end text-amber-600 font-semibold">
+                    {row.units_damaged}
+                  </td>
+                  <td
+                    className={cx(
+                      'tabular py-2 text-end font-semibold',
+                      row.units_missing > 0 && 'text-red-600',
+                    )}
+                  >
+                    {row.units_missing}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </Card>
       ) : null}
 

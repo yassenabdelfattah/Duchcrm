@@ -251,7 +251,8 @@
     "sessionDamaged": "تالف",
     "sessionMissing": "ناقص",
     "nextParcel": "الشحنة التالية",
-    "chase": "متابعة"
+    "chase": "متابعة",
+    "everyoneTitle": "الجميع، يوماً بيوم"
   },
   "returnReason": {
     "no_response": "لم يرد",
@@ -387,7 +388,10 @@
       "summary": "ملخص",
       "log": "السجل",
       "refusals": "الرفض",
-      "custody": "العهدة"
+      "custody": "العهدة",
+      "cohorts": "نسبة الرجوع",
+      "valuation": "قيمة المخزون",
+      "unsettled": "غير مسوّى"
     },
     "kind": {
       "all": "الكل",
@@ -422,7 +426,22 @@
     "refusalRate": "نسبة الرفض",
     "prepay": "دفع مقدم",
     "prepayYes": "مطلوب",
-    "customer": "العميل"
+    "customer": "العميل",
+    "cohortsTitle": "نسبة الرجوع حسب أسبوع الشحن",
+    "cohortsHelp": "تُحسب على أساس أسبوع تسليم الشحنة للمندوب، لا أسبوع رجوعها. الأسبوع الذي عمره أقل من ١٤ يوماً ما زال يتحرك وسيزداد سوءاً قبل أن يستقر.",
+    "noCohorts": "لا توجد شحنات مُسلَّمة بعد.",
+    "cohortWeek": "أسبوع الشحن",
+    "cohortShipped": "المشحون",
+    "cohortFailed": "رفض عند الباب",
+    "cohortReturned": "رجع بعد التسليم",
+    "cohortStillMoving": "ما زال يتحرك",
+    "noValuation": "لا يوجد مخزون لتقييمه.",
+    "valuationTotal": "القيمة الإجمالية للمخزون",
+    "valuationCost": "تكلفة الوحدة",
+    "valuationValue": "القيمة",
+    "noUnsettled": "لا توجد شحنات مُسلَّمة بانتظار تحصيل مالها.",
+    "unsettledTotal": "الإجمالي المستحق",
+    "unsettledAmount": "المبلغ"
   },
   "custody": {
     "parcels": "شحنات عند المندوب",

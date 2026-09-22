@@ -7,7 +7,7 @@ import {
   toPiastres,
 } from '../packages/shared/src/money';
 import { normalizeEgyptianPhone } from '../packages/shared/src/schemas';
-import { cairoDate, cairoDatePlusDays } from '../packages/shared/src/datetime';
+import { cairoDate, cairoDatePlusDays, formatDate, formatDateTime } from '../packages/shared/src/datetime';
 
 /**
  * Basket arithmetic. The database recomputes all of this before it writes an
@@ -191,5 +191,29 @@ describe('cairoDate', () => {
     const from = new Date('2026-09-21T12:00:00Z');
     expect(cairoDatePlusDays(-7, from)).toBe('2026-09-14');
     expect(cairoDatePlusDays(0, from)).toBe('2026-09-21');
+  });
+});
+
+describe('formatDate and formatDateTime', () => {
+  // ar-EG's medium date style is numeric, and Intl wraps the parts in
+  // LRM/RLM marks to keep them ordered inside surrounding Arabic text. Left
+  // in, a browser lays a table cell out with the day after the year -
+  // 23/09/2026 renders as 232026/09/. This was found by looking at a real
+  // page, not by reading the code, so it is pinned here too.
+  const DIRECTION_MARKS = /[‎‏]/;
+
+  it('carries no direction marks into an Arabic date', () => {
+    const value = formatDate(new Date('2026-09-23T12:00:00Z'), 'ar');
+    expect(value).not.toMatch(DIRECTION_MARKS);
+    expect(value).toBe('23/09/2026');
+  });
+
+  it('carries no direction marks into an Arabic date and time', () => {
+    const value = formatDateTime(new Date('2026-09-23T12:00:00Z'), 'ar');
+    expect(value).not.toMatch(DIRECTION_MARKS);
+  });
+
+  it('still renders an English date the same as before', () => {
+    expect(formatDate(new Date('2026-09-23T12:00:00Z'), 'en')).toBe('23 Sept 2026');
   });
 });

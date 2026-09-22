@@ -188,12 +188,7 @@ export function Invoice({ orderId, onClose }: { orderId: string; onClose: () => 
     ? (PAYMENT_LABELS[order.payment_method] ?? null)
     : null;
 
-  // Intl's Arabic formats separate the parts of a date with right-to-left
-  // marks. Those marks survive into the DOM and split "19/09/2026" into three
-  // runs that the bidi algorithm then reorders - the date renders as
-  // 2026/09/19, or as 19/2026/09 if the element is merely forced to ltr. A
-  // date a reader can misread by a decade is worth stripping them for.
-  const invoiceDate = formatDate(order.created_at, 'ar').replace(/[‎‏]/g, '');
+  const invoiceDate = formatDate(order.created_at, 'ar');
   const isPaid = order.payment_status === 'paid';
 
   const sellerAddress = [business.address_ar, business.address_en].filter(Boolean);
