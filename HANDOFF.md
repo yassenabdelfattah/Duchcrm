@@ -25,7 +25,7 @@ most of the design.
 
 **Built and tested:** Phases 1, 2 and 3 complete, plus the staff screen.
 
-- 30 migrations, 12 pgTAP suites, **224 database assertions**
+- 31 migrations, 12 pgTAP suites, **235 database assertions**
 - **68 TypeScript assertions** (webhook HMAC, money arithmetic, invoice
   totals, Shopify token exchange, Cairo dates)
 - 13 screens, 4 Edge Functions, 1 Cloudflare Worker
@@ -174,6 +174,17 @@ https and the dev server has no certificate.
 ---
 
 ## Traps already hit — do not rediscover these
+
+**`orders.fulfillment_status` only ever reaches `delivered` for a store-channel
+sale.** `create_store_sale` and the store branch of `create_manual_order` set it
+outright, because the sale is handed over as it is rung up. A courier-shipped
+order has no code path that ever sets it, pending the Accurate integration -
+so `lookup_return_by_order_number`'s `needs_post_delivery_record` state, which
+is gated on `fulfillment_status = 'delivered'`, only fires for a shop sale
+today. That is correct for what it was built for (a customer walking back
+into the shop with something bought there, which has no tracking code to
+scan), not a gap to "fix" by loosening the gate - a courier order sitting at
+`out_for_delivery` forever is a tracking problem, not a returns one.
 
 **pgTAP defines `public.has_role(name)` returning `text`.** Our helper is
 `has_any_role` for exactly that reason. Never name a function `has_role`.
@@ -367,7 +378,7 @@ Recorded from the user; most of the design follows from it. Fuller version in
 | `/sell` | Takes any order - shop, website or DM - with shipping and payment method |
 | `/orders` | Every order, searchable by number or tracking. Invoice, settle a tab, edit |
 | `/queue` | Packing queue: confirmation call, pack, hand over |
-| `/returns` | Checking returns back in, per item with a count |
+| `/returns` | Checking returns back in, per item with a count. Looks up a courier tracking code or an order number - a shop sale has no tracking code at all |
 | `/stock` | Levels and adjustments |
 | `/products` | Catalogue |
 | `/reports` | Four tabs: summary · log · refusals · custody |

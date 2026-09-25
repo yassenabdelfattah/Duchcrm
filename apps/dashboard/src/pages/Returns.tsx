@@ -79,8 +79,9 @@ interface Lookup {
     | 'already_received'
     | 'ready_to_receive'
     | 'needs_failure_record'
+    | 'needs_post_delivery_record'
     | 'not_returnable';
-  tracking_number: string;
+  tracking_number: string | null;
   order: {
     id: string;
     order_number: string;
@@ -163,15 +164,37 @@ export function Returns() {
         p_tracking: trimmed,
       });
 
-      setLooking(false);
-      setCode('');
-
       if (rpcError) {
+        setLooking(false);
+        setCode('');
         setError(rpcError.message);
         return;
       }
 
-      const result = data as Lookup;
+      let result = data as Lookup;
+
+      // Not every order ships - a shop sale is handed over and has no
+      // tracking code at all. The same box that reads a courier barcode also
+      // takes an order number, tried second so a code Accurate hands out
+      // that happens to collide with nothing is never mistaken for one.
+      if (result.state === 'not_found') {
+        const { data: byOrder, error: orderError } = await supabase.rpc(
+          'lookup_return_by_order_number',
+          { p_order_number: trimmed },
+        );
+
+        if (orderError) {
+          setLooking(false);
+          setCode('');
+          setError(orderError.message);
+          return;
+        }
+
+        result = byOrder as Lookup;
+      }
+
+      setLooking(false);
+      setCode('');
 
       if (result.state === 'not_found') {
         setError(t('returns.notFound'));
@@ -449,7 +472,9 @@ function CheckInDialog({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const needsReason = lookup?.state === 'needs_failure_record';
+  const needsFailureReason = lookup?.state === 'needs_failure_record';
+  const needsPostDeliveryReason = lookup?.state === 'needs_post_delivery_record';
+  const needsReason = needsFailureReason || needsPostDeliveryReason;
 
   useEffect(() => {
     if (!lookup) return;
@@ -520,9 +545,10 @@ function CheckInDialog({
     let returnId = target.return?.id ?? null;
     let lineIds = counts.map((c) => c.return_line_id);
 
-    // The failure was never recorded, so record it now. This creates the
-    // return with a line per item, which is what the check-in then fills in.
-    if (needsReason) {
+    // Neither the failure nor the counter return was recorded yet, so record
+    // it now. This creates the return with a line per item, which is what
+    // the check-in then fills in - one action instead of two.
+    if (needsFailureReason) {
       const { data, error: failError } = await supabase.rpc(
         'record_delivery_failure_by_tracking',
         { p_tracking: target.tracking_number, p_reason: reason, p_note: note || null },
@@ -539,6 +565,33 @@ function CheckInDialog({
       const { data: fresh, error: lookupError } = await supabase.rpc(
         'lookup_return_by_tracking',
         { p_tracking: target.tracking_number },
+      );
+
+      if (lookupError) {
+        setBusy(false);
+        setError(lookupError.message);
+        return;
+      }
+
+      lineIds = (fresh as Lookup).lines.map((l) => l.return_line_id);
+    } else if (needsPostDeliveryReason) {
+      const { data, error: startError } = await supabase.rpc('start_post_delivery_return', {
+        p_order_id: target.order.id,
+        p_reason: reason,
+        p_note: note || null,
+      });
+
+      if (startError) {
+        setBusy(false);
+        setError(startError.message);
+        return;
+      }
+
+      returnId = (data as { id: string }).id;
+
+      const { data: fresh, error: lookupError } = await supabase.rpc(
+        'lookup_return_by_order_number',
+        { p_order_number: target.order.order_number },
       );
 
       if (lookupError) {
@@ -580,20 +633,24 @@ function CheckInDialog({
     <Modal
       open
       title={
-        needsReason
+        needsFailureReason
           ? t('returns.needsFailureTitle', { orderNumber: target.order.order_number })
-          : t('returns.checkInTitle', { orderNumber: target.order.order_number })
+          : needsPostDeliveryReason
+            ? t('returns.needsPostDeliveryTitle', { orderNumber: target.order.order_number })
+            : t('returns.checkInTitle', { orderNumber: target.order.order_number })
       }
       onClose={onClose}
     >
       <div className="space-y-3">
         <p className="tabular rounded-lg bg-stone-50 px-3 py-2 text-xs text-stone-600" dir="ltr">
-          {target.tracking_number}
+          {target.tracking_number ?? target.order.order_number}
         </p>
 
         {needsReason ? (
           <div className="space-y-2">
-            <p className="text-xs text-stone-500">{t('returns.needsFailureHelp')}</p>
+            <p className="text-xs text-stone-500">
+              {needsFailureReason ? t('returns.needsFailureHelp') : t('returns.needsPostDeliveryHelp')}
+            </p>
             <div className="grid grid-cols-2 gap-2">
               {RETURN_REASONS.map((value) => (
                 <button

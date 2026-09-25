@@ -7,7 +7,7 @@
 -- ---------------------------------------------------------------------------
 
 begin;
-select plan(16);
+select plan(27);
 
 -- --- Fixtures --------------------------------------------------------------
 
@@ -67,6 +67,14 @@ select is(
   (public.lookup_return_by_tracking('ACC-RET-0001') #>> '{order_lines,0,quantity}')::int,
   3,
   'And still shows what went out, so the packer knows what to expect inside'
+);
+
+select is(
+  public.lookup_return_by_order_number(
+    (select order_number from public.orders where id = 'e5e5e5e5-0000-0000-0000-0000000000a1')
+  ) ->> 'state',
+  'needs_failure_record',
+  'The order number for the same parcel agrees with the tracking code'
 );
 
 -- --- Recording it from the code in hand ------------------------------------
@@ -201,12 +209,149 @@ select is(
   'Nothing is missing on this return once the shortfall is resolved'
 );
 
+-- --- A shop sale, handed over and never shipped -----------------------------
+--
+-- Born delivered, so it has no shipment and no tracking code - the only door
+-- in has to be the order number every channel has.
+
+insert into public.orders (
+  id, order_number, channel, fulfillment_status, payment_status, location_id,
+  customer_id, payment_method, subtotal_egp, shipping_egp, total_egp
+)
+values (
+  'e5e5e5e5-0000-0000-0000-0000000000b1', public.next_order_number('store'), 'store',
+  'delivered', 'paid', 'e5e5e5e5-0000-0000-0000-000000000001',
+  'e5e5e5e5-0000-0000-0000-00000000000c', 'cash', 2000, 0, 2000
+);
+
+insert into public.order_line_items (order_id, variant_id, sku, title, quantity, unit_price_egp, total_egp)
+values ('e5e5e5e5-0000-0000-0000-0000000000b1', 'e5e5e5e5-0000-0000-0000-000000000003',
+        'RET-JKT', 'Return Test Jacket', 1, 2000, 2000);
+
+select public.record_stock_movements(
+  'e5e5e5e5-0000-0000-0000-000000000001',
+  'store_sale',
+  '[{"variant_id":"e5e5e5e5-0000-0000-0000-000000000003","quantity_delta":-1}]'::jsonb
+);
+
+select is(
+  public.lookup_return_by_order_number(
+    (select order_number from public.orders where id = 'e5e5e5e5-0000-0000-0000-0000000000b1')
+  ) ->> 'state',
+  'needs_post_delivery_record',
+  'A shop sale with no return yet offers to record one, by its order number'
+);
+
+select is(
+  (public.lookup_return_by_order_number(
+    (select order_number from public.orders where id = 'e5e5e5e5-0000-0000-0000-0000000000b1')
+  ) #>> '{order_lines,0,quantity}')::int,
+  1,
+  'And shows what was sold, so the counter knows what to expect back'
+);
+
+select lives_ok(
+  $$ select public.start_post_delivery_return(
+       'e5e5e5e5-0000-0000-0000-0000000000b1', 'wrong_size', 'Customer wants a size up'
+     ) $$,
+  'The counter return can be recorded from the order number alone'
+);
+
+-- Fulfillment status is still 'delivered' at this point - receive_return is
+-- what moves it on - so this is the guard against opening a second return
+-- while this one is still being counted, not the "nothing to return" guard.
+select throws_ok(
+  $$ select public.start_post_delivery_return(
+       'e5e5e5e5-0000-0000-0000-0000000000b1', 'wrong_size'
+     ) $$,
+  '23505',
+  null,
+  'A second counter return cannot be opened while one is still being checked in'
+);
+
+select is(
+  public.lookup_return_by_order_number(
+    (select order_number from public.orders where id = 'e5e5e5e5-0000-0000-0000-0000000000b1')
+  ) ->> 'state',
+  'ready_to_receive',
+  'The same lookup now offers to check it in'
+);
+
+select public.receive_return(
+  (select id from public.returns where order_id = 'e5e5e5e5-0000-0000-0000-0000000000b1'),
+  (
+    select jsonb_build_array(jsonb_build_object(
+      'return_line_id', rl.id,
+      'quantity_resellable', 1,
+      'quantity_damaged', 0
+    ))
+    from public.return_lines rl
+    join public.returns r on r.id = rl.return_id
+    where r.order_id = 'e5e5e5e5-0000-0000-0000-0000000000b1'
+  ),
+  'Handed back at the counter, unworn'
+);
+
+select is(
+  (select quantity from public.stock_levels
+    where variant_id = 'e5e5e5e5-0000-0000-0000-000000000003'),
+  9,
+  'The jacket is back in stock, same as any other return'
+);
+
+select is(
+  public.lookup_return_by_order_number(
+    (select order_number from public.orders where id = 'e5e5e5e5-0000-0000-0000-0000000000b1')
+  ) ->> 'state',
+  'already_received',
+  'Looking it up again says it is done'
+);
+
+-- receive_return has since moved fulfillment_status on to 'returned', so
+-- this now fails the delivered check rather than the open-return check -
+-- still refused, for the equally good reason that it already came back.
+select throws_ok(
+  $$ select public.start_post_delivery_return(
+       'e5e5e5e5-0000-0000-0000-0000000000b1', 'wrong_size'
+     ) $$,
+  '22023',
+  null,
+  'And once it has been received, there is nothing left to return either'
+);
+
+-- --- Nothing to return before it has even been delivered --------------------
+
+insert into public.orders (
+  id, order_number, channel, fulfillment_status, payment_status, location_id,
+  customer_id, payment_method, subtotal_egp, shipping_egp, total_egp
+)
+values (
+  'e5e5e5e5-0000-0000-0000-0000000000c1', public.next_order_number('online'), 'online',
+  'awaiting_confirmation', 'pending', 'e5e5e5e5-0000-0000-0000-000000000001',
+  'e5e5e5e5-0000-0000-0000-00000000000c', 'cod', 2000, 70, 2000
+);
+
+select throws_ok(
+  $$ select public.start_post_delivery_return(
+       'e5e5e5e5-0000-0000-0000-0000000000c1', 'wrong_size'
+     ) $$,
+  '22023',
+  null,
+  'An order that was never delivered has nothing to return'
+);
+
 -- --- A code we have never seen --------------------------------------------
 
 select is(
   public.lookup_return_by_tracking('NOT-A-REAL-CODE') ->> 'state',
   'not_found',
   'An unknown code says so plainly'
+);
+
+select is(
+  public.lookup_return_by_order_number('NOT-A-REAL-ORDER') ->> 'state',
+  'not_found',
+  'An unknown order number says so just as plainly'
 );
 
 select * from finish();
