@@ -49,7 +49,7 @@ corrected forward (an adjustment), never by truncating.
 | Stock | Opening balance imported from Shopify on 2026-09-27 after a hand count: 225 variants with stock, the rest at zero. Three slippers (`HSL-39F-BLK`, `HSL-44M-OLV`, `HSL-45M-OLV`) came in at -1 - Shopify's `available`, meaning an unshipped website order and nothing on the shelf. |
 | Pushes to Shopify | **On.** First drain verified: 237 pushes succeeded, only the puffer jackets actually changed on Shopify. |
 | Dashboard | Live at **https://duch-crm.yassentah.workers.dev** - a Workers project (not Pages), built from GitHub on every push to `master`. |
-| Worker (cron) | **Not deployed yet.** Until it is, nothing retries a failed push and nothing runs the nightly reconcile - both have to be triggered by hand (see going-live.md). |
+| Worker (cron) | **Deployed 2026-09-27** as `duch-crm-worker`: outbox drain every minute, reconcile at 00:00 UTC. Always pass `-c apps/worker/wrangler.toml` - without it Wrangler can resolve the dashboard's root config instead. Its first run pushed the first live website order's two variants; Shopify recorded no change, confirming a web sale is not double-counted. |
 | Webhooks | All seven registered and verified. |
 | Staff | Six accounts: one `stock_manager`, five still `admin`. |
 
@@ -467,9 +467,11 @@ In rough priority order. Ask the user rather than assuming — he is decisive
 and dislikes being asked things that could be worked out, but he does want
 to be asked about money behaviour and anything irreversible.
 
-1. **Deploy the Worker** - the last go-live step. Until then failed pushes
-   are not retried and the nightly reconcile does not run.
-2. **Replace the leaked service_role key** - see "Owed" above.
+1. **Replace the leaked service_role key** - see "Owed" above. The Worker's
+   `SUPABASE_SERVICE_ROLE_KEY` secret changes with it.
+2. **Check the first nightly reconcile** (00:00 UTC) - Sync issues should be
+   empty or close to it. A screen full of mismatches means the location id is
+   wrong.
 3. **Invoice and packing slip layout** - the user is sending a template to
    work from. Wait for it.
 4. **Accurate integration** — the moment their docs arrive. Replaces manual
