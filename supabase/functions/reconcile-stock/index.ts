@@ -12,12 +12,16 @@
  * flight.
  */
 
+import { authorize } from '../_shared/auth.ts';
 import { adminClient, corsHeaders, json, withErrorReporting } from '../_shared/db.ts';
 import { config } from '../_shared/env.ts';
 import { fetchAllInventoryLevels } from '../_shared/shopify.ts';
 
 Deno.serve(withErrorReporting(async (req: Request): Promise<Response> => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
+
+  const refused = await authorize(req, ['admin', 'stock_manager']);
+  if (refused) return refused;
 
   const db = adminClient();
   const startedAt = Date.now();

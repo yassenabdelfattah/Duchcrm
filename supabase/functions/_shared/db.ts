@@ -18,17 +18,20 @@ export function adminClient(): SupabaseClient {
   return client;
 }
 
-export const json = (body: unknown, status = 200): Response =>
-  new Response(JSON.stringify(body), {
-    status,
-    headers: { 'Content-Type': 'application/json' },
-  });
-
 export const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 };
+
+// CORS headers go on every response, not just the preflight. Without them the
+// dashboard's request still runs - the import finished - but the browser is
+// not allowed to read the answer, so the screen never learns it succeeded.
+export const json = (body: unknown, status = 200): Response =>
+  new Response(JSON.stringify(body), {
+    status,
+    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+  });
 
 /**
  * Wraps a handler so a thrown error becomes a readable response.

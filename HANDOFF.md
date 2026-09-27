@@ -182,6 +182,19 @@ answers `ok: true` having done something else entirely. The opening-stock
 import did exactly this on go-live day and reported zero movements. Hand the
 user `Invoke-RestMethod ... -Body '{...}'`, which passes the string as-is.
 
+**`verify_jwt` accepts the anon key.** It only proves a token is genuine, and
+the anon key - which ships in the dashboard bundle - is genuine. Until
+`_shared/auth.ts` existed, anyone could start an import, a reconcile or a
+stock push with the service role's access, no login needed. Every function
+behind `verify_jwt` now calls `authorize()` first: the service role, or an
+active staff member in the allowed roles. The webhook is the exception - it
+has no user, and its HMAC is its authorisation.
+
+**Edge Function responses need CORS headers on every response, not just
+the preflight.** `json()` in `_shared/db.ts` adds them. Without them the
+dashboard's request runs - the import finished - but the browser is not
+allowed to read the answer, so the screen never says it worked.
+
 **The catalogue import matches variants on `shopify_variant_id`, not SKU.**
 It used to match on SKU, so a SKU renamed in Shopify became an insert with a
 Shopify id that already existed, the unique constraint refused it, and the

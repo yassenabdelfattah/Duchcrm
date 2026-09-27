@@ -10,6 +10,7 @@
  * rather than lost.
  */
 
+import { authorize } from '../_shared/auth.ts';
 import { adminClient, corsHeaders, json, withErrorReporting } from '../_shared/db.ts';
 import { setInventoryQuantity } from '../_shared/shopify.ts';
 
@@ -34,6 +35,11 @@ Deno.serve(withErrorReporting(async (req: Request): Promise<Response> => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
   }
+
+  // Every role that can move stock triggers a push: a sale, a return checked
+  // in, an adjustment. The Worker's drain arrives as the service role.
+  const refused = await authorize(req, ['admin', 'stock_manager', 'sales', 'packing']);
+  if (refused) return refused;
 
   const db = adminClient();
   let body: PushRequest = {};
