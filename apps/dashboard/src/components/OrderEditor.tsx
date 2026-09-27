@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { PAYMENT_METHODS, calculateInvoiceTotals, formatEGP, normalizeEgyptianPhone } from '@duch/shared';
 import type { PaymentMethod } from '@duch/shared';
 import { supabase } from '../lib/supabase';
-import { useLocale } from '../i18n';
+import { isolate, useLocale } from '../i18n';
 import { Button, ErrorNote, Field, Input, Modal, Select, Spinner } from './ui';
 
 /**
@@ -220,7 +220,7 @@ export function OrderEditor({
   }
 
   return (
-    <Modal open title={`${t("orders.edit")} · ${order.order_number}`} onClose={onClose}>
+    <Modal open title={`${t("orders.edit")} · ${isolate(order.order_number)}`} onClose={onClose}>
       <div className="space-y-4">
         {moneyLocked ? (
           <p className="rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-900">

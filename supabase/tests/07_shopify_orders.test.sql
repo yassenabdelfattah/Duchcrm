@@ -8,7 +8,7 @@
 -- ---------------------------------------------------------------------------
 
 begin;
-select plan(20);
+select plan(22);
 
 -- --- Fixtures --------------------------------------------------------------
 
@@ -85,6 +85,18 @@ select lives_ok(
        'c3c3c3c3-0000-0000-0000-000000000001'
      ) $$,
   'A storefront order is imported'
+);
+
+select is(
+  (select order_number from public.orders where shopify_order_id = 5001),
+  '#5001',
+  'It keeps the number Shopify gave it, the one on the customer''s email'
+);
+
+select is(
+  public.lookup_return_by_order_number('5001') #>> '{order,order_number}',
+  '#5001',
+  'The returns screen finds it when someone types the number without the #'
 );
 
 select is(

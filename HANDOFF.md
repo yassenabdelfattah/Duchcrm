@@ -25,7 +25,7 @@ most of the design.
 
 **Built and tested:** Phases 1, 2 and 3 complete, plus the staff screen.
 
-- 31 migrations, 12 pgTAP suites, **235 database assertions**
+- 32 migrations, 12 pgTAP suites, **237 database assertions**
 - **68 TypeScript assertions** (webhook HMAC, money arithmetic, invoice
   totals, Shopify token exchange, Cairo dates)
 - 13 screens, 4 Edge Functions, 1 Cloudflare Worker
@@ -42,7 +42,7 @@ corrected forward (an adjustment), never by truncating.
 
 | | |
 |---|---|
-| Schema | All 31 migrations pushed. The seed is **not** pushed, deliberately. |
+| Schema | All 32 migrations pushed. The seed is **not** pushed, deliberately. |
 | Edge Functions | All four deployed. The three behind `verify_jwt` now also require the service role or an active staff member (`_shared/auth.ts`). |
 | Shopify | Catalogue: 47 products, 402 variants. Import matches on `shopify_variant_id`, so SKU renames in Shopify update in place. |
 | Location | `النزهه`, default, linked to Shopify location `90745733441`. |
@@ -179,6 +179,13 @@ https and the dev server has no certificate.
 ---
 
 ## Traps already hit — do not rediscover these
+
+**Website orders are numbered by Shopify (`#1402`), not the CRM.** Anything
+matching on order number must allow for the `#` - the returns lookup accepts
+it with or without. A `#1402` inside an Arabic sentence renders as `1402#`
+unless isolated; `interpolate()` in `i18n/index.tsx` wraps every value in
+Unicode isolate marks for that reason, and `isolate()` is exported for text
+built outside `t()`. On its own line it renders correctly without help.
 
 **Shopify 2026-07 changed `inventorySetQuantities`.** `ignoreCompareQuantity`
 is gone and `compareQuantity` became `changeFromQuantity`, which must be sent

@@ -39,11 +39,20 @@ function lookup(dictionary: Record<string, unknown>, key: string): string | unde
   return typeof value === 'string' ? value : undefined;
 }
 
-/** Replaces {{count}} style placeholders. */
+/**
+ * Wraps a value in Unicode first-strong isolate marks (invisible), so it keeps
+ * its own direction inside a sentence in the other language. Without it a
+ * website order number reads "1402#" in the middle of Arabic text - measured,
+ * not assumed: "#1402" on its own line was fine, the same number inside
+ * "تم استلام #1402" was not.
+ */
+export const isolate = (value: string): string => `⁨${value}⁩`;
+
+/** Replaces {{count}} style placeholders, each isolated - see above. */
 function interpolate(template: string, params?: Record<string, unknown>): string {
   if (!params) return template;
   return template.replace(/\{\{(\w+)\}\}/g, (match, name: string) =>
-    name in params ? String(params[name]) : match,
+    name in params ? isolate(String(params[name])) : match,
   );
 }
 
