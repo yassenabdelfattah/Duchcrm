@@ -171,9 +171,13 @@ export function parseGid(value: string | null | undefined): number | null {
  * even though the schema does not mark it as required. Passing the push row's
  * key means a retry after a timeout cannot apply the same change twice.
  *
- * compareQuantity is Shopify's optimistic lock. If the storefront sold a unit
- * between us reading and us writing, the mutation fails rather than silently
- * overwriting that sale, and we re-read and try again.
+ * changeFromQuantity is Shopify's optimistic lock. If the storefront sold a
+ * unit between us reading and us writing, the mutation fails with
+ * CHANGE_FROM_QUANTITY_STALE rather than silently overwriting that sale.
+ * In 2026-07 it replaced compareQuantity and the input-level
+ * ignoreCompareQuantity flag, and it must be sent on every quantity - null
+ * where there is nothing to compare against. Sending the old fields made
+ * Shopify reject every push outright on go-live day.
  */
 const SET_INVENTORY_MUTATION = /* GraphQL */ `
   mutation DuchSetInventory($input: InventorySetQuantitiesInput!, $idempotencyKey: String!) {
@@ -216,16 +220,12 @@ export interface SetInventoryResult {
 }
 
 export async function setInventoryQuantity(args: SetInventoryArgs): Promise<SetInventoryResult> {
-  const quantity: Record<string, unknown> = {
+  const quantity = {
     inventoryItemId: gid.inventoryItem(args.inventoryItemId),
     locationId: gid.location(args.locationId),
     quantity: args.quantity,
+    changeFromQuantity: typeof args.compareQuantity === 'number' ? args.compareQuantity : null,
   };
-
-  const useCompare = typeof args.compareQuantity === 'number';
-  if (useCompare) {
-    quantity.compareQuantity = args.compareQuantity;
-  }
 
   const body = await shopifyGraphQL<{
     inventorySetQuantities: {
@@ -238,7 +238,6 @@ export async function setInventoryQuantity(args: SetInventoryArgs): Promise<SetI
       name: args.name ?? 'available',
       reason: 'correction',
       referenceDocumentUri: args.referenceDocumentUri ?? 'https://duch.store/crm',
-      ignoreCompareQuantity: !useCompare,
       quantities: [quantity],
     },
   });

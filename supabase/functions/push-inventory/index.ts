@@ -172,8 +172,9 @@ async function pushOne(
   // arguments returns IDEMPOTENCY_KEY_PARAMETER_MISMATCH.
   const compareFailed = result.userErrors.some(
     (e) =>
+      e.code === 'CHANGE_FROM_QUANTITY_STALE' ||
       e.code === 'COMPARE_QUANTITY_STALE' ||
-      /compare/i.test(e.message ?? ''),
+      /stale/i.test(e.message ?? ''),
   );
 
   if (!result.ok && compareFailed) {
