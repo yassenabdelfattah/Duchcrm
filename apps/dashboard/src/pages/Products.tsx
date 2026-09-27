@@ -57,7 +57,19 @@ export function Products() {
     setImporting(false);
 
     if (invokeError) {
-      setError(invokeError.message);
+      // supabase-js only says "non-2xx status code". The function's own
+      // answer - which SKU, and why - is in the response body.
+      let message = invokeError.message;
+      const context = (invokeError as { context?: Response }).context;
+      if (context) {
+        try {
+          const body = (await context.json()) as { error?: string; sku?: string; detail?: string };
+          message = [body.error, body.sku, body.detail].filter(Boolean).join(' · ') || message;
+        } catch {
+          // Not JSON - keep the generic message.
+        }
+      }
+      setError(message);
       return;
     }
 

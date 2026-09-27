@@ -2,8 +2,9 @@
  * One-way import of the Shopify catalogue into the CRM.
  *
  * Run once at setup, and again whenever products are added in Shopify. It is
- * safe to re-run: products and variants are matched on their Shopify ids and
- * SKUs, so a second run updates rather than duplicates.
+ * safe to re-run: products and variants are matched on their Shopify ids, so a
+ * second run updates rather than duplicates - including a SKU renamed in
+ * Shopify, which updates the existing variant.
  *
  * It deliberately does NOT import stock quantities. The CRM owns stock, and
  * the opening count is recorded through the ledger as an `initial_import`
@@ -230,6 +231,13 @@ Deno.serve(withErrorReporting(async (req: Request): Promise<Response> => {
               : null
           : null;
 
+        // Matched on Shopify's variant id, never on SKU. A SKU is something
+        // people edit; matching on it turned a renamed SKU into an attempt to
+        // add a second variant with an id that was already taken, and the
+        // unique constraint stopped the whole import partway through. Matching
+        // on the id renames the existing row instead, which also keeps its
+        // stock history attached - the ledger points at the variant, not the
+        // SKU.
         const { error: variantError } = await db.from('variants').upsert(
           {
             product_id: product.id,
@@ -247,7 +255,7 @@ Deno.serve(withErrorReporting(async (req: Request): Promise<Response> => {
             track_inventory: variant.inventoryItem?.tracked ?? true,
             shopify_synced_at: new Date().toISOString(),
           },
-          { onConflict: 'sku' },
+          { onConflict: 'shopify_variant_id' },
         );
 
         if (variantError) {

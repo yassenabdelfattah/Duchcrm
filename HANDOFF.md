@@ -175,6 +175,19 @@ https and the dev server has no certificate.
 
 ## Traps already hit — do not rediscover these
 
+**`curl.exe` from Windows PowerShell mangles a JSON body.** PowerShell 5.1
+strips the inner double quotes before the native exe sees them, so an Edge
+Function receives unparseable JSON, treats it as an empty request and
+answers `ok: true` having done something else entirely. The opening-stock
+import did exactly this on go-live day and reported zero movements. Hand the
+user `Invoke-RestMethod ... -Body '{...}'`, which passes the string as-is.
+
+**The catalogue import matches variants on `shopify_variant_id`, not SKU.**
+It used to match on SKU, so a SKU renamed in Shopify became an insert with a
+Shopify id that already existed, the unique constraint refused it, and the
+import stopped partway - reported in the dashboard only as "non-2xx status
+code". The Products screen now shows the function's own error and SKU.
+
 **`orders.fulfillment_status` only ever reaches `delivered` for a store-channel
 sale.** `create_store_sale` and the store branch of `create_manual_order` set it
 outright, because the sale is handed over as it is rung up. A courier-shipped

@@ -141,8 +141,15 @@ from Shopify, so correct Shopify first, where it disagrees with the count.
 **5. Import the opening stock.**
 
 ```bash
-curl.exe -s -X POST "$SUPABASE_URL/functions/v1/shopify-import-products" -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" -H "Content-Type: application/json" -d "{\"import_opening_stock\": true, \"location_id\": \"<the CRM location uuid>\"}"
+$env:SUPABASE_SERVICE_ROLE_KEY = "the service_role key"
+Invoke-RestMethod -Method Post -Uri "https://<project-ref>.supabase.co/functions/v1/shopify-import-products" -Headers @{ Authorization = "Bearer $env:SUPABASE_SERVICE_ROLE_KEY" } -ContentType "application/json" -Body '{"import_opening_stock": true, "location_id": "<the CRM location uuid>"}' | ConvertTo-Json -Depth 5
 ```
+
+Not `curl.exe`. Windows PowerShell strips the double quotes inside a JSON
+body before `curl.exe` sees it, the function cannot parse what arrives, and
+it falls back to a plain catalogue import - answering `ok: true` with
+`opening_stock_movements: 0` and no error. That happened on the real go-live.
+`opening_stock_movements` should be the number of variants with stock.
 
 **6. Check a handful against the shop floor** before trusting the rest.
 
