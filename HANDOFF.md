@@ -34,29 +34,39 @@ most of the design.
 **Not built:** wholesale (Phase 4), staff chat and analytics (Phase 5), Meta
 inbox (Phase 6).
 
-### Deployment: live, but deliberately not driving anything
+### Deployment: LIVE since 2026-09-27
 
-Supabase project `yyzrhizisdjpwcnnqiwr` (eu-west-1) is real and working.
+Supabase project `yyzrhizisdjpwcnnqiwr` (eu-west-1). The CRM now owns real
+stock and drives duch.store. There is no reset any more: mistakes are
+corrected forward (an adjustment), never by truncating.
 
 | | |
 |---|---|
-| Schema | All 29 migrations pushed. The seed is **not** pushed, deliberately. |
-| Edge Functions | All four deployed. |
-| Shopify | Dev Dashboard app connected. Catalogue imported: 47 products, 402 variants, 402 distinct SKUs. |
+| Schema | All 31 migrations pushed. The seed is **not** pushed, deliberately. |
+| Edge Functions | All four deployed. The three behind `verify_jwt` now also require the service role or an active staff member (`_shared/auth.ts`). |
+| Shopify | Catalogue: 47 products, 402 variants. Import matches on `shopify_variant_id`, so SKU renames in Shopify update in place. |
 | Location | `النزهه`, default, linked to Shopify location `90745733441`. |
-| Stock | **None.** No movements, no opening balance. |
-| Pushes to Shopify | **Off.** See below. |
+| Stock | Opening balance imported from Shopify on 2026-09-27 after a hand count: 225 variants with stock, the rest at zero. Three slippers (`HSL-39F-BLK`, `HSL-44M-OLV`, `HSL-45M-OLV`) came in at -1 - Shopify's `available`, meaning an unshipped website order and nothing on the shelf. |
+| Pushes to Shopify | **On.** First drain verified: 237 pushes succeeded, only the puffer jackets actually changed on Shopify. |
 | Dashboard | Live at **https://duch-crm.yassentah.workers.dev** - a Workers project (not Pages), built from GitHub on every push to `master`. |
-| Worker (cron) | **Not deployed**, on purpose. |
-| Webhooks | All seven registered and verified. A real `products/update` was received, signature checked, product updated. An unsigned request gets `401 invalid_signature`. |
-| Staff | Six accounts, all admin for the trial. |
+| Worker (cron) | **Not deployed yet.** Until it is, nothing retries a failed push and nothing runs the nightly reconcile - both have to be triggered by hand (see going-live.md). |
+| Webhooks | All seven registered and verified. |
+| Staff | Six accounts: one `stock_manager`, five still `admin`. |
 
-**It is a trial, not a launch.** Staff are going to try the app and give
-feedback before anything real runs on it, so `shopify_push_enabled` is
-`false` — otherwise a test sale would change what duch.store actually sells.
-The Worker is undeployed and opening stock unimported for related reasons.
-**Read [docs/going-live.md](docs/going-live.md) before turning any of that
-on**; the order matters and the trial ledger has to be cleared first.
+Trial data was wiped at go-live (a backup was dumped first). Website orders
+placed **before** go-live that were still unshipped are not in the CRM -
+their stock is already accounted for, they just ship from Shopify.
+
+**Owed - the legacy `service_role` key was pasted into a chat on
+2026-09-27.** The user chose to skip replacing it on go-live day. Legacy keys
+cannot be rotated singly; the supported fix is moving to Supabase's new
+publishable/secret keys and then deactivating the legacy pair. That needs
+code first: `adminClient` must read `SUPABASE_SECRET_KEYS`, the three
+`verify_jwt` functions must turn it off and verify callers themselves
+(`authorize()` is most of this), the dashboard needs the publishable key
+(`.env.production` and the Cloudflare build variable), and the Worker's
+secret changes. Deactivating the legacy keys before all of that takes the
+whole CRM down.
 
 21 variants are priced at zero (puffer jackets and crewneck sweaters still
 in production — the user adds prices when they are ready, so this is not a
@@ -87,11 +97,6 @@ itself rather than at each call site. Invoice.tsx used to do this locally;
 Returns.tsx's new table did not, and rendered `23/09/2026` as `232026/09/`
 until this was centralized. Found by looking at the actual screen, the same
 way the Invoice.tsx version of this bug was found.
-
-**Housekeeping owed:** a junk draft settlement referenced `xxxxx` sits in
-production from someone's trial, with an order number typed into the
-tracking field. Delete it before a real statement is entered - under the
-corrected arithmetic it will show a difference.
 
 **Blocked:** the Accurate Logistics integration, waiting on their API docs.
 See [docs/accurate-integration.md](docs/accurate-integration.md) for the eight
@@ -174,6 +179,13 @@ https and the dev server has no certificate.
 ---
 
 ## Traps already hit — do not rediscover these
+
+**Shopify 2026-07 changed `inventorySetQuantities`.** `ignoreCompareQuantity`
+is gone and `compareQuantity` became `changeFromQuantity`, which must be sent
+on every quantity (null when there is nothing to compare). The old shape
+made Shopify reject every push on go-live day. A stale lock now fails with
+`CHANGE_FROM_QUANTITY_STALE`. Check shopify.dev for the pinned version before
+touching any Shopify call - the API version bump is where this bites.
 
 **`curl.exe` from Windows PowerShell mangles a JSON body.** PowerShell 5.1
 strips the inner double quotes before the native exe sees them, so an Edge
@@ -455,13 +467,14 @@ In rough priority order. Ask the user rather than assuming — he is decisive
 and dislikes being asked things that could be worked out, but he does want
 to be asked about money behaviour and anything irreversible.
 
-1. **Run the trial**, collect feedback, change the flow. Expect this to
-   produce most of the remaining work.
-2. **Go live** — [docs/going-live.md](docs/going-live.md), in order. Nothing
-   in that list should be switched on piecemeal.
-3. **Accurate integration** — the moment their docs arrive. Replaces manual
+1. **Deploy the Worker** - the last go-live step. Until then failed pushes
+   are not retried and the nightly reconcile does not run.
+2. **Replace the leaked service_role key** - see "Owed" above.
+3. **Invoice and packing slip layout** - the user is sending a template to
+   work from. Wait for it.
+4. **Accurate integration** — the moment their docs arrive. Replaces manual
    tracking-code entry and drives every status from `in_transit` onwards.
-4. **Wholesale**, then **staff chat and analytics**, then the **Meta inbox**.
+5. **Wholesale**, then **staff chat and analytics**, then the **Meta inbox**.
 
 The local database carries trial fixtures created while building: a
 `RACE-TEST-HOOD` variant, several `S26…`/`D26…`/`W26…` orders, parcels in
