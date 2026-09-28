@@ -35,7 +35,14 @@ interface OrderRow {
   customers: { full_name: string | null; phone: string | null } | null;
   // An order can be shipped more than once - sent, refused, sent again - so
   // this is a list, newest first, and the current code is the first of them.
-  shipments: Array<{ tracking_number: string | null; status: string | null }>;
+  shipments: Array<{
+    tracking_number: string | null;
+    status: string | null;
+    courier: string | null;
+    driver_name: string | null;
+    direction: string | null;
+    created_at: string;
+  }>;
 }
 
 const PAGE_SIZE = 50;
@@ -60,7 +67,7 @@ export function Orders() {
           ' payment_method, total_egp, shipping_egp, subtotal_egp, discount_egp, cancelled_at,' +
           ' note, customer_id,' +
           ' customers ( full_name, phone ),' +
-          ' shipments ( tracking_number, status, created_at )',
+          ' shipments ( tracking_number, status, courier, driver_name, direction, created_at )',
       )
       .order('created_at', { ascending: false })
       .limit(PAGE_SIZE);
@@ -108,10 +115,13 @@ export function Orders() {
     return () => clearTimeout(timer);
   }, [search, load]);
 
-  async function settle(row: OrderRow) {
+  async function settle(
+    row: OrderRow,
+    rpc: 'mark_order_paid' | 'complete_own_delivery' = 'mark_order_paid',
+  ) {
     setBusyId(row.id);
     setError(null);
-    const { error: rpcError } = await supabase.rpc('mark_order_paid', { p_order_id: row.id });
+    const { error: rpcError } = await supabase.rpc(rpc, { p_order_id: row.id });
     setBusyId(null);
 
     if (rpcError) {
@@ -177,6 +187,16 @@ export function Orders() {
               !cancelled &&
               row.payment_status === 'pending' &&
               row.payment_method !== 'cod';
+            // Out with one of our own drivers: the only other way cash on
+            // delivery becomes paid, when the driver hands the money in.
+            const withOurDriver = [...(row.shipments ?? [])]
+              .filter((s) => s.direction === 'outbound')
+              .sort((a, b) => (a.created_at < b.created_at ? 1 : -1))[0];
+            const deliverable =
+              maySettle &&
+              !cancelled &&
+              withOurDriver?.courier === 'own' &&
+              withOurDriver.status === 'out_for_delivery';
 
             return (
               <Card key={row.id} className="space-y-3">
@@ -191,6 +211,10 @@ export function Orders() {
                     {tracking ? (
                       <p className="tabular text-xs font-semibold text-stone-700" dir="ltr">
                         {tracking}
+                      </p>
+                    ) : withOurDriver?.courier === 'own' && withOurDriver.driver_name ? (
+                      <p className="text-xs font-semibold text-stone-700">
+                        {t('queue.withDriver', { name: withOurDriver.driver_name })}
                       </p>
                     ) : null}
                   </div>
@@ -260,6 +284,19 @@ export function Orders() {
                   {settleable ? (
                     <Button disabled={busyId === row.id} onClick={() => void settle(row)}>
                       {busyId === row.id ? t('app.loading') : t('orders.markPaid')}
+                    </Button>
+                  ) : null}
+
+                  {deliverable ? (
+                    <Button
+                      disabled={busyId === row.id}
+                      onClick={() => void settle(row, 'complete_own_delivery')}
+                    >
+                      {busyId === row.id
+                        ? t('app.loading')
+                        : row.payment_method === 'cod'
+                          ? t('queue.cashReceived')
+                          : t('queue.delivered')}
                     </Button>
                   ) : null}
                 </div>

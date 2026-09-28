@@ -25,7 +25,8 @@ type FulfillmentStatus =
   | 'confirmed'
   | 'ready_to_pack'
   | 'packed'
-  | 'awaiting_pickup';
+  | 'awaiting_pickup'
+  | 'out_for_delivery';
 
 interface QueueRow {
   order_id: string;
@@ -55,14 +56,22 @@ interface QueueRow {
   tracking_number: string | null;
   cod_amount_egp: number | null;
   customer_prior_refusals: number;
+  courier: string | null;
+  driver_name: string | null;
+  handed_over_at: string | null;
 }
 
-/** The four things that can be waiting on someone, in the order they happen. */
+/**
+ * Everything that can be waiting on someone, in the order it happens. The
+ * view only returns out_for_delivery for our own drivers, so that stage is
+ * cash still to be handed in - never a parcel with Accurate.
+ */
 const STAGES = [
   { key: 'toConfirm', statuses: ['awaiting_confirmation'] },
   { key: 'toPack', statuses: ['confirmed', 'ready_to_pack'] },
   { key: 'packed', statuses: ['packed'] },
   { key: 'awaitingPickup', statuses: ['awaiting_pickup'] },
+  { key: 'withOurDriver', statuses: ['out_for_delivery'] },
 ] as const;
 
 type StageKey = (typeof STAGES)[number]['key'];
@@ -74,11 +83,15 @@ export function PackingQueue() {
   // work. Showing everyone every button means half the shop taps things the
   // database then refuses, which reads as the app being broken.
   const mayPack = can(identity?.role, 'orders.pack');
+  // Recording cash as received is settling money, so it follows who may
+  // settle a paying-later order - not who packs.
+  const maySettle = can(identity?.role, 'sales.create');
   const [rows, setRows] = useState<QueueRow[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const sectionRefs = useRef<Partial<Record<StageKey, HTMLElement | null>>>({});
   const [calling, setCalling] = useState<QueueRow | null>(null);
   const [shipping, setShipping] = useState<QueueRow | null>(null);
+  const [sendingOut, setSendingOut] = useState<QueueRow | null>(null);
   const [slip, setSlip] = useState<SlipOrder | null>(null);
   const [invoiceId, setInvoiceId] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -161,6 +174,7 @@ export function PackingQueue() {
     toPack: t('queue.emptyPack'),
     packed: t('queue.emptyPacked'),
     awaitingPickup: t('queue.emptyPickup'),
+    withOurDriver: t('queue.emptyWithOurDriver'),
   };
 
   function renderCard(row: QueueRow) {
@@ -214,6 +228,22 @@ export function PackingQueue() {
                 {row.items ?? '—'}
               </p>
 
+              {/* Who is holding this order's cash, and since when - the same
+                  question the courier custody list answers for Accurate. */}
+              {row.fulfillment_status === 'out_for_delivery' ? (
+                <div className="rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-900">
+                  <p className="font-bold">
+                    {t('queue.withDriver', { name: row.driver_name ?? '—' })}
+                    {row.handed_over_at ? (
+                      <span className="ms-2 font-normal">
+                        {ageLabel((Date.now() - new Date(row.handed_over_at).getTime()) / 3_600_000, t)}
+                      </span>
+                    ) : null}
+                  </p>
+                  <p className="mt-0.5">{t('queue.refusedHint')}</p>
+                </div>
+              ) : null}
+
               {/* The things worth knowing before spending a courier run. */}
               {row.customer_prior_refusals > 0 || row.requires_prepayment || row.confirmation_attempts > 0 ? (
                 <div className="flex flex-wrap gap-2">
@@ -258,6 +288,9 @@ export function PackingQueue() {
                     <Button onClick={() => setShipping(row)} disabled={busyId === row.order_id}>
                       {t('queue.createShipment')}
                     </Button>
+                    <Button onClick={() => setSendingOut(row)} disabled={busyId === row.order_id}>
+                      {t('queue.deliverOurselves')}
+                    </Button>
                     <Button
                       variant="secondary"
                       disabled={busyId === row.order_id}
@@ -273,6 +306,19 @@ export function PackingQueue() {
                       {t('queue.unpack')}
                     </Button>
                   </>
+                ) : null}
+
+                {maySettle && row.fulfillment_status === 'out_for_delivery' ? (
+                  <Button
+                    disabled={busyId === row.order_id}
+                    onClick={() =>
+                      run(row, () =>
+                        supabase.rpc('complete_own_delivery', { p_order_id: row.order_id }),
+                      )
+                    }
+                  >
+                    {row.payment_method === 'cod' ? t('queue.cashReceived') : t('queue.delivered')}
+                  </Button>
                 ) : null}
 
                 {mayPack && row.fulfillment_status === 'awaiting_pickup' && row.shipment_id ? (
@@ -405,6 +451,15 @@ export function PackingQueue() {
         onClose={() => setShipping(null)}
         onDone={() => {
           setShipping(null);
+          void load();
+        }}
+      />
+
+      <OwnDeliveryDialog
+        row={sendingOut}
+        onClose={() => setSendingOut(null)}
+        onDone={() => {
+          setSendingOut(null);
           void load();
         }}
       />
@@ -656,6 +711,139 @@ function ShipmentDialog({
         <div className="flex gap-2 pt-1">
           <Button className="flex-1" onClick={submit} disabled={busy}>
             {busy ? t('app.loading') : t('queue.createShipment')}
+          </Button>
+          <Button variant="secondary" onClick={onClose}>
+            {t('app.cancel')}
+          </Button>
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
+// --- Delivering it ourselves ------------------------------------------------
+
+function OwnDeliveryDialog({
+  row,
+  onClose,
+  onDone,
+}: {
+  row: QueueRow | null;
+  onClose: () => void;
+  onDone: () => void;
+}) {
+  const { t } = useLocale();
+  const [driver, setDriver] = useState('');
+  const [suggestions, setSuggestions] = useState<string[]>([]);
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    if (!row) return;
+    setDriver('');
+    setError(null);
+
+    // Staff names plus anyone who has delivered for us before, so the usual
+    // driver is one tap. The field still takes any name: the worker who
+    // delivers may not have a CRM login at all.
+    let cancelled = false;
+    void Promise.all([
+      supabase.from('staff').select('full_name').eq('is_active', true),
+      supabase
+        .from('shipments')
+        .select('driver_name')
+        .eq('courier', 'own')
+        .not('driver_name', 'is', null)
+        .order('created_at', { ascending: false })
+        .limit(50),
+    ]).then(([staff, drivers]) => {
+      if (cancelled) return;
+      const names = [
+        ...(drivers.data ?? []).map((d) => d.driver_name as string),
+        ...(staff.data ?? []).map((s) => s.full_name as string),
+      ];
+      setSuggestions([...new Set(names.filter(Boolean))]);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [row?.order_id]);
+
+  if (!row) return null;
+  const target = row;
+
+  async function submit() {
+    if (!driver.trim()) {
+      setError(t('queue.driverName'));
+      return;
+    }
+
+    setBusy(true);
+    setError(null);
+
+    const { error: rpcError } = await supabase.rpc('start_own_delivery', {
+      p_order_id: target.order_id,
+      p_driver_name: driver.trim(),
+    });
+
+    setBusy(false);
+    if (rpcError) {
+      setError(describeError(rpcError, t));
+      return;
+    }
+    onDone();
+  }
+
+  return (
+    <Modal
+      open
+      title={t('queue.ownDeliveryTitle', { orderNumber: target.order_number })}
+      onClose={onClose}
+    >
+      <div className="space-y-3">
+        <Field label={t('queue.driverName')} hint={t('queue.driverHelp')}>
+          <Input
+            autoFocus
+            list="own-delivery-drivers"
+            value={driver}
+            onChange={(event) => setDriver(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter') void submit();
+            }}
+          />
+        </Field>
+        <datalist id="own-delivery-drivers">
+          {suggestions.map((name) => (
+            <option key={name} value={name} />
+          ))}
+        </datalist>
+
+        {suggestions.length > 0 ? (
+          <div className="flex flex-wrap gap-2">
+            {suggestions.slice(0, 6).map((name) => (
+              <button
+                key={name}
+                type="button"
+                onClick={() => setDriver(name)}
+                className={cx(
+                  'rounded-full border px-3 py-1 text-xs font-semibold',
+                  driver === name
+                    ? 'border-duch-ink bg-duch-ink text-white'
+                    : 'border-duch-line bg-white text-stone-600 hover:bg-stone-50',
+                )}
+              >
+                <bdi>{name}</bdi>
+              </button>
+            ))}
+          </div>
+        ) : null}
+
+        {error ? <ErrorNote>{error}</ErrorNote> : null}
+
+        <div className="flex gap-2 pt-1">
+          <Button className="flex-1" onClick={submit} disabled={busy}>
+            {busy ? t('app.loading') : t('queue.sendOut')}
           </Button>
           <Button variant="secondary" onClick={onClose}>
             {t('app.cancel')}

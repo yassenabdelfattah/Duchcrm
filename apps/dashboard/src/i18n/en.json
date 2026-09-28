@@ -138,7 +138,8 @@
     "missing_in_shopify": "Missing in Shopify",
     "missing_in_crm": "Missing in the CRM",
     "push_failed": "Could not update Shopify",
-    "unmapped_inventory_item": "Unrecognised Shopify item"
+    "unmapped_inventory_item": "Unrecognised Shopify item",
+    "noSkuDetail": "{{count}} variants in Shopify have no SKU, so the CRM cannot track them. Add the SKUs in Shopify - this closes on its own once they arrive."
   },
   "dashboard": {
     "title": "Today",
@@ -196,7 +197,18 @@
     "printSlip": "Slip",
     "printInvoice": "Invoice",
     "newOrders": "{{count}} new",
-    "refresh": "Refresh"
+    "refresh": "Refresh",
+    "withOurDriver": "With our driver",
+    "emptyWithOurDriver": "None of our drivers are out.",
+    "deliverOurselves": "Deliver ourselves",
+    "ownDeliveryTitle": "{{orderNumber}} goes with our driver",
+    "driverName": "Who is delivering it?",
+    "driverHelp": "They hold the cash until they hand it in. The order stays here, under their name, until then.",
+    "sendOut": "Send out",
+    "withDriver": "With {{name}}",
+    "cashReceived": "Cash received",
+    "delivered": "Delivered",
+    "refusedHint": "Customer refused? Check it back in on Returns with the order number."
   },
   "fulfillment": {
     "awaiting_confirmation": "To call",
@@ -254,7 +266,10 @@
     "sessionMissing": "Missing",
     "nextParcel": "Next parcel",
     "chase": "Chase",
-    "everyoneTitle": "Everyone, day by day"
+    "everyoneTitle": "Everyone, day by day",
+    "listComingBack": "Coming back from the courier",
+    "listDelivered": "Delivered in the last 30 days",
+    "listEmpty": "Nothing here matches. Press Enter to look it up anyway."
   },
   "returnReason": {
     "no_response": "Never answered",

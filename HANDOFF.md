@@ -25,7 +25,7 @@ most of the design.
 
 **Built and tested:** Phases 1, 2 and 3 complete, plus the staff screen.
 
-- 32 migrations, 12 pgTAP suites, **237 database assertions**
+- 33 migrations, 13 pgTAP suites, **261 database assertions**
 - **68 TypeScript assertions** (webhook HMAC, money arithmetic, invoice
   totals, Shopify token exchange, Cairo dates)
 - 13 screens, 4 Edge Functions, 1 Cloudflare Worker
@@ -42,7 +42,7 @@ corrected forward (an adjustment), never by truncating.
 
 | | |
 |---|---|
-| Schema | All 32 migrations pushed. The seed is **not** pushed, deliberately. |
+| Schema | All 33 migrations pushed. The seed is **not** pushed, deliberately. |
 | Edge Functions | All four deployed. The three behind `verify_jwt` now also require the service role or an active staff member (`_shared/auth.ts`). |
 | Shopify | Catalogue: 47 products, 402 variants. Import matches on `shopify_variant_id`, so SKU renames in Shopify update in place. |
 | Location | `النزهه`, default, linked to Shopify location `90745733441`. |
@@ -214,8 +214,8 @@ the preflight.** `json()` in `_shared/db.ts` adds them. Without them the
 dashboard's request runs - the import finished - but the browser is not
 allowed to read the answer, so the screen never says it worked.
 
-**The catalogue import matches variants on `shopify_variant_id`, not SKU.**
-It used to match on SKU, so a SKU renamed in Shopify became an insert with a
+**The catalogue import and the product webhook match variants on
+`shopify_variant_id`, not SKU.** Both used to match on SKU, so a SKU renamed in Shopify became an insert with a
 Shopify id that already existed, the unique constraint refused it, and the
 import stopped partway - reported in the dashboard only as "non-2xx status
 code". The Products screen now shows the function's own error and SKU.
@@ -374,7 +374,9 @@ settlement containing it is reviewed. `mark_order_paid` refuses a
 cash-on-delivery order outright, so that rule cannot be worked around from
 the orders screen. Money that never went near a courier — a tab, a transfer
 that landed late — is settled there instead, and the change is recorded with
-a name against it.
+a name against it. The one other door is our own drivers:
+`complete_own_delivery` pays a cash-on-delivery order when the driver hands
+the cash in - see DECISIONS.md #2.
 
 **Nothing moves stock while goods are in a van.** Returns are recorded when
 the parcel is physically checked in, per item with a count. A parcel that
@@ -422,13 +424,13 @@ Recorded from the user; most of the design follows from it. Fuller version in
 | `/` | Dashboard: today's takings, low stock, **overdue parcels**, sync issues |
 | `/sell` | Takes any order - shop, website or DM - with shipping and payment method |
 | `/orders` | Every order, searchable by number or tracking. Invoice, settle a tab, edit |
-| `/queue` | Packing queue: confirmation call, pack, hand over. One page, every stage in order, chips at the top jump to a stage |
-| `/returns` | Checking returns back in, per item with a count. Looks up a courier tracking code or an order number - a shop sale has no tracking code at all |
+| `/queue` | Packing queue: confirmation call, pack, hand over, or deliver ourselves. One page, every stage in order, chips at the top jump to a stage. "With our driver" is cash still to be handed in |
+| `/returns` | Checking returns back in, per item with a count. Looks up a courier tracking code or an order number. Tapping the box lists parcels coming back, orders out with our driver, and the last 30 days of deliveries |
 | `/stock` | Levels and adjustments |
 | `/products` | Catalogue |
 | `/reports` | Four tabs: summary · log · refusals · custody |
 | `/settlements` | Entering the courier's statement |
-| `/sync` | Shopify divergences |
+| `/sync` | Shopify divergences. A product-level issue names the product; a "no SKU" one closes itself when the SKUs arrive |
 | `/staff` | Activate a signup and set its role. Admin only |
 | `/login`, `/pending` | |
 

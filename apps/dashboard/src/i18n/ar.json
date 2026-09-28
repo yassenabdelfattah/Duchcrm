@@ -138,7 +138,8 @@
     "missing_in_shopify": "غير موجود في شوبيفاي",
     "missing_in_crm": "غير موجود في النظام",
     "push_failed": "تعذّر تحديث شوبيفاي",
-    "unmapped_inventory_item": "صنف غير معروف من شوبيفاي"
+    "unmapped_inventory_item": "صنف غير معروف من شوبيفاي",
+    "noSkuDetail": "{{count}} أصناف في شوبيفاي بدون رقم صنف (SKU)، فلا يمكن للنظام تتبعها. أضف الأرقام في شوبيفاي - وستُغلق هذه المشكلة تلقائياً عند وصولها."
   },
   "dashboard": {
     "title": "اليوم",
@@ -196,7 +197,18 @@
     "printSlip": "البوليصة",
     "printInvoice": "الفاتورة",
     "newOrders": "{{count}} جديد",
-    "refresh": "تحديث"
+    "refresh": "تحديث",
+    "withOurDriver": "مع مندوبنا",
+    "emptyWithOurDriver": "لا يوجد أحد من مندوبينا بالخارج.",
+    "deliverOurselves": "توصيل بمعرفتنا",
+    "ownDeliveryTitle": "الطلب {{orderNumber}} مع مندوبنا",
+    "driverName": "من سيقوم بالتوصيل؟",
+    "driverHelp": "يبقى المبلغ معه حتى يسلّمه، ويظل الطلب هنا باسمه حتى ذلك الحين.",
+    "sendOut": "إرسال",
+    "withDriver": "مع {{name}}",
+    "cashReceived": "تم استلام المبلغ",
+    "delivered": "تم التسليم",
+    "refusedHint": "العميل رفض؟ استلمه في المرتجعات برقم الطلب."
   },
   "fulfillment": {
     "awaiting_confirmation": "للاتصال",
@@ -254,7 +266,10 @@
     "sessionMissing": "ناقص",
     "nextParcel": "الشحنة التالية",
     "chase": "متابعة",
-    "everyoneTitle": "الجميع، يوماً بيوم"
+    "everyoneTitle": "الجميع، يوماً بيوم",
+    "listComingBack": "في طريق العودة من المندوب",
+    "listDelivered": "تم تسليمها خلال آخر ٣٠ يوماً",
+    "listEmpty": "لا توجد نتيجة مطابقة. اضغط Enter للبحث على أي حال."
   },
   "returnReason": {
     "no_response": "لم يرد",

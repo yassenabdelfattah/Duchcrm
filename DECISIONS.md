@@ -188,7 +188,7 @@ Before this, both were recorded as counter sales. An order sitting in a box
 in the back room claimed it had been handed to a customer, and money nobody
 had counted claimed it had arrived.
 
-### Two ways an order becomes paid, and only two
+### How an order becomes paid
 
 The rule was one: reviewing the courier settlement that contained it. That
 exists so cash collected at somebody's front door is only recognised once it
@@ -206,6 +206,23 @@ change.
 So: the courier's cash is settled by reviewing a statement, and everything
 else is settled by a person saying so. Both are recorded. Neither can be
 done by editing a row.
+
+**A third door, for our own drivers.** Not every parcel goes with Accurate;
+sometimes one of the company's workers delivers it and brings the cash back.
+No statement will ever cover that money, so the settlement route cannot
+settle it - and `mark_order_paid` still refuses cash on delivery, on
+purpose. Instead it is two steps, mirroring the courier custody control:
+`start_own_delivery` sends a packed order out with a named driver, and the
+packing queue shows it under "with our driver" - who is holding whose cash,
+and for how long. `complete_own_delivery` records it delivered and, for cash
+on delivery, paid, once the driver hands the money in. It opens only for an
+order that is out with our own driver, and only for the people who can
+already settle a tab. A paying-later order delivered this way stays unpaid:
+the customer still owes it.
+
+Own deliveries are kept out of `v_courier_custody`. Mixing them in would put
+our drivers into the courier's figures and its seven-to-ten-day overdue
+thresholds, when an own delivery should be back the same day.
 
 ---
 

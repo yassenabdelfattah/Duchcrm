@@ -203,6 +203,7 @@ Deno.serve(withErrorReporting(async (req: Request): Promise<Response> => {
         );
       }
       summary.products_written += 1;
+      let skippedHere = 0;
 
       for (const variant of node.variants.nodes) {
         const sku = variant.sku?.trim();
@@ -213,6 +214,7 @@ Deno.serve(withErrorReporting(async (req: Request): Promise<Response> => {
         // printed on the actual garment.
         if (!sku) {
           summary.variants_skipped_no_sku.push(`${node.title} / ${variant.title}`);
+          skippedHere += 1;
           continue;
         }
 
@@ -269,6 +271,12 @@ Deno.serve(withErrorReporting(async (req: Request): Promise<Response> => {
           );
         }
         summary.variants_written += 1;
+      }
+
+      // Every variant of this product came through with a SKU, so an earlier
+      // "no SKU" sync issue for it is no longer true.
+      if (skippedHere === 0 && node.variants.nodes.length > 0) {
+        await db.rpc('close_sku_issue', { p_shopify_product_id: shopifyProductId });
       }
     }
 

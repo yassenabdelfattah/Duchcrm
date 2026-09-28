@@ -101,6 +101,15 @@ interface Session {
   missing: number;
 }
 
+interface ReturnableRow {
+  order_id: string;
+  order_number: string;
+  customer_name: string | null;
+  customer_phone: string | null;
+  delivered_at: string;
+  items: string | null;
+}
+
 interface CheckinDayRow {
   received_date: string;
   parcels: number;
@@ -129,11 +138,20 @@ export function Returns() {
   // Everyone's check-ins, not just this browser tab's - the session tally
   // above resets the moment the page reloads, which a phone does on its own.
   const [days, setDays] = useState<CheckinDayRow[] | null>(null);
+  // What the box offers when tapped: parcels coming back, then recent
+  // deliveries a customer could bring back to the counter.
+  const [returnable, setReturnable] = useState<ReturnableRow[]>([]);
+  // Out with our own driver: if the customer refuses, it comes back through
+  // this screen with no courier code, so it belongs on the list too.
+  const [withDriver, setWithDriver] = useState<
+    Array<{ order_id: string; order_number: string; customer_name: string | null; customer_phone: string | null; driver_name: string | null }>
+  >([]);
+  const [listOpen, setListOpen] = useState(false);
 
   const scanBox = useRef<HTMLInputElement>(null);
 
   const load = useCallback(async () => {
-    const [inboundResult, shortResult, daysResult] = await Promise.all([
+    const [inboundResult, shortResult, daysResult, returnableResult, driverResult] = await Promise.all([
       supabase.from('v_returns_inbound').select('*').order('days_since_reported', { ascending: false }),
       supabase.from('v_return_discrepancies').select('*').limit(200),
       supabase
@@ -141,10 +159,22 @@ export function Returns() {
         .select('*')
         .order('received_date', { ascending: false })
         .limit(7),
+      supabase
+        .from('v_returnable_orders')
+        .select('order_id, order_number, customer_name, customer_phone, delivered_at, items')
+        .order('delivered_at', { ascending: false })
+        .limit(200),
+      // The packing queue view only returns out_for_delivery for our own drivers.
+      supabase
+        .from('v_packing_queue')
+        .select('order_id, order_number, customer_name, customer_phone, driver_name')
+        .eq('fulfillment_status', 'out_for_delivery'),
     ]);
     setInbound((inboundResult.data ?? []) as InboundRow[]);
     setShort((shortResult.data ?? []) as DiscrepancyRow[]);
     setDays((daysResult.data ?? []) as CheckinDayRow[]);
+    setReturnable((returnableResult.data ?? []) as ReturnableRow[]);
+    setWithDriver((driverResult.data ?? []) as typeof withDriver);
   }, []);
 
   useEffect(() => {
@@ -214,6 +244,52 @@ export function Returns() {
     [t],
   );
 
+  // Filtered on every keystroke across both lists - they are small (what the
+  // courier owes plus a month of deliveries), so there is nothing to fetch.
+  const suggestions = useMemo(() => {
+    const term = code.trim().toLowerCase().replace(/^#/, '');
+    const matches = (...fields: Array<string | null>) =>
+      !term || fields.some((f) => (f ?? '').toLowerCase().includes(term));
+
+    const comingBack = (inbound ?? [])
+      .filter((r) => matches(r.order_number, r.customer_name, r.customer_phone, r.tracking_number))
+      .map((r) => ({
+        key: `in:${r.return_id}`,
+        lookup: r.tracking_number ?? r.order_number,
+        orderNumber: r.order_number,
+        customer: r.customer_name,
+        detail: r.tracking_number ?? r.items ?? '',
+      }));
+
+    const outWithDriver = withDriver
+      .filter((r) => matches(r.order_number, r.customer_name, r.customer_phone, r.driver_name))
+      .map((r) => ({
+        key: `dr:${r.order_id}`,
+        lookup: r.order_number,
+        orderNumber: r.order_number,
+        customer: r.customer_name,
+        detail: r.driver_name ?? '',
+      }));
+
+    const delivered = returnable
+      .filter((r) => matches(r.order_number, r.customer_name, r.customer_phone))
+      .slice(0, term ? 30 : 15)
+      .map((r) => ({
+        key: `dl:${r.order_id}`,
+        lookup: r.order_number,
+        orderNumber: r.order_number,
+        customer: r.customer_name,
+        detail: r.items ?? '',
+      }));
+
+    return { comingBack, outWithDriver, delivered };
+  }, [code, inbound, withDriver, returnable]);
+
+  function pick(lookup: string) {
+    setListOpen(false);
+    void find(lookup);
+  }
+
   // The parcel has a barcode on it. Scanning is the whole workflow: pick one
   // off the pile, scan, count what is inside, put it down, pick up the next.
   //
@@ -231,23 +307,87 @@ export function Returns() {
 
       {mayCheckIn ? (
         <Card className="space-y-3">
-          <Field label={t('returns.scanPrompt')}>
-            <Input
-              ref={scanBox}
-              autoFocus
-              dir="ltr"
-              className="tabular text-lg"
-              placeholder={t('returns.scanPlaceholder')}
-              value={code}
-              onChange={(event) => setCode(event.target.value)}
-              onKeyDown={(event) => {
-                if (event.key === 'Enter') void find(code);
-              }}
-              onFocus={() => setScanBoxFocused(true)}
-              onBlur={() => setScanBoxFocused(false)}
-              autoComplete="off"
-            />
-          </Field>
+          <div className="relative">
+            <Field label={t('returns.scanPrompt')}>
+              {/* Autofocused so a scanner works the moment the page opens, which
+                  is why the list waits for a tap or a keystroke instead of
+                  opening on focus - otherwise it would cover the page on every
+                  visit. */}
+              <Input
+                ref={scanBox}
+                autoFocus
+                dir="ltr"
+                className="tabular text-lg"
+                placeholder={t('returns.scanPlaceholder')}
+                value={code}
+                onChange={(event) => {
+                  setCode(event.target.value);
+                  setListOpen(true);
+                }}
+                onPointerDown={() => setListOpen(true)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter') {
+                    setListOpen(false);
+                    void find(code);
+                  }
+                  if (event.key === 'Escape') setListOpen(false);
+                }}
+                onFocus={() => setScanBoxFocused(true)}
+                onBlur={() => {
+                  setScanBoxFocused(false);
+                  setListOpen(false);
+                }}
+                autoComplete="off"
+              />
+            </Field>
+
+            {listOpen ? (
+              <div className="absolute inset-x-0 top-full z-20 mt-1 max-h-80 overflow-y-auto rounded-xl border border-duch-line bg-white shadow-lg">
+                {[
+                  { title: t('returns.listComingBack'), rows: suggestions.comingBack },
+                  { title: t('queue.withOurDriver'), rows: suggestions.outWithDriver },
+                  { title: t('returns.listDelivered'), rows: suggestions.delivered },
+                ]
+                  .filter((group) => group.rows.length > 0)
+                  .map((group) => (
+                    <div key={group.title}>
+                      <p className="sticky top-0 bg-stone-50 px-3 py-1.5 text-xs font-bold text-stone-500">
+                        {group.title}
+                      </p>
+                      {group.rows.map((row) => (
+                        <button
+                          key={row.key}
+                          type="button"
+                          // mousedown, not click: the box loses focus on
+                          // mousedown, which would close the list first.
+                          onMouseDown={(event) => {
+                            event.preventDefault();
+                            pick(row.lookup);
+                          }}
+                          className="flex w-full items-baseline gap-3 border-t border-stone-100 px-3 py-2 text-start hover:bg-stone-50"
+                        >
+                          <span className="tabular shrink-0 text-sm font-extrabold" dir="ltr">
+                            {row.orderNumber}
+                          </span>
+                          <span className="min-w-0 flex-1 truncate text-sm">
+                            <bdi>{row.customer ?? '—'}</bdi>
+                          </span>
+                          <span className="tabular max-w-[40%] truncate text-xs text-stone-500" dir="ltr">
+                            {row.detail}
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  ))}
+                {suggestions.comingBack.length +
+                  suggestions.outWithDriver.length +
+                  suggestions.delivered.length ===
+                0 ? (
+                  <p className="px-3 py-3 text-xs text-stone-500">{t('returns.listEmpty')}</p>
+                ) : null}
+              </div>
+            ) : null}
+          </div>
 
           {looking ? <Spinner /> : null}
           {error ? <ErrorNote>{error}</ErrorNote> : null}
@@ -549,10 +689,19 @@ function CheckInDialog({
     // it now. This creates the return with a line per item, which is what
     // the check-in then fills in - one action instead of two.
     if (needsFailureReason) {
-      const { data, error: failError } = await supabase.rpc(
-        'record_delivery_failure_by_tracking',
-        { p_tracking: target.tracking_number, p_reason: reason, p_note: note || null },
-      );
+      // A parcel our own driver brought back has no courier code, so the
+      // failure is recorded against the order itself.
+      const { data, error: failError } = target.tracking_number
+        ? await supabase.rpc('record_delivery_failure_by_tracking', {
+            p_tracking: target.tracking_number,
+            p_reason: reason,
+            p_note: note || null,
+          })
+        : await supabase.rpc('record_delivery_failure', {
+            p_order_id: target.order.id,
+            p_reason: reason,
+            p_note: note || null,
+          });
 
       if (failError) {
         setBusy(false);
@@ -562,10 +711,11 @@ function CheckInDialog({
 
       returnId = (data as { id: string }).id;
 
-      const { data: fresh, error: lookupError } = await supabase.rpc(
-        'lookup_return_by_tracking',
-        { p_tracking: target.tracking_number },
-      );
+      const { data: fresh, error: lookupError } = target.tracking_number
+        ? await supabase.rpc('lookup_return_by_tracking', { p_tracking: target.tracking_number })
+        : await supabase.rpc('lookup_return_by_order_number', {
+            p_order_number: target.order.order_number,
+          });
 
       if (lookupError) {
         setBusy(false);

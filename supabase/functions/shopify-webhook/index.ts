@@ -402,7 +402,10 @@ async function handleProductUpdate(
         compare_at_price_egp: raw.compare_at_price ? Number(raw.compare_at_price) : null,
         shopify_synced_at: new Date().toISOString(),
       },
-      { onConflict: 'sku' },
+      // Shopify's id, not the SKU - see the same call in
+      // shopify-import-products. On SKU, a rename in Shopify tried to insert a
+      // second variant with an id already taken, and this webhook failed.
+      { onConflict: 'shopify_variant_id' },
     );
 
     if (error) throw new Error(`Variant ${sku} upsert failed: ${error.message}`);
@@ -424,6 +427,10 @@ async function handleProductUpdate(
       },
       p_detected_by: 'webhook',
     });
+  } else if (variants.length > 0) {
+    // Every variant came through with a SKU, so an earlier "no SKU" issue for
+    // this product is no longer true.
+    await db.rpc('close_sku_issue', { p_shopify_product_id: shopifyProductId });
   }
 
   return { status: 'processed', detail: { variants_updated: updated, skipped } };

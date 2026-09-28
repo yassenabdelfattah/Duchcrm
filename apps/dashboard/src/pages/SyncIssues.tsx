@@ -27,6 +27,9 @@ type Action = 'trust_crm' | 'trust_shopify' | 'ignore';
 export function SyncIssues() {
   const { t, locale } = useLocale();
   const [issues, setIssues] = useState<SyncIssueRow[] | null>(null);
+  // Issues about a whole product rather than a variant carry the Shopify
+  // product id in details; its title is looked up so the card can name it.
+  const [productTitles, setProductTitles] = useState<Record<string, string>>({});
   const [resolving, setResolving] = useState<SyncIssueRow | null>(null);
   const [reloadToken, setReloadToken] = useState(0);
 
@@ -42,8 +45,31 @@ export function SyncIssues() {
       .eq('status', 'open')
       .order('detected_at', { ascending: false })
       .limit(200)
-      .then(({ data }) => {
-        if (!cancelled) setIssues((data ?? []) as unknown as SyncIssueRow[]);
+      .then(async ({ data }) => {
+        if (cancelled) return;
+        const rows = (data ?? []) as unknown as SyncIssueRow[];
+        setIssues(rows);
+
+        const productIds = [
+          ...new Set(
+            rows
+              .map((row) => row.details?.shopify_product_id)
+              .filter((id): id is number | string => id !== undefined && id !== null)
+              .map(String),
+          ),
+        ];
+        if (productIds.length === 0) return;
+
+        const { data: products } = await supabase
+          .from('products')
+          .select('title, shopify_product_id')
+          .in('shopify_product_id', productIds);
+        if (cancelled) return;
+        setProductTitles(
+          Object.fromEntries(
+            (products ?? []).map((p) => [String(p.shopify_product_id), p.title as string]),
+          ),
+        );
       });
 
     return () => {
@@ -72,12 +98,28 @@ export function SyncIssues() {
                     </span>
                   ) : null}
                 </div>
-                <p className="tabular mt-1 text-sm font-semibold">
-                  {issue.variants?.sku ?? '—'}
-                  {issue.variants?.size || issue.variants?.color
-                    ? ` · ${[issue.variants.size, issue.variants.color].filter(Boolean).join(' / ')}`
-                    : ''}
-                </p>
+                {issue.variants ? (
+                  <p className="tabular mt-1 text-sm font-semibold">
+                    {issue.variants.sku}
+                    {issue.variants.size || issue.variants.color
+                      ? ` · ${[issue.variants.size, issue.variants.color].filter(Boolean).join(' / ')}`
+                      : ''}
+                  </p>
+                ) : (
+                  // About a whole product, so there is no SKU to show - say
+                  // which product and what is wrong with it instead.
+                  <p className="mt-1 text-sm font-semibold">
+                    <bdi>
+                      {productTitles[String(issue.details?.shopify_product_id)] ??
+                        (issue.details?.shopify_product_id ? `#${String(issue.details.shopify_product_id)}` : '—')}
+                    </bdi>
+                    {issue.details?.reason === 'variants_without_sku' ? (
+                      <span className="block text-xs font-normal text-stone-600">
+                        {t('sync.noSkuDetail', { count: Number(issue.details?.count ?? 0) })}
+                      </span>
+                    ) : null}
+                  </p>
+                )}
                 <p className="mt-0.5 text-xs text-stone-500">
                   {formatDateTime(issue.detected_at, locale)}
                 </p>
