@@ -193,8 +193,8 @@
     "priorRefusals": "رفض {{count}} مرة سابقاً",
     "requiresPrepayment": "يجب الدفع المقدم",
     "onHold": "مؤجل حتى {{date}}",
-    "printSlip": "بوليصة التجهيز",
-    "printInvoice": "طباعة الفاتورة",
+    "printSlip": "البوليصة",
+    "printInvoice": "الفاتورة",
     "newOrders": "{{count}} جديد",
     "refresh": "تحديث"
   },

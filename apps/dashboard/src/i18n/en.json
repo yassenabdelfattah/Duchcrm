@@ -193,8 +193,8 @@
     "priorRefusals": "Refused {{count}} before",
     "requiresPrepayment": "Prepayment required",
     "onHold": "On hold until {{date}}",
-    "printSlip": "Packing slip",
-    "printInvoice": "Print invoice",
+    "printSlip": "Slip",
+    "printInvoice": "Invoice",
     "newOrders": "{{count}} new",
     "refresh": "Refresh"
   },

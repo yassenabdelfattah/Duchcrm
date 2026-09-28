@@ -75,8 +75,8 @@ export function PackingQueue() {
   // database then refuses, which reads as the app being broken.
   const mayPack = can(identity?.role, 'orders.pack');
   const [rows, setRows] = useState<QueueRow[] | null>(null);
-  const [stage, setStage] = useState<StageKey>('toConfirm');
   const [error, setError] = useState<string | null>(null);
+  const sectionRefs = useRef<Partial<Record<StageKey, HTMLElement | null>>>({});
   const [calling, setCalling] = useState<QueueRow | null>(null);
   const [shipping, setShipping] = useState<QueueRow | null>(null);
   const [slip, setSlip] = useState<SlipOrder | null>(null);
@@ -156,8 +156,6 @@ export function PackingQueue() {
   if (invoiceId) return <Invoice orderId={invoiceId} onClose={() => setInvoiceId(null)} />;
   if (!rows) return <Spinner label={t('app.loading')} />;
 
-  const visible = byStage[stage];
-
   const emptyMessage: Record<StageKey, string> = {
     toConfirm: t('queue.emptyConfirm'),
     toPack: t('queue.emptyPack'),
@@ -165,60 +163,8 @@ export function PackingQueue() {
     awaitingPickup: t('queue.emptyPickup'),
   };
 
-  return (
-    <div className="space-y-4">
-      <div className="flex flex-wrap items-center gap-3">
-        <h1 className="text-lg font-extrabold">{t('queue.title')}</h1>
-        {newCount > 0 ? (
-          <button
-            type="button"
-            onClick={() => setNewCount(0)}
-            className="rounded-full bg-emerald-600 px-3 py-1 text-xs font-bold text-white"
-          >
-            {t('queue.newOrders', { count: newCount })}
-          </button>
-        ) : null}
-        <Button variant="ghost" className="ms-auto text-xs" onClick={() => void load()}>
-          {t('queue.refresh')}
-        </Button>
-      </div>
-
-      {/* Horizontally scrollable so four tabs still fit a narrow phone. */}
-      <div className="-mx-4 overflow-x-auto px-4">
-        <div className="flex min-w-max gap-2">
-          {STAGES.map((s) => (
-            <button
-              key={s.key}
-              type="button"
-              onClick={() => setStage(s.key)}
-              className={cx(
-                'flex min-h-11 items-center gap-2 rounded-lg px-4 text-sm font-semibold transition-colors',
-                stage === s.key
-                  ? 'bg-duch-ink text-white'
-                  : 'bg-white text-stone-600 border border-duch-line hover:bg-stone-50',
-              )}
-            >
-              {t(`queue.${s.key}`)}
-              <span
-                className={cx(
-                  'tabular rounded-full px-2 py-0.5 text-xs',
-                  stage === s.key ? 'bg-white/20' : 'bg-stone-100',
-                )}
-              >
-                {byStage[s.key].length}
-              </span>
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {error ? <ErrorNote>{error}</ErrorNote> : null}
-
-      {visible.length === 0 ? (
-        <EmptyState title={emptyMessage[stage]} />
-      ) : (
-        <div className="space-y-3">
-          {visible.map((row) => (
+  function renderCard(row: QueueRow) {
+    return (
             <Card key={row.order_id} className="space-y-3">
               <div className="flex flex-wrap items-start gap-3">
                 <div className="min-w-0 flex-1">
@@ -344,21 +290,105 @@ export function PackingQueue() {
                   </Button>
                 ) : null}
 
+                {/* Smaller than the action buttons, so a card's buttons fit one
+                    line on a phone - with every stage on one page, card
+                    height is what decides how much scrolling there is. */}
                 <Button
                   variant="secondary"
-                  className="ms-auto"
+                  className="ms-auto min-h-9 px-3 text-xs"
                   onClick={() => setSlip(toSlip(row))}
                 >
                   {t('queue.printSlip')}
                 </Button>
 
-                <Button variant="secondary" onClick={() => setInvoiceId(row.order_id)}>
+                <Button
+                  variant="secondary"
+                  className="min-h-9 px-3 text-xs"
+                  onClick={() => setInvoiceId(row.order_id)}
+                >
                   {t('queue.printInvoice')}
                 </Button>
               </div>
             </Card>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-center gap-3">
+        <h1 className="text-lg font-extrabold">{t('queue.title')}</h1>
+        {newCount > 0 ? (
+          <button
+            type="button"
+            onClick={() => setNewCount(0)}
+            className="rounded-full bg-emerald-600 px-3 py-1 text-xs font-bold text-white"
+          >
+            {t('queue.newOrders', { count: newCount })}
+          </button>
+        ) : null}
+        <Button variant="ghost" className="ms-auto text-xs" onClick={() => void load()}>
+          {t('queue.refresh')}
+        </Button>
+      </div>
+
+      {/* Every stage on one page, in the order the work happens. The chips
+          are a count and a shortcut, not a filter - nothing is hidden. */}
+      <div className="-mx-4 overflow-x-auto px-4">
+        <div className="flex min-w-max gap-2">
+          {STAGES.map((s) => (
+            <button
+              key={s.key}
+              type="button"
+              onClick={() =>
+                sectionRefs.current[s.key]?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+              }
+              className={cx(
+                'flex min-h-11 items-center gap-2 rounded-lg border px-4 text-sm font-semibold transition-colors',
+                byStage[s.key].length > 0
+                  ? 'border-duch-ink bg-white text-duch-ink hover:bg-stone-50'
+                  : 'border-duch-line bg-white text-stone-400',
+              )}
+            >
+              {t(`queue.${s.key}`)}
+              <span
+                className={cx(
+                  'tabular rounded-full px-2 py-0.5 text-xs',
+                  byStage[s.key].length > 0 ? 'bg-duch-ink text-white' : 'bg-stone-100',
+                )}
+              >
+                {byStage[s.key].length}
+              </span>
+            </button>
           ))}
         </div>
+      </div>
+
+      {error ? <ErrorNote>{error}</ErrorNote> : null}
+
+      {rows.length === 0 ? (
+        <EmptyState title={t('queue.empty')} />
+      ) : (
+        STAGES.map((s) => (
+          <section
+            key={s.key}
+            ref={(el) => {
+              sectionRefs.current[s.key] = el;
+            }}
+            className="scroll-mt-20 space-y-3"
+          >
+            <h2 className="flex items-center gap-2 border-b border-duch-line pb-2 text-sm font-extrabold">
+              {t(`queue.${s.key}`)}
+              <span className="tabular rounded-full bg-stone-100 px-2 py-0.5 text-xs font-semibold">
+                {byStage[s.key].length}
+              </span>
+            </h2>
+            {byStage[s.key].length === 0 ? (
+              <p className="text-xs text-stone-400">{emptyMessage[s.key]}</p>
+            ) : (
+              byStage[s.key].map(renderCard)
+            )}
+          </section>
+        ))
       )}
 
       <CallDialog

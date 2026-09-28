@@ -422,7 +422,7 @@ Recorded from the user; most of the design follows from it. Fuller version in
 | `/` | Dashboard: today's takings, low stock, **overdue parcels**, sync issues |
 | `/sell` | Takes any order - shop, website or DM - with shipping and payment method |
 | `/orders` | Every order, searchable by number or tracking. Invoice, settle a tab, edit |
-| `/queue` | Packing queue: confirmation call, pack, hand over |
+| `/queue` | Packing queue: confirmation call, pack, hand over. One page, every stage in order, chips at the top jump to a stage |
 | `/returns` | Checking returns back in, per item with a count. Looks up a courier tracking code or an order number - a shop sale has no tracking code at all |
 | `/stock` | Levels and adjustments |
 | `/products` | Catalogue |
