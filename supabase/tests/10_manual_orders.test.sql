@@ -169,21 +169,22 @@ select is(
   'Settling twice still leaves exactly one payment event'
 );
 
--- --- Cash on delivery keeps its single path to paid ------------------------
+-- --- Cash on delivery can be marked paid by hand too ---------------------
+--
+-- The owner's decision (20260928120000): any unpaid order, whatever its
+-- method. The settlement review skips an order already paid.
 
-select throws_ok(
+select lives_ok(
   $$ select public.mark_order_paid(
        (select id from public.orders where idempotency_key = 'manual-dm-cod-01')
      ) $$,
-  '23001',
-  null,
-  'A cash-on-delivery order cannot be marked paid by hand - only a settlement does that'
+  'A cash-on-delivery order can be marked paid by hand'
 );
 
 select is(
   (select payment_status::text from public.orders where idempotency_key = 'manual-dm-cod-01'),
-  'pending',
-  'The refused attempt left it pending'
+  'paid',
+  'And it is paid'
 );
 
 select * from finish();

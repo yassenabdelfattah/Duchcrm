@@ -209,16 +209,8 @@ export function Orders() {
             const totals = calculateInvoiceTotals(row);
             const cancelled = row.cancelled_at !== null;
             const tracking = row.shipments?.find((s) => s.tracking_number)?.tracking_number ?? null;
-            // Cash on delivery becomes paid when its settlement is reviewed,
-            // never here - the database refuses it, so the button is not
-            // offered either.
-            const settleable =
-              maySettle &&
-              !cancelled &&
-              row.payment_status === 'pending' &&
-              row.payment_method !== 'cod';
-            // Out with one of our own drivers: the only other way cash on
-            // delivery becomes paid, when the driver hands the money in.
+            // Out with one of our own drivers: "cash received" records it
+            // delivered and paid in one step, so it replaces mark paid there.
             const withOurDriver = [...(row.shipments ?? [])]
               .filter((s) => s.direction === 'outbound')
               .sort((a, b) => (a.created_at < b.created_at ? 1 : -1))[0];
@@ -227,6 +219,14 @@ export function Orders() {
               !cancelled &&
               withOurDriver?.courier === 'own' &&
               withOurDriver.status === 'out_for_delivery';
+            // Every unpaid order but card, which is paid at the till - the
+            // owner's decision, cash on delivery included.
+            const settleable =
+              maySettle &&
+              !cancelled &&
+              !deliverable &&
+              row.payment_status === 'pending' &&
+              row.payment_method !== 'card';
 
             return (
               <Card key={row.id} className="space-y-3">

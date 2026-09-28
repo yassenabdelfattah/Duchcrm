@@ -25,7 +25,7 @@ most of the design.
 
 **Built and tested:** Phases 1, 2 and 3 complete, plus the staff screen.
 
-- 34 migrations, 14 pgTAP suites, **280 database assertions**
+- 35 migrations, 14 pgTAP suites, **282 database assertions**
 - **68 TypeScript assertions** (webhook HMAC, money arithmetic, invoice
   totals, Shopify token exchange, Cairo dates)
 - 13 screens, 4 Edge Functions, 1 Cloudflare Worker
@@ -42,7 +42,7 @@ corrected forward (an adjustment), never by truncating.
 
 | | |
 |---|---|
-| Schema | All 34 migrations pushed. The seed is **not** pushed, deliberately. |
+| Schema | All 35 migrations pushed. The seed is **not** pushed, deliberately. |
 | Edge Functions | All four deployed. The three behind `verify_jwt` now also require the service role or an active staff member (`_shared/auth.ts`). |
 | Shopify | Catalogue: 47 products, 402 variants. Import matches on `shopify_variant_id`, so SKU renames in Shopify update in place. |
 | Location | `النزهه`, default, linked to Shopify location `90745733441`. |
@@ -375,15 +375,14 @@ figures have been counted. Changing the basket appends a correcting
 `payment_status` (where the money is). With cash on delivery they move on
 completely separate timelines.
 
-**Cash the courier collected becomes `paid` in exactly one place:** when the
-settlement containing it is reviewed. `mark_order_paid` refuses a
-cash-on-delivery order outright, so that rule cannot be worked around from
-the orders screen. Money that never went near a courier — a tab, a transfer
-that landed late — is settled there instead, and the change is recorded with
-a name against it. The one other door is our own drivers:
-`complete_own_delivery` pays a cash-on-delivery order when the driver hands
-the cash in - see DECISIONS.md #2. And the owner (`is_owner`, one account)
-can reopen a payment recorded by mistake with `reopen_order_payment`.
+**Any unpaid order except a card sale can be marked paid by hand** - cash on
+delivery included, since 2026-09-28, the owner's decision (DECISIONS.md #2).
+It used to be refused for cash on delivery, which could only be paid by a
+reviewed courier statement. The settlement review still pays courier cash,
+and skips an order already marked paid. Our own drivers: `complete_own_delivery`
+records delivered and paid in one step when the driver hands the cash in. The
+owner (`is_owner`, one account) can reopen a payment recorded by mistake with
+`reopen_order_payment`.
 
 **Nothing moves stock while goods are in a van.** Returns are recorded when
 the parcel is physically checked in, per item with a count. A parcel that

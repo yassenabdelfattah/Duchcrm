@@ -321,6 +321,18 @@ export function PackingQueue() {
                   </Button>
                 ) : null}
 
+                {/* Created for the courier but not collected yet: it can still
+                    go with our own driver instead. */}
+                {mayPack && row.fulfillment_status === 'awaiting_pickup' && !row.handed_over_at ? (
+                  <Button
+                    variant="secondary"
+                    onClick={() => setSendingOut(row)}
+                    disabled={busyId === row.order_id}
+                  >
+                    {t('queue.deliverOurselves')}
+                  </Button>
+                ) : null}
+
                 {mayPack && row.fulfillment_status === 'awaiting_pickup' && row.shipment_id ? (
                   <Button
                     disabled={busyId === row.order_id}

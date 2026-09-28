@@ -2,13 +2,12 @@
 -- Delivering with our own driver, the returns list, and closing a stale
 -- "no SKU" issue.
 --
--- The money rule is the one that matters: cash on delivery is paid only when
--- our driver hands it in, only through complete_own_delivery, and
--- mark_order_paid still refuses it.
+-- The money rule: an order out with our driver is paid when the driver hands
+-- the cash in, through complete_own_delivery, by someone allowed to settle.
 -- ---------------------------------------------------------------------------
 
 begin;
-select plan(24);
+select plan(26);
 
 -- --- Fixtures --------------------------------------------------------------
 
@@ -109,11 +108,6 @@ select is_empty(
   'It is not counted as with the courier'
 );
 
-select throws_ok(
-  $$ select public.mark_order_paid('f1f1f1f1-0000-0000-0000-0000000000a1') $$,
-  '23001', null,
-  'Mark paid still refuses cash on delivery - the cash is with the driver, not us'
-);
 
 -- --- Step two: only the people who settle money record it ------------------
 
@@ -194,6 +188,42 @@ select throws_ok(
   $$ select public.complete_own_delivery('f1f1f1f1-0000-0000-0000-0000000000a4') $$,
   '23514', null,
   'An order that went with Accurate is settled by its statement, not here'
+);
+
+-- --- Switching from the courier to our driver -----------------------------
+--
+-- An Accurate shipment the courier has not collected can go with our driver
+-- instead. One the courier has collected cannot.
+
+insert into public.orders (
+  id, order_number, channel, fulfillment_status, payment_status, location_id,
+  customer_id, payment_method, subtotal_egp, shipping_egp, total_egp
+) values
+  ('f1f1f1f1-0000-0000-0000-0000000000a5', 'OWN-SWITCH',    'dm', 'awaiting_pickup', 'pending',
+   'f1f1f1f1-0000-0000-0000-000000000001', 'f1f1f1f1-0000-0000-0000-0000000000c1', 'cod', 600, 50, 600),
+  ('f1f1f1f1-0000-0000-0000-0000000000a6', 'OWN-COLLECTED', 'dm', 'awaiting_pickup', 'pending',
+   'f1f1f1f1-0000-0000-0000-000000000001', 'f1f1f1f1-0000-0000-0000-0000000000c1', 'cod', 600, 50, 600);
+
+insert into public.shipments (order_id, tracking_number, direction, status, cod_amount_egp, handed_over_at) values
+  ('f1f1f1f1-0000-0000-0000-0000000000a5', 'ACC-SWITCH-1',    'outbound', 'awaiting_pickup', 650, null),
+  ('f1f1f1f1-0000-0000-0000-0000000000a6', 'ACC-COLLECTED-1', 'outbound', 'awaiting_pickup', 650, now());
+
+select lives_ok(
+  $$ select public.start_own_delivery('f1f1f1f1-0000-0000-0000-0000000000a5', 'Mahmoud') $$,
+  'A parcel the courier has not collected can go with our driver instead'
+);
+
+select results_eq(
+  $$ select courier, status::text from public.shipments
+      where order_id = 'f1f1f1f1-0000-0000-0000-0000000000a5' order by courier $$,
+  $$ values ('accurate'::text, 'cancelled'::text), ('own'::text, 'out_for_delivery'::text) $$,
+  'The courier shipment is cancelled and ours takes over'
+);
+
+select throws_ok(
+  $$ select public.start_own_delivery('f1f1f1f1-0000-0000-0000-0000000000a6', 'Mahmoud') $$,
+  '23514', null,
+  'One the courier already collected cannot be switched'
 );
 
 -- --- Refused at the door ----------------------------------------------------

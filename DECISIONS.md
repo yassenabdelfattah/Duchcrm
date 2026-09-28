@@ -190,6 +190,16 @@ had counted claimed it had arrived.
 
 ### How an order becomes paid
 
+**Current rule (2026-09-28, the owner's decision): any unpaid order except a
+card sale can be marked paid by hand from the orders screen, cash on
+delivery included.** The history below is why it used to be stricter. The
+owner weighed the control it gave - courier cash only counted once checked
+against Accurate's statement - against orders the rule could not reach, and
+chose the button. Every change still records who made it, and the settlement
+review only pays orders that are still unpaid, so an order already marked
+paid by hand is skipped rather than counted twice. The settlement screen
+remains the way to check Accurate's money against the orders.
+
 The rule was one: reviewing the courier settlement that contained it. That
 exists so cash collected at somebody's front door is only recognised once it
 has actually been counted against the courier's paper, and it has not moved
@@ -210,9 +220,10 @@ done by editing a row.
 **A third door, for our own drivers.** Not every parcel goes with Accurate;
 sometimes one of the company's workers delivers it and brings the cash back.
 No statement will ever cover that money, so the settlement route cannot
-settle it - and `mark_order_paid` still refuses cash on delivery, on
-purpose. Instead it is two steps, mirroring the courier custody control:
-`start_own_delivery` sends a packed order out with a named driver, and the
+settle it. It is two steps, mirroring the courier custody control:
+`start_own_delivery` sends a packed order out with a named driver (or one
+waiting for Accurate that the courier has not collected - its Accurate
+shipment is cancelled), and the
 packing queue shows it under "with our driver" - who is holding whose cash,
 and for how long. `complete_own_delivery` records it delivered and, for cash
 on delivery, paid, once the driver hands the money in. It opens only for an
