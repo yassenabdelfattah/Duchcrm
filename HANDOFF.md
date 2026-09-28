@@ -25,7 +25,7 @@ most of the design.
 
 **Built and tested:** Phases 1, 2 and 3 complete, plus the staff screen.
 
-- 33 migrations, 13 pgTAP suites, **261 database assertions**
+- 34 migrations, 14 pgTAP suites, **280 database assertions**
 - **68 TypeScript assertions** (webhook HMAC, money arithmetic, invoice
   totals, Shopify token exchange, Cairo dates)
 - 13 screens, 4 Edge Functions, 1 Cloudflare Worker
@@ -42,7 +42,7 @@ corrected forward (an adjustment), never by truncating.
 
 | | |
 |---|---|
-| Schema | All 33 migrations pushed. The seed is **not** pushed, deliberately. |
+| Schema | All 34 migrations pushed. The seed is **not** pushed, deliberately. |
 | Edge Functions | All four deployed. The three behind `verify_jwt` now also require the service role or an active staff member (`_shared/auth.ts`). |
 | Shopify | Catalogue: 47 products, 402 variants. Import matches on `shopify_variant_id`, so SKU renames in Shopify update in place. |
 | Location | `النزهه`, default, linked to Shopify location `90745733441`. |
@@ -51,7 +51,7 @@ corrected forward (an adjustment), never by truncating.
 | Dashboard | Live at **https://duch-crm.yassentah.workers.dev** - a Workers project (not Pages), built from GitHub on every push to `master`. |
 | Worker (cron) | **Deployed 2026-09-27** as `duch-crm-worker`: outbox drain every minute, reconcile at 00:00 UTC. Always pass `-c apps/worker/wrangler.toml` - without it Wrangler can resolve the dashboard's root config instead. Its first run pushed the first live website order's two variants; Shopify recorded no change, confirming a web sale is not double-counted. |
 | Webhooks | All seven registered and verified. |
-| Staff | Six accounts: one `stock_manager`, five still `admin`. |
+| Staff | Six accounts: one `stock_manager`, five still `admin`. `yassen@duch.store` carries `is_owner` - set by migration 20260928110000, changeable only in the database. |
 
 Trial data was wiped at go-live (a backup was dumped first). Website orders
 placed **before** go-live that were still unshipped are not in the CRM -
@@ -179,6 +179,12 @@ https and the dev server has no certificate.
 ---
 
 ## Traps already hit — do not rediscover these
+
+**Product-level sync issues used to merge into one row.** `open_sync_issue`
+deduplicated on type, variant and location - all null for an issue about a
+whole product - so a "no SKU" issue for one product was overwritten by the
+next product's. It now also matches the Shopify product or inventory item in
+the details when there is no variant.
 
 **Website orders are numbered by Shopify (`#1402`), not the CRM.** Anything
 matching on order number must allow for the `#` - the returns lookup accepts
@@ -376,7 +382,8 @@ the orders screen. Money that never went near a courier — a tab, a transfer
 that landed late — is settled there instead, and the change is recorded with
 a name against it. The one other door is our own drivers:
 `complete_own_delivery` pays a cash-on-delivery order when the driver hands
-the cash in - see DECISIONS.md #2.
+the cash in - see DECISIONS.md #2. And the owner (`is_owner`, one account)
+can reopen a payment recorded by mistake with `reopen_order_payment`.
 
 **Nothing moves stock while goods are in a van.** Returns are recorded when
 the parcel is physically checked in, per item with a count. A parcel that

@@ -8,6 +8,8 @@ export interface StaffIdentity {
   full_name: string;
   role: StaffRole | null;
   is_active: boolean;
+  /** The business owner. Only unlocks reopening a paid order; see DECISIONS.md #2. */
+  is_owner: boolean;
 }
 
 /**
@@ -25,7 +27,7 @@ async function fetchIdentity(): Promise<StaffIdentity | null> {
 
   const { data, error } = await supabase
     .from('staff')
-    .select('id, full_name, role, is_active')
+    .select('id, full_name, role, is_active, is_owner')
     .eq('id', user.id)
     .maybeSingle();
 
@@ -38,6 +40,7 @@ async function fetchIdentity(): Promise<StaffIdentity | null> {
       full_name: user.email ?? '',
       role: null,
       is_active: false,
+      is_owner: false,
     };
   }
 
@@ -47,6 +50,7 @@ async function fetchIdentity(): Promise<StaffIdentity | null> {
     full_name: data.full_name as string,
     role: (data.role as StaffRole | null) ?? null,
     is_active: Boolean(data.is_active),
+    is_owner: Boolean(data.is_owner),
   };
 }
 

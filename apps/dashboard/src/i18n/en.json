@@ -389,7 +389,14 @@
     "addItem": "Add an item by SKU or name",
     "badPhone": "That phone number is not valid.",
     "lockedPaid": "This order has been paid for, so its money and contents cannot change. Only the note and the customer details can be corrected.",
-    "lockedCancelled": "This order was cancelled."
+    "lockedCancelled": "This order was cancelled.",
+    "reopenPayment": "Reopen payment",
+    "reopenTitle": "Reopen payment for {{orderNumber}}",
+    "reopenHelp": "Only for a payment recorded by mistake. The order goes back to unpaid with the method you choose, and your reason is saved in its history under your name.",
+    "reopenMethod": "What the payment method should have been",
+    "reopenReason": "Why?",
+    "reopenReasonRequired": "Write why before reopening.",
+    "reopenOnStatement": "This order is on a courier statement, so its money was counted against that statement and cannot be reopened."
   },
   "reports": {
     "title": "Reports and log",

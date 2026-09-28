@@ -220,6 +220,18 @@ order that is out with our own driver, and only for the people who can
 already settle a tab. A paying-later order delivered this way stays unpaid:
 the customer still owes it.
 
+**Undoing a mistake: the owner only.** A paid order's money is locked, which
+also means a till mistake - "cash" picked for an order nobody has paid - has
+no way back. `reopen_order_payment` sets a paid order back to unpaid and
+corrects its method, with a required reason written into the order's
+history. It is the narrowest tool that fixes the mistake: after it, the order
+is simply open again and the ordinary editor applies. Only the account marked
+`is_owner` may use it. That is not a role - several people are admin - and it
+cannot be set from the app by anyone, admins and the owner included; other
+admins cannot demote or deactivate the owner either. An order on a courier
+statement stays locked even for the owner, because that money was counted
+against Accurate's paper.
+
 Own deliveries are kept out of `v_courier_custody`. Mixing them in would put
 our drivers into the courier's figures and its seven-to-ten-day overdue
 thresholds, when an own delivery should be back the same day.
