@@ -25,7 +25,7 @@ most of the design.
 
 **Built and tested:** Phases 1, 2 and 3 complete, plus the staff screen.
 
-- 35 migrations, 14 pgTAP suites, **282 database assertions**
+- 36 migrations, 15 pgTAP suites, **299 database assertions**
 - **68 TypeScript assertions** (webhook HMAC, money arithmetic, invoice
   totals, Shopify token exchange, Cairo dates)
 - 13 screens, 4 Edge Functions, 1 Cloudflare Worker
@@ -42,7 +42,7 @@ corrected forward (an adjustment), never by truncating.
 
 | | |
 |---|---|
-| Schema | All 35 migrations pushed. The seed is **not** pushed, deliberately. |
+| Schema | All 36 migrations pushed. The seed is **not** pushed, deliberately. |
 | Edge Functions | All four deployed. The three behind `verify_jwt` now also require the service role or an active staff member (`_shared/auth.ts`). |
 | Shopify | Catalogue: 47 products, 402 variants. Import matches on `shopify_variant_id`, so SKU renames in Shopify update in place. |
 | Location | `النزهه`, default, linked to Shopify location `90745733441`. |
@@ -179,6 +179,18 @@ https and the dev server has no certificate.
 ---
 
 ## Traps already hit — do not rediscover these
+
+**Stock edited in the Shopify admin is overwritten by the next push.** The
+CRM sets Shopify's number outright, so the next sale or adjustment of that
+variant replaces the edit. It happened with the slippers on 2026-09-29. The
+fix is on Sync issues: "Check with Shopify now", then "Resolve all" ->
+"Shopify is right" per product. A product created in Shopify with stock is the
+same case: import it, check, accept Shopify's numbers.
+
+**"Shopify is right" could be applied twice.** `resolve_sync_issue` did not
+check the issue was still open, so a second tap added the correction again.
+It now returns early on a settled issue, and "The CRM is right" queues a push
+as the screen always said it did (it used to only close the issue).
 
 **Product-level sync issues used to merge into one row.** `open_sync_issue`
 deduplicated on type, variant and location - all null for an issue about a
@@ -362,8 +374,9 @@ stops two cashiers selling the same last item. Proven by a two-connection test.
 double-counts website orders and destroys a unit per sale.
 
 **A webhook from Shopify never changes stock.** It is classified as echo,
-agreement or divergence and recorded. Only the nightly job opens a sync issue,
-and only a person resolves one — because Shopify's webhooks do not arrive in
+agreement or divergence and recorded. Only a reconcile opens a quantity
+issue - nightly at 00:00 UTC, or on demand with "Check with Shopify now" on
+Sync issues - and only a person resolves one — because Shopify's webhooks do not arrive in
 order.
 
 **An order can be edited, but only while its money is still open.** Paid, or
@@ -484,9 +497,11 @@ to be asked about money behaviour and anything irreversible.
 
 1. **Replace the leaked service_role key** - see "Owed" above. The Worker's
    `SUPABASE_SERVICE_ROLE_KEY` secret changes with it.
-2. **Check the first nightly reconcile** (00:00 UTC) - Sync issues should be
-   empty or close to it. A screen full of mismatches means the location id is
-   wrong.
+2. **Slipper stock** - the first nightly reconcile (2026-09-29) found no
+   location problem; it found the H slippers edited in the Shopify admin and
+   two Two-Strap slipper products created there with stock (CRM at 0). The
+   user settles them from Sync issues (check now, then Shopify is right per
+   product).
 3. **Invoice and packing slip layout** - the user is sending a template to
    work from. Wait for it.
 4. **Accurate integration** — the moment their docs arrive. Replaces manual

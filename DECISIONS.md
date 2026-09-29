@@ -117,6 +117,16 @@ you pick gets recorded with your name on it. Even "Shopify is right" does not
 edit history: it adds a correcting line to the list, so next year you can still
 see that on this date someone decided Shopify was correct, and why.
 
+The same check can be run on demand with **Check with Shopify now** on that
+screen, and a product whose sizes all differ can be answered in one go
+(**Resolve all**). Both were added on day three of go-live, when slipper stock
+edited in the Shopify admin had to wait for midnight and then be answered one
+size at a time, while each sale in between pushed the CRM's old number back
+over the edit. Neither changes the rule: a person still decides, and each size
+still gets its own correcting line with their name on it. The numbers used are
+the ones from the last check, which the screen shows, so check again if
+Shopify was changed since.
+
 ### Two paths to Shopify, so one can fail
 
 When stock changes, two things happen:

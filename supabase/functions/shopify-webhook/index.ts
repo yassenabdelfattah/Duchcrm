@@ -433,6 +433,10 @@ async function handleProductUpdate(
     await db.rpc('close_sku_issue', { p_shopify_product_id: shopifyProductId });
   }
 
+  // Inventory updates for a product that did not exist in the CRM yet were
+  // filed as unrecognised items; this product's variants now claim them.
+  if (updated > 0) await db.rpc('close_linked_unmapped_issues');
+
   return { status: 'processed', detail: { variants_updated: updated, skipped } };
 }
 

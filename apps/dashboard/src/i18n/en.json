@@ -139,7 +139,15 @@
     "missing_in_crm": "Missing in the CRM",
     "push_failed": "Could not update Shopify",
     "unmapped_inventory_item": "Unrecognised Shopify item",
-    "noSkuDetail": "{{count}} variants in Shopify have no SKU, so the CRM cannot track them. Add the SKUs in Shopify - this closes on its own once they arrive."
+    "noSkuDetail": "{{count}} variants in Shopify have no SKU, so the CRM cannot track them. Add the SKUs in Shopify - this closes on its own once they arrive.",
+    "checkNow": "Check with Shopify now",
+    "checking": "Checking…",
+    "checked": "Checked {{checked}} items: {{mismatched}} differ, {{unmapped}} not recognised.",
+    "lastChecked": "Last checked {{when}}",
+    "sizesDiffer": "Differences: {{count}}",
+    "resolveAll": "Resolve all {{count}}",
+    "numbersFrom": "Shopify's numbers are from the check at {{when}}. If stock was changed in Shopify after that, press “Check with Shopify now” first.",
+    "forAll": "{{label}} — all {{count}}"
   },
   "dashboard": {
     "title": "Today",

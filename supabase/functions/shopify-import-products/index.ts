@@ -283,6 +283,12 @@ Deno.serve(withErrorReporting(async (req: Request): Promise<Response> => {
     cursor = page.pageInfo.hasNextPage ? page.pageInfo.endCursor : null;
   } while (cursor);
 
+  // Items Shopify reported before their product was imported were filed as
+  // unrecognised. Now they belong to a variant, so those issues are done.
+  if (!summary.dry_run) {
+    await db.rpc('close_linked_unmapped_issues');
+  }
+
   // --- Opening stock -------------------------------------------------------
 
   if (body.import_opening_stock && body.location_id && !summary.dry_run) {
