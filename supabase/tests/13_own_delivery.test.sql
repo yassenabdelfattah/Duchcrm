@@ -27,7 +27,8 @@ insert into public.customers (id, full_name, phone, governorate)
 values ('f1f1f1f1-0000-0000-0000-0000000000c1', 'Own Delivery Customer', '01599911122', 'Cairo');
 
 -- A packed cash-on-delivery order, a packed paying-later order, an order not
--- yet packed, and a packed order that already went with Accurate.
+-- yet packed, a packed order that already went with Accurate, and one
+-- already delivered.
 insert into public.orders (
   id, order_number, channel, fulfillment_status, payment_status, location_id,
   customer_id, payment_method, subtotal_egp, shipping_egp, total_egp
@@ -39,7 +40,9 @@ insert into public.orders (
   ('f1f1f1f1-0000-0000-0000-0000000000a3', 'OWN-NOTPACKED','dm', 'ready_to_pack', 'pending',
    'f1f1f1f1-0000-0000-0000-000000000001', 'f1f1f1f1-0000-0000-0000-0000000000c1', 'cod',      500, 50, 500),
   ('f1f1f1f1-0000-0000-0000-0000000000a4', 'OWN-ACCURATE', 'dm', 'awaiting_pickup','pending',
-   'f1f1f1f1-0000-0000-0000-000000000001', 'f1f1f1f1-0000-0000-0000-0000000000c1', 'cod',      700, 50, 700);
+   'f1f1f1f1-0000-0000-0000-000000000001', 'f1f1f1f1-0000-0000-0000-0000000000c1', 'cod',      700, 50, 700),
+  ('f1f1f1f1-0000-0000-0000-0000000000a9', 'OWN-DONE',     'dm', 'delivered',     'paid',
+   'f1f1f1f1-0000-0000-0000-000000000001', 'f1f1f1f1-0000-0000-0000-0000000000c1', 'cod',      600, 50, 600);
 
 insert into public.order_line_items (order_id, sku, title, quantity, unit_price_egp, total_egp) values
   ('f1f1f1f1-0000-0000-0000-0000000000a1', 'OWN-HOOD', 'Own Hoodie', 1, 1000, 1000),
@@ -71,9 +74,9 @@ select throws_ok(
 );
 
 select throws_ok(
-  $$ select public.start_own_delivery('f1f1f1f1-0000-0000-0000-0000000000a3', 'Mahmoud') $$,
+  $$ select public.start_own_delivery('f1f1f1f1-0000-0000-0000-0000000000a9', 'Mahmoud') $$,
   '23514', null,
-  'An order that is not packed cannot go out'
+  'An order already delivered cannot go out again'
 );
 
 select lives_ok(

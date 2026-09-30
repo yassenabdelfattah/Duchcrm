@@ -25,7 +25,7 @@ most of the design.
 
 **Built and tested:** Phases 1, 2 and 3 complete, plus the staff screen.
 
-- 36 migrations, 15 pgTAP suites, **299 database assertions**
+- 37 migrations, 16 pgTAP suites, **315 database assertions**
 - **68 TypeScript assertions** (webhook HMAC, money arithmetic, invoice
   totals, Shopify token exchange, Cairo dates)
 - 13 screens, 4 Edge Functions, 1 Cloudflare Worker
@@ -42,7 +42,7 @@ corrected forward (an adjustment), never by truncating.
 
 | | |
 |---|---|
-| Schema | All 36 migrations pushed. The seed is **not** pushed, deliberately. |
+| Schema | All 37 migrations pushed. The seed is **not** pushed, deliberately. |
 | Edge Functions | All four deployed. The three behind `verify_jwt` now also require the service role or an active staff member (`_shared/auth.ts`). |
 | Shopify | Catalogue: 47 products, 402 variants. Import matches on `shopify_variant_id`, so SKU renames in Shopify update in place. |
 | Location | `النزهه`, default, linked to Shopify location `90745733441`. |
@@ -443,7 +443,7 @@ Recorded from the user; most of the design follows from it. Fuller version in
 | `/` | Dashboard: today's takings, low stock, **overdue parcels**, sync issues |
 | `/sell` | Takes any order - shop, website or DM - with shipping and payment method |
 | `/orders` | Every order, searchable by number or tracking. Invoice, settle a tab, edit |
-| `/queue` | Packing queue: confirmation call, pack, hand over, or deliver ourselves. One page, every stage in order, chips at the top jump to a stage. "With our driver" is cash still to be handed in |
+| `/queue` | Packing queue: **one step** - shipment number, Ship, and it is with the courier (`ship_order`). Or deliver ourselves. The confirmation call is optional (it is also the only in-app cancel for a DM order). "With our driver" below is cash still to be handed in |
 | `/returns` | Checking returns back in, per item with a count. Looks up a courier tracking code or an order number. Tapping the box lists parcels coming back, orders out with our driver, and the last 30 days of deliveries |
 | `/stock` | Levels and adjustments |
 | `/products` | Catalogue |
@@ -476,7 +476,7 @@ and it explains why each thing is currently switched off.
 
 1. Does the accountant message wording actually suit his ledger? He has not
    reviewed one yet.
-2. Phone feel of the confirmation-call step in the packing queue, and of
+2. Phone feel of the one-step ship form in the packing queue, and of
    counting a pile of returns at check-in. He has the app on his phone.
 3. Damaged returns — currently recorded on the line but with no countable
    damaged-stock bucket. He said "just repackaging, that's it", so this may

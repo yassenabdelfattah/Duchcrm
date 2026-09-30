@@ -59,6 +59,10 @@ without a combined value for every pair.
 with `delivery_failed` → `return_in_transit` → `returned` for the ones that
 come back, and `cancelled` for those killed before they shipped.
 
+Since 2026-10-01 the packing queue ships in one step: `ship_order` takes any
+order still waiting (up to `awaiting_pickup`) straight to `in_transit`. The
+intermediate statuses remain for older orders and for the history.
+
 A store sale is created already `delivered` and `paid` — the customer walked
 out with it. It can still be voided at the counter; the guard that stops an
 in-transit order being cancelled deliberately exempts the store channel.

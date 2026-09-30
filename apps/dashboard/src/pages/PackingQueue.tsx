@@ -1,10 +1,9 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { can, formatEGP } from '@duch/shared';
 import { useGetIdentity } from '@refinedev/core';
 import { supabase } from '../lib/supabase';
 import type { StaffIdentity } from '../providers/authProvider';
 import { useLocale } from '../i18n';
-import { useBarcodeScanner } from '../hooks/useBarcodeScanner';
 import {
   Badge,
   Button,
@@ -62,19 +61,16 @@ interface QueueRow {
 }
 
 /**
- * Everything that can be waiting on someone, in the order it happens. The
- * view only returns out_for_delivery for our own drivers, so that stage is
- * cash still to be handed in - never a parcel with Accurate.
+ * Waiting to go out. Shipping is one step from any of these: the shipment
+ * number, one tap, and the parcel is with the courier.
  */
-const STAGES = [
-  { key: 'toConfirm', statuses: ['awaiting_confirmation'] },
-  { key: 'toPack', statuses: ['confirmed', 'ready_to_pack'] },
-  { key: 'packed', statuses: ['packed'] },
-  { key: 'awaitingPickup', statuses: ['awaiting_pickup'] },
-  { key: 'withOurDriver', statuses: ['out_for_delivery'] },
-] as const;
-
-type StageKey = (typeof STAGES)[number]['key'];
+const TO_SHIP: readonly FulfillmentStatus[] = [
+  'awaiting_confirmation',
+  'confirmed',
+  'ready_to_pack',
+  'packed',
+  'awaiting_pickup',
+];
 
 export function PackingQueue() {
   const { t, locale } = useLocale();
@@ -88,9 +84,11 @@ export function PackingQueue() {
   const maySettle = can(identity?.role, 'sales.create');
   const [rows, setRows] = useState<QueueRow[] | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const sectionRefs = useRef<Partial<Record<StageKey, HTMLElement | null>>>({});
+  // Errors belong on the card they are about: with a long list, a message at
+  // the top of the page is off screen from the button that caused it.
+  const [cardErrors, setCardErrors] = useState<Record<string, string>>({});
+  const [tracking, setTracking] = useState<Record<string, string>>({});
   const [calling, setCalling] = useState<QueueRow | null>(null);
-  const [shipping, setShipping] = useState<QueueRow | null>(null);
   const [sendingOut, setSendingOut] = useState<QueueRow | null>(null);
   const [slip, setSlip] = useState<SlipOrder | null>(null);
   const [invoiceId, setInvoiceId] = useState<string | null>(null);
@@ -138,46 +136,70 @@ export function PackingQueue() {
     };
   }, [load]);
 
-  const byStage = useMemo(() => {
-    const groups = {} as Record<StageKey, QueueRow[]>;
-    for (const s of STAGES) groups[s.key] = [];
-    for (const row of rows ?? []) {
-      const match = STAGES.find((s) => (s.statuses as readonly string[]).includes(row.fulfillment_status));
-      if (match) groups[match.key].push(row);
-    }
-    return groups;
-  }, [rows]);
+  const toShip = useMemo(
+    () => (rows ?? []).filter((row) => TO_SHIP.includes(row.fulfillment_status)),
+    [rows],
+  );
+  // The view only returns out_for_delivery for our own drivers, so this is
+  // cash still to be handed in - never a parcel with Accurate.
+  const withOurDriver = useMemo(
+    () => (rows ?? []).filter((row) => row.fulfillment_status === 'out_for_delivery'),
+    [rows],
+  );
+
+  function setCardError(orderId: string, message: string | null) {
+    setCardErrors((current) => {
+      const next = { ...current };
+      if (message) next[orderId] = message;
+      else delete next[orderId];
+      return next;
+    });
+  }
 
   // PromiseLike rather than Promise: supabase.rpc() returns a builder that is
   // thenable but is not an actual Promise.
   async function run(
     row: QueueRow,
     fn: () => PromiseLike<{ error: { code?: string; message: string } | null }>,
-  ) {
+  ): Promise<boolean> {
     setBusyId(row.order_id);
-    setError(null);
+    setCardError(row.order_id, null);
     const { error: rpcError } = await fn();
     setBusyId(null);
     if (rpcError) {
-      setError(describeError(rpcError, t));
-      return;
+      setCardError(row.order_id, describeError(rpcError, t));
+      return false;
     }
     await load();
+    return true;
+  }
+
+  async function ship(row: QueueRow) {
+    const code = (tracking[row.order_id] ?? row.tracking_number ?? '').trim();
+    if (!code) {
+      setCardError(row.order_id, t('queue.shipmentNumberNeeded'));
+      return;
+    }
+    const shipped = await run(row, () =>
+      supabase.rpc('ship_order', { p_order_id: row.order_id, p_tracking_number: code }),
+    );
+    if (shipped) {
+      setTracking((current) => {
+        const next = { ...current };
+        delete next[row.order_id];
+        return next;
+      });
+    }
   }
 
   if (slip) return <PackingSlip order={slip} onClose={() => setSlip(null)} />;
   if (invoiceId) return <Invoice orderId={invoiceId} onClose={() => setInvoiceId(null)} />;
   if (!rows) return <Spinner label={t('app.loading')} />;
 
-  const emptyMessage: Record<StageKey, string> = {
-    toConfirm: t('queue.emptyConfirm'),
-    toPack: t('queue.emptyPack'),
-    packed: t('queue.emptyPacked'),
-    awaitingPickup: t('queue.emptyPickup'),
-    withOurDriver: t('queue.emptyWithOurDriver'),
-  };
-
   function renderCard(row: QueueRow) {
+    const waiting = TO_SHIP.includes(row.fulfillment_status);
+    const busy = busyId === row.order_id;
+
     return (
             <Card key={row.order_id} className="space-y-3">
               <div className="flex flex-wrap items-start gap-3">
@@ -263,56 +285,66 @@ export function PackingQueue() {
                 </div>
               ) : null}
 
+              {/* The one step: the courier's number, then ship. Enter works
+                  too, so a scanner that ends with Enter ships on the scan. */}
+              {mayPack && waiting ? (
+                <form
+                  className="flex gap-2"
+                  onSubmit={(event) => {
+                    event.preventDefault();
+                    void ship(row);
+                  }}
+                >
+                  <Input
+                    dir="ltr"
+                    className="tabular min-w-0 flex-1"
+                    placeholder={t('queue.shipmentNumber')}
+                    aria-label={t('queue.shipmentNumber')}
+                    autoComplete="off"
+                    value={tracking[row.order_id] ?? row.tracking_number ?? ''}
+                    onChange={(event) =>
+                      setTracking((current) => ({ ...current, [row.order_id]: event.target.value }))
+                    }
+                    disabled={busy}
+                  />
+                  <Button type="submit" disabled={busy}>
+                    {busy ? t('app.loading') : t('queue.ship')}
+                  </Button>
+                </form>
+              ) : null}
+
+              {cardErrors[row.order_id] ? <ErrorNote>{cardErrors[row.order_id]}</ErrorNote> : null}
+
               <div className="flex flex-wrap gap-2 border-t border-duch-line pt-3">
+                {mayPack && waiting ? (
+                  <Button
+                    variant="secondary"
+                    className="min-h-9 px-3 text-xs"
+                    onClick={() => setSendingOut(row)}
+                    disabled={busy}
+                  >
+                    {t('queue.deliverOurselves')}
+                  </Button>
+                ) : null}
+
+                {/* Optional: logging the call, or a customer cancelling on
+                    it. Nothing waits on it any more. */}
                 {row.fulfillment_status === 'awaiting_confirmation' ? (
-                  <Button onClick={() => setCalling(row)} disabled={busyId === row.order_id}>
+                  <Button
+                    variant="secondary"
+                    className="min-h-9 px-3 text-xs"
+                    onClick={() => setCalling(row)}
+                    disabled={busy}
+                  >
                     {t('queue.call')}
                   </Button>
                 ) : null}
 
-                {mayPack &&
-                (row.fulfillment_status === 'ready_to_pack' ||
-                  row.fulfillment_status === 'confirmed') ? (
-                  <Button
-                    disabled={busyId === row.order_id}
-                    onClick={() =>
-                      run(row, () => supabase.rpc('mark_order_packed', { p_order_id: row.order_id }))
-                    }
-                  >
-                    {t('queue.markPacked')}
-                  </Button>
-                ) : null}
-
-                {mayPack && row.fulfillment_status === 'packed' ? (
-                  <>
-                    <Button onClick={() => setShipping(row)} disabled={busyId === row.order_id}>
-                      {t('queue.createShipment')}
-                    </Button>
-                    <Button onClick={() => setSendingOut(row)} disabled={busyId === row.order_id}>
-                      {t('queue.deliverOurselves')}
-                    </Button>
-                    <Button
-                      variant="secondary"
-                      disabled={busyId === row.order_id}
-                      onClick={() =>
-                        run(row, () =>
-                          supabase.rpc('unpack_order', {
-                            p_order_id: row.order_id,
-                            p_reason: null,
-                          }),
-                        )
-                      }
-                    >
-                      {t('queue.unpack')}
-                    </Button>
-                  </>
-                ) : null}
-
                 {maySettle && row.fulfillment_status === 'out_for_delivery' ? (
                   <Button
-                    disabled={busyId === row.order_id}
+                    disabled={busy}
                     onClick={() =>
-                      run(row, () =>
+                      void run(row, () =>
                         supabase.rpc('complete_own_delivery', { p_order_id: row.order_id }),
                       )
                     }
@@ -321,36 +353,6 @@ export function PackingQueue() {
                   </Button>
                 ) : null}
 
-                {/* Created for the courier but not collected yet: it can still
-                    go with our own driver instead. */}
-                {mayPack && row.fulfillment_status === 'awaiting_pickup' && !row.handed_over_at ? (
-                  <Button
-                    variant="secondary"
-                    onClick={() => setSendingOut(row)}
-                    disabled={busyId === row.order_id}
-                  >
-                    {t('queue.deliverOurselves')}
-                  </Button>
-                ) : null}
-
-                {mayPack && row.fulfillment_status === 'awaiting_pickup' && row.shipment_id ? (
-                  <Button
-                    disabled={busyId === row.order_id}
-                    onClick={() =>
-                      run(row, () =>
-                        supabase.rpc('mark_shipment_handed_over', {
-                          p_shipment_id: row.shipment_id,
-                        }),
-                      )
-                    }
-                  >
-                    {t('queue.handOver')}
-                  </Button>
-                ) : null}
-
-                {/* Smaller than the action buttons, so a card's buttons fit one
-                    line on a phone - with every stage on one page, card
-                    height is what decides how much scrolling there is. */}
                 <Button
                   variant="secondary"
                   className="ms-auto min-h-9 px-3 text-xs"
@@ -375,6 +377,9 @@ export function PackingQueue() {
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-3">
         <h1 className="text-lg font-extrabold">{t('queue.title')}</h1>
+        <span className="tabular rounded-full bg-duch-ink px-2 py-0.5 text-xs font-semibold text-white">
+          {toShip.length}
+        </span>
         {newCount > 0 ? (
           <button
             type="button"
@@ -389,80 +394,33 @@ export function PackingQueue() {
         </Button>
       </div>
 
-      {/* Every stage on one page, in the order the work happens. The chips
-          are a count and a shortcut, not a filter - nothing is hidden. */}
-      <div className="-mx-4 overflow-x-auto px-4">
-        <div className="flex min-w-max gap-2">
-          {STAGES.map((s) => (
-            <button
-              key={s.key}
-              type="button"
-              onClick={() =>
-                sectionRefs.current[s.key]?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-              }
-              className={cx(
-                'flex min-h-11 items-center gap-2 rounded-lg border px-4 text-sm font-semibold transition-colors',
-                byStage[s.key].length > 0
-                  ? 'border-duch-ink bg-white text-duch-ink hover:bg-stone-50'
-                  : 'border-duch-line bg-white text-stone-400',
-              )}
-            >
-              {t(`queue.${s.key}`)}
-              <span
-                className={cx(
-                  'tabular rounded-full px-2 py-0.5 text-xs',
-                  byStage[s.key].length > 0 ? 'bg-duch-ink text-white' : 'bg-stone-100',
-                )}
-              >
-                {byStage[s.key].length}
-              </span>
-            </button>
-          ))}
-        </div>
-      </div>
-
       {error ? <ErrorNote>{error}</ErrorNote> : null}
 
-      {rows.length === 0 ? (
+      {toShip.length === 0 ? (
         <EmptyState title={t('queue.empty')} />
       ) : (
-        STAGES.map((s) => (
-          <section
-            key={s.key}
-            ref={(el) => {
-              sectionRefs.current[s.key] = el;
-            }}
-            className="scroll-mt-20 space-y-3"
-          >
-            <h2 className="flex items-center gap-2 border-b border-duch-line pb-2 text-sm font-extrabold">
-              {t(`queue.${s.key}`)}
-              <span className="tabular rounded-full bg-stone-100 px-2 py-0.5 text-xs font-semibold">
-                {byStage[s.key].length}
-              </span>
-            </h2>
-            {byStage[s.key].length === 0 ? (
-              <p className="text-xs text-stone-400">{emptyMessage[s.key]}</p>
-            ) : (
-              byStage[s.key].map(renderCard)
-            )}
-          </section>
-        ))
+        <div className="space-y-3">{toShip.map(renderCard)}</div>
       )}
+
+      {/* Out with our own driver, cash not handed in yet. Not a packing step -
+          it is here so the money in a driver's pocket is not forgotten. */}
+      {withOurDriver.length > 0 ? (
+        <section className="space-y-3">
+          <h2 className="flex items-center gap-2 border-b border-duch-line pb-2 text-sm font-extrabold">
+            {t('queue.withOurDriver')}
+            <span className="tabular rounded-full bg-stone-100 px-2 py-0.5 text-xs font-semibold">
+              {withOurDriver.length}
+            </span>
+          </h2>
+          {withOurDriver.map(renderCard)}
+        </section>
+      ) : null}
 
       <CallDialog
         row={calling}
         onClose={() => setCalling(null)}
         onDone={() => {
           setCalling(null);
-          void load();
-        }}
-      />
-
-      <ShipmentDialog
-        row={shipping}
-        onClose={() => setShipping(null)}
-        onDone={() => {
-          setShipping(null);
           void load();
         }}
       />
@@ -490,6 +448,9 @@ function describeError(
   t: (k: string, p?: Record<string, unknown>) => string,
 ): string {
   if (error.code === '42501') return t('auth.noAccess');
+  // The courier's numbers are unique; a repeat is almost always a label
+  // scanned twice, or the wrong parcel's label.
+  if (error.code === '23505') return t('queue.shipmentNumberTaken');
   return error.message;
 }
 
@@ -618,115 +579,6 @@ function CallDialog({
               {outcome.label}
             </Button>
           ))}
-        </div>
-      </div>
-    </Modal>
-  );
-}
-
-// --- Creating the shipment --------------------------------------------------
-
-function ShipmentDialog({
-  row,
-  onClose,
-  onDone,
-}: {
-  row: QueueRow | null;
-  onClose: () => void;
-  onDone: () => void;
-}) {
-  const { t } = useLocale();
-  const [tracking, setTracking] = useState('');
-  const [service, setService] = useState('');
-  const [zone, setZone] = useState('');
-  const [subzone, setSubzone] = useState('');
-  const [error, setError] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
-  const trackingBox = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    setTracking('');
-    setService('');
-    setZone('');
-    setSubzone('');
-    setError(null);
-  }, [row?.order_id]);
-
-  // The courier's label has a barcode on it. Scanning beats typing a
-  // fifteen-character code, and mistyping one means a parcel that cannot be
-  // traced later.
-  useBarcodeScanner((code) => setTracking(code), { enabled: Boolean(row) && !busy });
-
-  if (!row) return null;
-  const target = row;
-
-  async function submit() {
-    if (!tracking.trim()) {
-      setError(t('queue.trackingNumber'));
-      return;
-    }
-
-    setBusy(true);
-    setError(null);
-
-    const { error: rpcError } = await supabase.rpc('record_shipment', {
-      p_order_id: target.order_id,
-      p_tracking_number: tracking.trim(),
-      p_cod_amount_egp: null,
-      p_service_type: service || null,
-      p_zone: zone || null,
-      p_subzone: subzone || null,
-    });
-
-    setBusy(false);
-    if (rpcError) {
-      setError(describeError(rpcError, t));
-      return;
-    }
-    onDone();
-  }
-
-  return (
-    <Modal
-      open
-      title={t('queue.shipmentTitle', { orderNumber: target.order_number })}
-      onClose={onClose}
-    >
-      <div className="space-y-3">
-        <Field label={t('queue.trackingNumber')} hint={t('queue.trackingHelp')}>
-          <Input
-            ref={trackingBox}
-            autoFocus
-            dir="ltr"
-            className="tabular"
-            value={tracking}
-            onChange={(event) => setTracking(event.target.value)}
-            autoComplete="off"
-          />
-        </Field>
-
-        <div className="grid grid-cols-2 gap-3">
-          <Field label={t('queue.zone')}>
-            <Input value={zone} onChange={(event) => setZone(event.target.value)} />
-          </Field>
-          <Field label={t('queue.subzone')}>
-            <Input value={subzone} onChange={(event) => setSubzone(event.target.value)} />
-          </Field>
-        </div>
-
-        <Field label={t('queue.serviceType')}>
-          <Input value={service} onChange={(event) => setService(event.target.value)} />
-        </Field>
-
-        {error ? <ErrorNote>{error}</ErrorNote> : null}
-
-        <div className="flex gap-2 pt-1">
-          <Button className="flex-1" onClick={submit} disabled={busy}>
-            {busy ? t('app.loading') : t('queue.createShipment')}
-          </Button>
-          <Button variant="secondary" onClick={onClose}>
-            {t('app.cancel')}
-          </Button>
         </div>
       </div>
     </Modal>

@@ -190,9 +190,17 @@ six months from now must still show what was actually sold.
 
 One screen takes every kind of order, and what it produces is not the same
 thing each time. A shop sale is handed over as it is rung up, so it is born
-delivered. An order taken over Instagram has to be confirmed by phone,
-packed and shipped, so it starts at the front of the packing queue exactly
-like one from the website.
+delivered. An order taken over Instagram still has to be shipped, so it
+starts in the packing queue exactly like one from the website.
+
+**Shipping is one step (2026-10-01).** The queue used to walk each order
+through a confirmation call, packed, shipment created and handed to the
+courier - four taps, all made in a row at the moment the parcel left. The
+owner asked for one: the courier's shipment number, one tap, and the order is
+in transit with the handover time recorded (`ship_order`). The call is still
+there to log, and is the in-app way to cancel a DM order, but nothing waits
+on it. The shipment number is still required - that rule is the one that
+lets a missing parcel be chased.
 
 Before this, both were recorded as counter sales. An order sitting in a box
 in the back room claimed it had been handed to a customer, and money nobody
@@ -231,7 +239,7 @@ done by editing a row.
 sometimes one of the company's workers delivers it and brings the cash back.
 No statement will ever cover that money, so the settlement route cannot
 settle it. It is two steps, mirroring the courier custody control:
-`start_own_delivery` sends a packed order out with a named driver (or one
+`start_own_delivery` sends a waiting order out with a named driver (or one
 waiting for Accurate that the courier has not collected - its Accurate
 shipment is cancelled), and the
 packing queue shows it under "with our driver" - who is holding whose cash,
