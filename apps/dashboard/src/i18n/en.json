@@ -388,7 +388,9 @@
     "reopenMethod": "What the payment method should have been",
     "reopenReason": "Why?",
     "reopenReasonRequired": "Write why before reopening.",
-    "reopenOnStatement": "This order is on a courier statement, so its money was counted against that statement and cannot be reopened."
+    "reopenOnStatement": "This order is on a courier statement, so its money was counted against that statement and cannot be reopened.",
+    "nothingOwed": "Nothing owed",
+    "lockedReturned": "This order was returned, so its money and contents are closed. Only the note and the customer details can be corrected."
   },
   "reports": {
     "title": "Reports and log",

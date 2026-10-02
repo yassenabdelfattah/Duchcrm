@@ -249,6 +249,16 @@ order that is out with our own driver, and only for the people who can
 already settle a tab. A paying-later order delivered this way stays unpaid:
 the customer still owes it.
 
+**A returned order is closed (2026-10-03).** Once the goods are back, or on
+their way back, nothing is owed: Mark paid is refused, the Orders screen
+shows "nothing owed" and leaves it out of the owed total, and its money and
+items cannot be edited (editing the basket would move stock the return
+already put back). The payment status is deliberately left unpaid rather than
+given a new value, because a returned courier parcel is still expected on
+Accurate's statement with a return fee, and the awaiting-settlement list
+finds it by being unpaid. Found on S2609-00015, marked paid after it came
+back.
+
 **Undoing a mistake: the owner only.** A paid order's money is locked, which
 also means a till mistake - "cash" picked for an order nobody has paid - has
 no way back. `reopen_order_payment` sets a paid order back to unpaid and

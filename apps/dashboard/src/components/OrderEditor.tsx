@@ -22,6 +22,7 @@ interface EditableOrder {
   channel: string;
   payment_method: string | null;
   payment_status: string;
+  fulfillment_status: string;
   shipping_egp: number;
   discount_egp: number;
   subtotal_egp: number;
@@ -78,7 +79,9 @@ export function OrderEditor({
 
   // The database refuses these edits; the screen agrees with it rather than
   // offering a field that will bounce.
-  const moneyLocked = order.payment_status === 'paid' || order.cancelled_at !== null;
+  const returned =
+    order.fulfillment_status === 'returned' || order.fulfillment_status === 'return_in_transit';
+  const moneyLocked = order.payment_status === 'paid' || order.cancelled_at !== null || returned;
 
   useEffect(() => {
     supabase
@@ -224,7 +227,11 @@ export function OrderEditor({
       <div className="space-y-4">
         {moneyLocked ? (
           <p className="rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-900">
-            {order.cancelled_at ? t('orders.lockedCancelled') : t('orders.lockedPaid')}
+            {order.cancelled_at
+              ? t('orders.lockedCancelled')
+              : returned
+                ? t('orders.lockedReturned')
+                : t('orders.lockedPaid')}
           </p>
         ) : null}
 

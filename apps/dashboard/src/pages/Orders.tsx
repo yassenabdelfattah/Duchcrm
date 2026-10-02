@@ -65,6 +65,20 @@ interface OrderRow {
 
 const PAGE_SIZE = 50;
 
+/**
+ * Nothing more is owed on an order that was cancelled or whose goods came
+ * back. The database refuses to mark either paid; the payment status of a
+ * returned courier parcel stays unpaid only so its statement line is still
+ * expected.
+ */
+function isClosed(row: { cancelled_at: string | null; fulfillment_status: string }): boolean {
+  return (
+    row.cancelled_at !== null ||
+    row.fulfillment_status === 'returned' ||
+    row.fulfillment_status === 'return_in_transit'
+  );
+}
+
 export function Orders() {
   const { t, locale } = useLocale();
   const { data: identity } = useGetIdentity<StaffIdentity>();
@@ -153,7 +167,7 @@ export function Orders() {
   const unpaidTotal = useMemo(
     () =>
       (rows ?? [])
-        .filter((row) => row.payment_status === 'pending' && !row.cancelled_at)
+        .filter((row) => row.payment_status === 'pending' && !isClosed(row))
         .reduce((sum, row) => sum + calculateInvoiceTotals(row).payable_egp, 0),
     [rows],
   );
@@ -208,6 +222,8 @@ export function Orders() {
           {rows.map((row) => {
             const totals = calculateInvoiceTotals(row);
             const cancelled = row.cancelled_at !== null;
+            // Cancelled, or the goods came back: nothing is owed on it.
+            const closed = isClosed(row);
             const tracking = row.shipments?.find((s) => s.tracking_number)?.tracking_number ?? null;
             // Out with one of our own drivers: "cash received" records it
             // delivered and paid in one step, so it replaces mark paid there.
@@ -223,7 +239,7 @@ export function Orders() {
             // owner's decision, cash on delivery included.
             const settleable =
               maySettle &&
-              !cancelled &&
+              !closed &&
               !deliverable &&
               row.payment_status === 'pending' &&
               row.payment_method !== 'card';
@@ -281,9 +297,13 @@ export function Orders() {
                       ? t('orders.cancelled')
                       : t(`fulfillment.${row.fulfillment_status}`)}
                   </Badge>
-                  <Badge tone={row.payment_status === 'paid' ? 'good' : 'warn'}>
-                    {t(`paymentStatus.${row.payment_status}`)}
-                  </Badge>
+                  {closed && row.payment_status === 'pending' ? (
+                    <Badge>{t('orders.nothingOwed')}</Badge>
+                  ) : (
+                    <Badge tone={row.payment_status === 'paid' ? 'good' : 'warn'}>
+                      {t(`paymentStatus.${row.payment_status}`)}
+                    </Badge>
+                  )}
                   {row.payment_method ? (
                     <span className="text-xs text-stone-500">
                       {t(`payment.${row.payment_method}`)}
