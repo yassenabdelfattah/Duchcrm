@@ -71,9 +71,7 @@ export function PackingSlip({ order, onClose }: { order: SlipOrder; onClose: () 
 
       <div dir="rtl" lang="ar" className="mx-auto max-w-[148mm] font-arabic text-[13px] leading-relaxed">
         <header className="flex items-end justify-between border-b-2 border-duch-ink pb-2">
-          <p className="text-2xl font-extrabold tracking-widest" dir="ltr">
-            DUCH
-          </p>
+          <img src="/logo-black.png" alt="DUCH" className="h-[18mm] w-auto" />
           <div className="text-end">
             <p className="tabular text-lg font-extrabold" dir="ltr">
               {order.order_number}

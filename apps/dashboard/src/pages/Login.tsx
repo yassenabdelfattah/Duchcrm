@@ -28,7 +28,7 @@ export function Login() {
     <div className="flex min-h-dvh items-center justify-center p-4">
       <div className="w-full max-w-sm">
         <div className="mb-6 text-center">
-          <p className="text-2xl font-extrabold tracking-widest">DUCH</p>
+          <img src="/logo-black.png" alt="DUCH" className="mx-auto mb-2 h-24 w-auto" />
           <p className="text-sm text-stone-500">{t('app.name')}</p>
         </div>
 

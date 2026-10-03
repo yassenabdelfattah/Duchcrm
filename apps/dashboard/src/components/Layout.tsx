@@ -42,7 +42,10 @@ export function Layout() {
     <div className="min-h-dvh">
       <header className="no-print sticky top-0 z-30 border-b border-duch-line bg-white/90 backdrop-blur">
         <div className="mx-auto flex max-w-6xl items-center gap-3 px-4 py-3">
-          <span className="text-base font-extrabold tracking-tight">{t('app.name')}</span>
+          <span className="flex items-center gap-2">
+            <img src="/logo-black.png" alt="" className="h-8 w-auto" />
+            <span className="text-base font-extrabold tracking-tight">{t('app.name')}</span>
+          </span>
 
           <nav className="ms-auto hidden items-center gap-1 sm:flex">
             {visible.map((item) => (

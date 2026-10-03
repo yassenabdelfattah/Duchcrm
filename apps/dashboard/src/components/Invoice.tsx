@@ -147,10 +147,8 @@ export function Invoice({ orderId, onClose }: { orderId: string; onClose: () => 
         className="mx-auto max-w-[128mm] font-arabic text-[12px] leading-snug text-duch-ink print:max-w-none"
       >
         <header className="flex items-end justify-between border-b-2 border-duch-ink pb-3">
-          <div>
-            <p className="text-3xl font-extrabold tracking-widest" dir="ltr">
-              DUCH
-            </p>
+          <div className="text-center">
+            <img src="/logo-black.png" alt="DUCH" className="h-[22mm] w-auto" />
             <p className="text-[10px] text-stone-500" dir="ltr">
               duch.store
             </p>

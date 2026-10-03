@@ -21,7 +21,7 @@ export function Receipt({ sale }: { sale: CompletedSale }) {
   return (
     <div className="mx-auto w-full max-w-[80mm] bg-white p-4 text-[13px] leading-relaxed print:max-w-none print:p-0">
       <header className="border-b border-dashed border-stone-400 pb-2 text-center">
-        <p className="text-lg font-extrabold tracking-widest">DUCH</p>
+        <img src="/logo-black.png" alt="DUCH" className="mx-auto h-[20mm] w-auto" />
         <p className="text-xs text-stone-500">duch.store</p>
       </header>
 
