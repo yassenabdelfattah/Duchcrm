@@ -108,7 +108,9 @@
     "return": "Return",
     "cancellation": "Cancellation",
     "adjustment": "Adjustment",
-    "initial_import": "Opening stock"
+    "initial_import": "Opening stock",
+    "stock_out": "Taken out",
+    "stock_out_return": "Back from taken out"
   },
   "products": {
     "title": "Products",
@@ -616,5 +618,51 @@
     "settlements_manage": "Settlements",
     "sync_manage": "Sync issues",
     "staff_manage": "Staff and roles"
+  },
+  "stockOut": {
+    "title": "Take stock out",
+    "tab": {
+      "stock": "Stock",
+      "out": "Taken out"
+    },
+    "reason": {
+      "photoshoot": "Photoshoot",
+      "gift": "Gift",
+      "damaged": "Damaged",
+      "other": "Other reason"
+    },
+    "reasonLabel": "Reason",
+    "reasonPlaceholder": "Write the reason",
+    "reasonNeeded": "Write why the stock is going out.",
+    "items": "Items",
+    "pickItems": "Choose at least one item.",
+    "comesBack": "Coming back",
+    "returnBy": "Back by",
+    "takenBy": "Who has it?",
+    "takenByHint": "Photographer, influencer, factory…",
+    "submit": "Take out {{count}} pieces",
+    "notEnough": "There are not enough of {{sku}} in stock.",
+    "status": {
+      "out": "Out",
+      "outUntil": "Out · back by {{date}}",
+      "overdue": "Late",
+      "returned": "Returned",
+      "kept": "Not coming back",
+      "gone": "Gone for good"
+    },
+    "filter": {
+      "open": "Not back yet",
+      "all": "All",
+      "allReasons": "All reasons"
+    },
+    "empty": "Nothing here.",
+    "returnedCount": "{{count}} back",
+    "stillOut": "{{count}} out",
+    "recordReturn": "Record a return",
+    "confirmReturn": "Back into stock",
+    "pickReturned": "Choose what came back.",
+    "notComingBack": "Not coming back",
+    "closeHelp": "{{count}} pieces have not come back. They already left stock; this only stops the wait.",
+    "closeReason": "Why?"
   }
 }

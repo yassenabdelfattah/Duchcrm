@@ -18,6 +18,8 @@ export const STOCK_MOVEMENT_REASONS = [
   'cancellation',
   'adjustment',
   'initial_import',
+  'stock_out',
+  'stock_out_return',
 ] as const;
 export type StockMovementReason = (typeof STOCK_MOVEMENT_REASONS)[number];
 
@@ -25,7 +27,7 @@ export type StockMovementReason = (typeof STOCK_MOVEMENT_REASONS)[number];
  * Reasons where the CRM is the gatekeeper: we decide whether the sale happens,
  * so we refuse to let stock go negative. The database enforces this too.
  */
-export const BLOCKING_REASONS: readonly StockMovementReason[] = ['store_sale', 'wholesale'];
+export const BLOCKING_REASONS: readonly StockMovementReason[] = ['store_sale', 'wholesale', 'stock_out'];
 
 /**
  * Reasons that record something which already happened elsewhere. Refusing

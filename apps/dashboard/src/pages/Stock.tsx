@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useGetIdentity } from '@refinedev/core';
 import { STOCK_MOVEMENT_REASONS, can, formatEGP, type StockMovementReason } from '@duch/shared';
 import { supabase } from '../lib/supabase';
+import { StockOutDialog, StockOutList } from '../components/StockOut';
 import { arabicError } from '../lib/errors';
 import { useLocale } from '../i18n';
 import type { StaffIdentity } from '../providers/authProvider';
@@ -16,6 +17,7 @@ import {
   Modal,
   Select,
   Spinner,
+  cx,
 } from '../components/ui';
 
 interface StockRow {
@@ -50,6 +52,24 @@ export function Stock() {
   const [lowOnly, setLowOnly] = useState(false);
   const [adjusting, setAdjusting] = useState<StockRow | null>(null);
   const [reloadToken, setReloadToken] = useState(0);
+  const [tab, setTab] = useState<'stock' | 'out'>('stock');
+  const [takingOut, setTakingOut] = useState(false);
+  // Pieces out and expected back - the count on the tab.
+  const [openOuts, setOpenOuts] = useState(0);
+
+  useEffect(() => {
+    let cancelled = false;
+    void supabase
+      .from('v_stock_outs')
+      .select('id', { count: 'exact', head: true })
+      .in('status', ['out', 'overdue'])
+      .then(({ count }) => {
+        if (!cancelled) setOpenOuts(count ?? 0);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [reloadToken]);
 
   useEffect(() => {
     let cancelled = false;
@@ -89,28 +109,59 @@ export function Stock() {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-end gap-3">
+      <div className="flex flex-wrap items-center gap-3">
         <h1 className="text-lg font-extrabold">{t('stock.title')}</h1>
-        <div className="ms-auto flex flex-wrap items-center gap-3">
-          <Input
-            value={search}
-            onChange={(event) => setSearch(event.target.value)}
-            placeholder={t('app.search')}
-            className="w-56"
-          />
-          <label className="flex items-center gap-2 text-sm font-semibold text-stone-600">
-            <input
-              type="checkbox"
-              checked={lowOnly}
-              onChange={(event) => setLowOnly(event.target.checked)}
-              className="size-4 accent-duch-ink"
-            />
-            {t('stock.lowOnly')}
-          </label>
-        </div>
+        {mayAdjust ? (
+          <Button className="ms-auto" onClick={() => setTakingOut(true)}>
+            {t('stockOut.title')}
+          </Button>
+        ) : null}
       </div>
 
-      {!filtered ? (
+      <div className="flex gap-1.5">
+        {(['stock', 'out'] as const).map((key) => (
+          <button
+            key={key}
+            type="button"
+            onClick={() => setTab(key)}
+            className={cx(
+              'flex min-h-10 items-center gap-2 rounded-lg px-3 text-sm font-bold',
+              tab === key ? 'bg-duch-ink text-white' : 'text-stone-600 hover:bg-stone-100',
+            )}
+          >
+            {t(`stockOut.tab.${key}`)}
+            {key === 'out' && openOuts > 0 ? (
+              <span className="tabular rounded-md bg-duch-accent px-1.5 text-xs text-white">{openOuts}</span>
+            ) : null}
+          </button>
+        ))}
+      </div>
+
+      {tab === 'out' ? <StockOutList mayAdjust={mayAdjust} reloadToken={reloadToken} /> : null}
+
+      {tab === 'stock' ? (
+        <div className="flex flex-wrap items-end gap-3">
+          <div className="flex flex-wrap items-center gap-3">
+            <Input
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              placeholder={t('app.search')}
+              className="w-56"
+            />
+            <label className="flex items-center gap-2 text-sm font-semibold text-stone-600">
+              <input
+                type="checkbox"
+                checked={lowOnly}
+                onChange={(event) => setLowOnly(event.target.checked)}
+                className="size-4 accent-duch-ink"
+              />
+              {t('stock.lowOnly')}
+            </label>
+          </div>
+        </div>
+      ) : null}
+
+      {tab !== 'stock' ? null : !filtered ? (
         <Spinner label={t('app.loading')} />
       ) : filtered.length === 0 ? (
         <EmptyState title={t('stock.empty')} />
@@ -174,6 +225,17 @@ export function Stock() {
           </table>
         </Card>
       )}
+
+      {takingOut ? (
+        <StockOutDialog
+          onClose={() => setTakingOut(false)}
+          onDone={() => {
+            setTakingOut(false);
+            setTab('out');
+            setReloadToken((token) => token + 1);
+          }}
+        />
+      ) : null}
 
       <AdjustDialog
         row={adjusting}

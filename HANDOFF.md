@@ -25,7 +25,7 @@ most of the design.
 
 **Built and tested:** Phases 1, 2 and 3 complete, plus the staff screen.
 
-- 40 migrations, 19 pgTAP suites, **357 database assertions**
+- 41 migrations, 20 pgTAP suites, **374 database assertions**
 - **68 TypeScript assertions** (webhook HMAC, money arithmetic, invoice
   totals, Shopify token exchange, Cairo dates)
 - 13 screens, 4 Edge Functions, 1 Cloudflare Worker
@@ -42,7 +42,7 @@ corrected forward (an adjustment), never by truncating.
 
 | | |
 |---|---|
-| Schema | All 40 migrations pushed. The seed is **not** pushed, deliberately. |
+| Schema | All 41 migrations pushed. The seed is **not** pushed, deliberately. |
 | Edge Functions | All four deployed. The three behind `verify_jwt` now also require the service role or an active staff member (`_shared/auth.ts`). |
 | Shopify | Catalogue: 47 products, 402 variants. Import matches on `shopify_variant_id`, so SKU renames in Shopify update in place. |
 | Location | `النزهه`, default, linked to Shopify location `90745733441`. |
@@ -467,7 +467,7 @@ Recorded from the user; most of the design follows from it. Fuller version in
 | `/orders` | Every order in full (customer, address, shipment number, items, shipping, note) from `v_order_list`. Search by order/shipment number, phone or name; filters; tabs with counts (to ship, on the road, owed = delivered and unpaid, returned); tracker line and history window. Invoice, settle, edit |
 | `/queue` | Packing queue: **one step** - shipment number, Ship, and it is with the courier (`ship_order`). Or deliver ourselves. The confirmation call is optional (it is also the only in-app cancel for a DM order). "With our driver" below is cash still to be handed in |
 | `/returns` | Checking returns back in, per item with a count. Looks up a courier tracking code or an order number. Tapping the box lists parcels coming back, orders out with our driver, and the last 30 days of deliveries |
-| `/stock` | Levels and adjustments |
+| `/stock` | Stock by variant with adjust; tab "الإخراج": take stock out for a photoshoot, gift, damage or a typed reason, track what has to come back, record returns. See DECISIONS #11 |
 | `/products` | Catalogue |
 | `/reports` | Four tabs: summary · log · refusals · custody |
 | `/settlements` | Entering the courier's statement |

@@ -296,8 +296,10 @@ This is verified by an actual two-connection test, not just reasoned about.
 
 Refusing a sale and refusing a *record* of a sale are different things.
 
-- **Shop sales and wholesale are refused** when there is not enough stock. We
-  are the gatekeeper; we should not promise what we cannot supply.
+- **Shop sales, wholesale and stock-outs are refused** when there is not
+  enough stock. We are the gatekeeper; we should not promise what we cannot
+  supply, and a stock-out for more than the system shows is far more often a
+  wrong size or a typo than a real piece the count missed.
 - **Website orders, returns and cancellations are always recorded**, even if
   the result goes negative. That order already happened on the storefront.
   Refusing to write it down would not un-sell it — it would just mean the
@@ -444,4 +446,21 @@ a parcel with the courier is the courier's to answer for - it shows under
 "on the road", and goes late after seven days, the custody report's line.
 Returned and cancelled orders are closed and never owed. The figure at the
 top of the screen and the "owed" tab use this one definition.
+
+---
+
+## 11. Stock leaves for a reason, not only for an order
+
+The owner's ask (2026-10-04): pieces go out for a photoshoot, as a gift, or
+because they are damaged, and each one should be traceable. A stock-out is a
+record (`stock_outs`, with its lines) and one `stock_out` movement per line,
+so the ledger stays the single history of stock and Shopify drops the number
+as with any other change. Reasons are the owner's list - photoshoot, gift,
+damaged - plus a typed one.
+
+A stock-out can be expected back by a date. Pieces that come back are a
+second movement (`stock_out_return`) against the same record; when all are
+back it closes as returned. Deciding the rest is not coming back closes it as
+kept and moves no stock, because the pieces already left when they went out.
+Who may do any of this is the `stock.adjust` permission.
 

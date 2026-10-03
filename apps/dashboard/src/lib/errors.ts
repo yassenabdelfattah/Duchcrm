@@ -90,6 +90,14 @@ const RULES: Rule[] = [
   [/^This issue has no variant to adjust/, () => 'هذه المشكلة غير مرتبطة بصنف لتعديله.'],
   [/^Sync issue \S+ not found/, () => 'المشكلة غير موجودة.'],
 
+  // --- Taking stock out -------------------------------------------------------------------
+  [/^Say why the stock is going out/, () => 'اكتب سبب الإخراج.'],
+  [/^Choose at least one item to take out/, () => 'اختر صنفاً واحداً على الأقل.'],
+  [/^Choose at least one item that came back/, () => 'اختر ما رجع.'],
+  [/^More is coming back than went out/, () => 'الراجع أكثر مما خرج.'],
+  [/^This stock-out is already closed/, () => 'هذا الإخراج مغلق بالفعل.'],
+  [/^Stock-out \S+ not found/, () => 'الإخراج غير موجود.'],
+
   // --- Roles -----------------------------------------------------------------------------
   [/^You cannot give a role with permissions you do not have yourself/, () => 'لا يمكنك إعطاء دور فيه صلاحيات ليست لديك.'],
   [/^Only an admin can change an admin/, () => 'المسؤول لا يغيّره إلا مسؤول.'],

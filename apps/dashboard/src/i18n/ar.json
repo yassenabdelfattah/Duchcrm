@@ -108,7 +108,9 @@
     "return": "مرتجع",
     "cancellation": "إلغاء",
     "adjustment": "تسوية",
-    "initial_import": "رصيد افتتاحي"
+    "initial_import": "رصيد افتتاحي",
+    "stock_out": "إخراج",
+    "stock_out_return": "رجوع من الإخراج"
   },
   "products": {
     "title": "المنتجات",
@@ -616,5 +618,51 @@
     "settlements_manage": "التسويات",
     "sync_manage": "مشاكل المزامنة",
     "staff_manage": "الموظفون والأدوار"
+  },
+  "stockOut": {
+    "title": "إخراج مخزون",
+    "tab": {
+      "stock": "المخزون",
+      "out": "الإخراج"
+    },
+    "reason": {
+      "photoshoot": "تصوير",
+      "gift": "هدية",
+      "damaged": "تالف",
+      "other": "سبب آخر"
+    },
+    "reasonLabel": "السبب",
+    "reasonPlaceholder": "اكتب السبب",
+    "reasonNeeded": "اكتب سبب الإخراج.",
+    "items": "الأصناف",
+    "pickItems": "اختر صنفاً واحداً على الأقل.",
+    "comesBack": "سيرجع",
+    "returnBy": "يرجع بتاريخ",
+    "takenBy": "مع مين؟",
+    "takenByHint": "المصوّر، المؤثر، المصنع…",
+    "submit": "إخراج {{count}} قطعة",
+    "notEnough": "الكمية المطلوبة من {{sku}} أكبر من المتاح.",
+    "status": {
+      "out": "خارج",
+      "outUntil": "خارج · يرجع {{date}}",
+      "overdue": "متأخر",
+      "returned": "رجع",
+      "kept": "لن يرجع",
+      "gone": "خرج نهائياً"
+    },
+    "filter": {
+      "open": "لم يرجع بعد",
+      "all": "الكل",
+      "allReasons": "كل الأسباب"
+    },
+    "empty": "لا يوجد شيء هنا.",
+    "returnedCount": "رجع {{count}}",
+    "stillOut": "خارج {{count}}",
+    "recordReturn": "تسجيل رجوع",
+    "confirmReturn": "رجّعها للمخزون",
+    "pickReturned": "اختر ما رجع.",
+    "notComingBack": "لن يرجع",
+    "closeHelp": "{{count}} قطعة لم ترجع. خرجت من المخزون بالفعل، وهذا يغلق الانتظار فقط.",
+    "closeReason": "السبب؟"
   }
 }
