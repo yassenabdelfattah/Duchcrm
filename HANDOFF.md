@@ -25,7 +25,7 @@ most of the design.
 
 **Built and tested:** Phases 1, 2 and 3 complete, plus the staff screen.
 
-- 38 migrations, 17 pgTAP suites, **324 database assertions**
+- 39 migrations, 18 pgTAP suites, **335 database assertions**
 - **68 TypeScript assertions** (webhook HMAC, money arithmetic, invoice
   totals, Shopify token exchange, Cairo dates)
 - 13 screens, 4 Edge Functions, 1 Cloudflare Worker
@@ -42,7 +42,7 @@ corrected forward (an adjustment), never by truncating.
 
 | | |
 |---|---|
-| Schema | All 38 migrations pushed. The seed is **not** pushed, deliberately. |
+| Schema | All 39 migrations pushed. The seed is **not** pushed, deliberately. |
 | Edge Functions | All four deployed. The three behind `verify_jwt` now also require the service role or an active staff member (`_shared/auth.ts`). |
 | Shopify | Catalogue: 47 products, 402 variants. Import matches on `shopify_variant_id`, so SKU renames in Shopify update in place. |
 | Location | `النزهه`, default, linked to Shopify location `90745733441`. |
@@ -447,7 +447,7 @@ Recorded from the user; most of the design follows from it. Fuller version in
 |---|---|
 | `/` | Dashboard: today's takings, low stock, **overdue parcels**, sync issues |
 | `/sell` | Takes any order - shop, website or DM - with shipping and payment method |
-| `/orders` | Every order, searchable by number or tracking. Invoice, settle a tab, edit |
+| `/orders` | Every order in full (customer, address, shipment number, items, shipping, note) from `v_order_list`. Search by order/shipment number, phone or name; filters; tabs with counts (to ship, on the road, owed = delivered and unpaid, returned); tracker line and history window. Invoice, settle, edit |
 | `/queue` | Packing queue: **one step** - shipment number, Ship, and it is with the courier (`ship_order`). Or deliver ourselves. The confirmation call is optional (it is also the only in-app cancel for a DM order). "With our driver" below is cash still to be handed in |
 | `/returns` | Checking returns back in, per item with a count. Looks up a courier tracking code or an order number. Tapping the box lists parcels coming back, orders out with our driver, and the last 30 days of deliveries |
 | `/stock` | Levels and adjustments |

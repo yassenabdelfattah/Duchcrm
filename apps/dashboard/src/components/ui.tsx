@@ -120,6 +120,43 @@ export function Badge({ tone = 'neutral', children }: { tone?: Tone; children: R
   );
 }
 
+/**
+ * Where something stands, in one of five meanings used the same way on every
+ * screen: waiting on us, on the road, done, a problem, closed.
+ */
+export type StatusTone = 'wait' | 'road' | 'done' | 'back' | 'closed';
+
+const STATUS_STYLES: Record<StatusTone, string> = {
+  wait: 'bg-amber-50 text-amber-800',
+  road: 'bg-blue-50 text-blue-700',
+  done: 'bg-emerald-50 text-emerald-700',
+  back: 'bg-red-50 text-red-700',
+  closed: 'bg-stone-100 text-stone-600',
+};
+
+export function StatusPill({ tone, children }: { tone: StatusTone; children: ReactNode }) {
+  return (
+    <span
+      className={cx(
+        'inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-2.5 py-0.5 text-xs font-bold',
+        STATUS_STYLES[tone],
+      )}
+    >
+      <span className="size-1.5 rounded-full bg-current" aria-hidden="true" />
+      {children}
+    </span>
+  );
+}
+
+/** An order number, SKU or shipment number: fixed-width and always left to right. */
+export function Code({ children, className }: { children: ReactNode; className?: string }) {
+  return (
+    <bdi dir="ltr" className={cx('font-mono tracking-tight', className)}>
+      {children}
+    </bdi>
+  );
+}
+
 export function Spinner({ label }: { label?: string }) {
   return (
     <div className="flex items-center justify-center gap-3 p-8 text-sm text-stone-500" role="status">

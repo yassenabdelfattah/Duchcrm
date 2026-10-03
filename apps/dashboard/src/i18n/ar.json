@@ -371,7 +371,7 @@
   },
   "orders": {
     "title": "الطلبات",
-    "searchPlaceholder": "ابحث برقم الطلب",
+    "searchPlaceholder": "ابحث برقم الطلب أو الشحنة أو الهاتف أو الاسم",
     "empty": "لا توجد طلبات.",
     "markPaid": "تم التحصيل",
     "cancelled": "ملغي",
@@ -390,7 +390,84 @@
     "reopenReasonRequired": "اكتب السبب قبل إعادة الفتح.",
     "reopenOnStatement": "هذا الطلب مُدرج في كشف حساب المندوب، وتم احتساب مبلغه عليه، فلا يمكن إعادة فتحه.",
     "nothingOwed": "لا يوجد مستحق",
-    "lockedReturned": "تم إرجاع هذا الطلب، لذلك أصبحت مبالغه وأصنافه مغلقة. يمكن تصحيح الملاحظة وبيانات العميل فقط."
+    "lockedReturned": "تم إرجاع هذا الطلب، لذلك أصبحت مبالغه وأصنافه مغلقة. يمكن تصحيح الملاحظة وبيانات العميل فقط.",
+    "tab": {
+      "all": "الكل",
+      "to_ship": "للشحن",
+      "on_the_road": "مع المندوب",
+      "owed": "غير محصّل",
+      "back": "مرتجع"
+    },
+    "filter": {
+      "channelAll": "كل المصادر",
+      "methodAll": "كل طرق الدفع",
+      "paidAll": "مدفوع وغير مدفوع",
+      "deliveryAll": "كل طرق التوصيل",
+      "periodAll": "كل الفترات",
+      "clear": "مسح الفلاتر"
+    },
+    "courier": {
+      "accurate": "Accurate",
+      "own": "مندوبنا"
+    },
+    "since": {
+      "now": "الآن"
+    },
+    "where": {
+      "cancelled": "ملغي",
+      "toShip": "في انتظار الشحن",
+      "withDriver": "مع {{name}}",
+      "late": "متأخر مع {{courier}}",
+      "withCourier": "مع {{courier}}",
+      "delivered": "تم التسليم"
+    },
+    "shipmentWith": "رقم الشحنة · {{courier}}",
+    "noShipment": "لم يُشحن بعد",
+    "goods": "المنتجات",
+    "noteLabel": "ملاحظة",
+    "more": "عرض المزيد",
+    "handedOver": "خرج في",
+    "history": {
+      "open": "السجل",
+      "title": "سجل الطلب {{orderNumber}}",
+      "created": "تم إنشاء الطلب",
+      "call": "مكالمة تأكيد: {{outcome}}",
+      "outcome": {
+        "confirmed": "تم التأكيد",
+        "unreachable": "لا يوجد رد",
+        "cancelled_by_customer": "ألغى العميل",
+        "asked_to_delay": "طلب التأجيل"
+      },
+      "to": {
+        "awaiting_confirmation": "في انتظار التأكيد",
+        "confirmed": "تم التأكيد",
+        "ready_to_pack": "جاهز للتجهيز",
+        "packed": "تم التجهيز",
+        "awaiting_pickup": "في انتظار المندوب",
+        "in_transit": "خرج مع شركة الشحن",
+        "out_for_delivery": "خرج مع مندوبنا",
+        "delivered": "تم التسليم",
+        "delivery_failed": "فشل التسليم",
+        "return_in_transit": "في طريق العودة",
+        "returned": "تم استلام المرتجع",
+        "cancelled": "تم الإلغاء"
+      },
+      "statusChanged": "تغيّرت الحالة",
+      "paid": "تم تسجيل الدفع",
+      "paymentTo": "حالة الدفع: {{status}}",
+      "reopened": "أُعيد فتح الدفعة",
+      "itemsEdited": "تم تعديل الأصناف",
+      "edited": "تم تعديل بيانات الطلب",
+      "system": "النظام"
+    },
+    "step": {
+      "sold": "تم البيع",
+      "paid": "تم التحصيل",
+      "ordered": "تم الطلب",
+      "out": "خرج",
+      "delivered": "تم التسليم"
+    },
+    "pickedUpInStore": "استلم من المحل"
   },
   "reports": {
     "title": "التقارير والسجل",

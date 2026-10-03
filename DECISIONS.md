@@ -419,3 +419,12 @@ The printouts carry only what the owner listed:
   total, under the order number so the packer can match paper to box. The
   courier's label carries the customer and the amount to collect.
 
+### "Owed" on the Orders screen
+
+Owed means delivered and not paid: the customer has the goods and we do not
+have the money. An order still waiting to ship has not been handed over, and
+a parcel with the courier is the courier's to answer for - it shows under
+"on the road", and goes late after seven days, the custody report's line.
+Returned and cancelled orders are closed and never owed. The figure at the
+top of the screen and the "owed" tab use this one definition.
+

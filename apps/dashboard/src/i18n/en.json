@@ -371,7 +371,7 @@
   },
   "orders": {
     "title": "Orders",
-    "searchPlaceholder": "Search by order number",
+    "searchPlaceholder": "Search by order, shipment, phone or name",
     "empty": "No orders yet.",
     "markPaid": "Mark paid",
     "cancelled": "Cancelled",
@@ -390,7 +390,84 @@
     "reopenReasonRequired": "Write why before reopening.",
     "reopenOnStatement": "This order is on a courier statement, so its money was counted against that statement and cannot be reopened.",
     "nothingOwed": "Nothing owed",
-    "lockedReturned": "This order was returned, so its money and contents are closed. Only the note and the customer details can be corrected."
+    "lockedReturned": "This order was returned, so its money and contents are closed. Only the note and the customer details can be corrected.",
+    "tab": {
+      "all": "All",
+      "to_ship": "To ship",
+      "on_the_road": "On the road",
+      "owed": "Owed",
+      "back": "Returned"
+    },
+    "filter": {
+      "channelAll": "All channels",
+      "methodAll": "All payment methods",
+      "paidAll": "Paid and unpaid",
+      "deliveryAll": "All delivery",
+      "periodAll": "Any time",
+      "clear": "Clear filters"
+    },
+    "courier": {
+      "accurate": "Accurate",
+      "own": "Our driver"
+    },
+    "since": {
+      "now": "just now"
+    },
+    "where": {
+      "cancelled": "Cancelled",
+      "toShip": "Waiting to ship",
+      "withDriver": "With {{name}}",
+      "late": "Late with {{courier}}",
+      "withCourier": "With {{courier}}",
+      "delivered": "Delivered"
+    },
+    "shipmentWith": "Shipment · {{courier}}",
+    "noShipment": "Not shipped yet",
+    "goods": "Goods",
+    "noteLabel": "Note",
+    "more": "Show more",
+    "handedOver": "Went out",
+    "history": {
+      "open": "History",
+      "title": "Order {{orderNumber}} history",
+      "created": "Order created",
+      "call": "Confirmation call: {{outcome}}",
+      "outcome": {
+        "confirmed": "confirmed",
+        "unreachable": "no answer",
+        "cancelled_by_customer": "customer cancelled",
+        "asked_to_delay": "asked to delay"
+      },
+      "to": {
+        "awaiting_confirmation": "Awaiting confirmation",
+        "confirmed": "Confirmed",
+        "ready_to_pack": "Ready to pack",
+        "packed": "Packed",
+        "awaiting_pickup": "Awaiting pickup",
+        "in_transit": "Out with the courier",
+        "out_for_delivery": "Out with our driver",
+        "delivered": "Delivered",
+        "delivery_failed": "Delivery failed",
+        "return_in_transit": "On its way back",
+        "returned": "Return received",
+        "cancelled": "Cancelled"
+      },
+      "statusChanged": "Status changed",
+      "paid": "Payment recorded",
+      "paymentTo": "Payment: {{status}}",
+      "reopened": "Payment reopened",
+      "itemsEdited": "Items edited",
+      "edited": "Order details edited",
+      "system": "System"
+    },
+    "step": {
+      "sold": "Sold",
+      "paid": "Paid",
+      "ordered": "Ordered",
+      "out": "Out",
+      "delivered": "Delivered"
+    },
+    "pickedUpInStore": "Collected in the shop"
   },
   "reports": {
     "title": "Reports and log",
