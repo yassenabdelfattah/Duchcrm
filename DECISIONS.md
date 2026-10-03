@@ -464,3 +464,13 @@ back it closes as returned. Deciding the rest is not coming back closes it as
 kept and moves no stock, because the pieces already left when they went out.
 Who may do any of this is the `stock.adjust` permission.
 
+**Products and stock are one page (2026-10-05)**, because they were the same
+catalogue seen twice. Several sizes can be changed together. Goods received
+use the existing `production_in` movement, which already takes a list. A
+stock count cannot be done safely in the browser - subtracting the number the
+screen loaded from the number typed would undo a sale rung up in between - so
+`record_stock_count()` works out each difference with the stock row locked,
+at the moment of saving, and writes only the sizes that changed. Names,
+prices and photos stay read-only: they are Shopify's, and the next import
+would overwrite an edit made in the CRM.
+

@@ -22,8 +22,7 @@ const NAV_ITEMS: NavItem[] = [
   // Whoever sees orders sees the queue; the buttons in it need orders.ship.
   { to: '/queue', labelKey: 'nav.queue', permissions: ['orders.ship', 'orders.read'], icon: '☰' },
   { to: '/returns', labelKey: 'nav.returns', permissions: ['returns.manage', 'orders.read'], icon: '↩' },
-  { to: '/stock', labelKey: 'nav.stock', permissions: ['stock.read', 'stock.adjust'], icon: '▤' },
-  { to: '/products', labelKey: 'nav.products', permissions: ['stock.read', 'products.manage'], icon: '✚' },
+  { to: '/stock', labelKey: 'nav.stock', permissions: ['stock.read', 'stock.adjust', 'products.manage'], icon: '▤' },
   { to: '/reports', labelKey: 'nav.reports', permissions: ['reports.read'], icon: '▧' },
   { to: '/settlements', labelKey: 'nav.settlements', permissions: ['settlements.manage'], icon: '₤' },
   { to: '/sync', labelKey: 'nav.sync', permissions: ['sync.manage'], icon: '⇄' },

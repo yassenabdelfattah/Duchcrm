@@ -16,7 +16,7 @@
   "nav": {
     "dashboard": "Dashboard",
     "sell": "New sale",
-    "stock": "Stock",
+    "stock": "Products and stock",
     "products": "Products",
     "orders": "Orders",
     "sync": "Sync issues",
@@ -664,5 +664,39 @@
     "notComingBack": "Not coming back",
     "closeHelp": "{{count}} pieces have not come back. They already left stock; this only stops the wait.",
     "closeReason": "Why?"
+  },
+  "inventory": {
+    "title": "Products and stock",
+    "tab": {
+      "products": "Products",
+      "out": "Taken out"
+    },
+    "searchPlaceholder": "Search by name, SKU or barcode",
+    "allTypes": "All types",
+    "state": {
+      "all": "All",
+      "out": "Sold out",
+      "low": "Low",
+      "in": "In stock"
+    },
+    "selectAllSizes": "All sizes",
+    "pieces": "pieces",
+    "productStatus": {
+      "active": "Active",
+      "draft": "Draft",
+      "archived": "Archived"
+    },
+    "barcode": "Barcode",
+    "selected": "{{count}} sizes selected",
+    "receive": "Received from production",
+    "count": "Stock count",
+    "clearSelection": "Clear",
+    "saved": "Saved: {{count}} sizes changed.",
+    "wholeNumbers": "Enter whole numbers from zero up.",
+    "enterSomething": "Enter a quantity for at least one size.",
+    "countNote": "Stock count",
+    "now": "now {{count}}",
+    "receiveHelp": "Enter how many pieces of each size arrived. They are added to current stock.",
+    "countHelp": "Enter the number you actually counted for each size. Only the difference is recorded, worked out when you save so a sale during the count is not lost."
   }
 }

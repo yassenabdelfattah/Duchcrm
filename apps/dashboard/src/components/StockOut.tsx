@@ -250,7 +250,7 @@ export function StockOutList({ mayAdjust, reloadToken }: { mayAdjust: boolean; r
 
 // --- Taking stock out -------------------------------------------------------------
 
-interface PickRow {
+export interface PickRow {
   variant_id: string;
   sku: string;
   size: string | null;
@@ -276,12 +276,23 @@ function addDays(days: number): string {
   return `${date.getFullYear()}-${month}-${day}`;
 }
 
-export function StockOutDialog({ onClose, onDone }: { onClose: () => void; onDone: () => void }) {
+export function StockOutDialog({
+  initial = [],
+  onClose,
+  onDone,
+}: {
+  /** Sizes chosen on the stock page, one piece each to start with. */
+  initial?: PickRow[];
+  onClose: () => void;
+  onDone: () => void;
+}) {
   const { t } = useLocale();
   const [locationId, setLocationId] = useState<string | null>(null);
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<PickRow[]>([]);
-  const [picked, setPicked] = useState<Picked[]>([]);
+  const [picked, setPicked] = useState<Picked[]>(() =>
+    initial.filter((row) => row.quantity > 0).map((row) => ({ ...row, take: 1 })),
+  );
   const [reason, setReason] = useState<OutReason>('photoshoot');
   const [reasonText, setReasonText] = useState('');
   const [expectsReturn, setExpectsReturn] = useState(true);

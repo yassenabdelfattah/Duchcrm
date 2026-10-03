@@ -90,6 +90,10 @@ const RULES: Rule[] = [
   [/^This issue has no variant to adjust/, () => 'هذه المشكلة غير مرتبطة بصنف لتعديله.'],
   [/^Sync issue \S+ not found/, () => 'المشكلة غير موجودة.'],
 
+  // --- Stock counts ----------------------------------------------------------------------
+  [/^Enter at least one count/, () => 'اكتب عدداً لمقاس واحد على الأقل.'],
+  [/^A count cannot be negative/, () => 'العدد لا يمكن أن يكون بالسالب.'],
+
   // --- Taking stock out -------------------------------------------------------------------
   [/^Say why the stock is going out/, () => 'اكتب سبب الإخراج.'],
   [/^Choose at least one item to take out/, () => 'اختر صنفاً واحداً على الأقل.'],

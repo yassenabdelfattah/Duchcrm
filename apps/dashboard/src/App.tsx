@@ -14,7 +14,6 @@ import { Login } from './pages/Login';
 import { Orders } from './pages/Orders';
 import { PackingQueue } from './pages/PackingQueue';
 import { Pending } from './pages/Pending';
-import { Products } from './pages/Products';
 import { Reports } from './pages/Reports';
 import { Returns } from './pages/Returns';
 import { Settlements } from './pages/Settlements';
@@ -81,7 +80,7 @@ function RefineApp() {
       // in Layout is hand-built, so these mainly give access control and the
       // data hooks a stable name for each table.
       resources={[
-        { name: 'products', list: '/products', meta: { label: 'nav.products' } },
+        { name: 'products', list: '/stock', meta: { label: 'nav.stock' } },
         { name: 'stock', list: '/stock', meta: { label: 'nav.stock' } },
         { name: 'sale', create: '/sell', meta: { label: 'nav.sell' } },
         { name: 'orders', list: '/orders', meta: { label: 'nav.orders' } },
@@ -114,7 +113,8 @@ function RefineApp() {
             <Route path="/returns" element={<Returns />} />
             <Route path="/settlements" element={<Settlements />} />
             <Route path="/stock" element={<Stock />} />
-            <Route path="/products" element={<Products />} />
+            {/* Products and stock are one page now; old links still land. */}
+            <Route path="/products" element={<Navigate to="/stock" replace />} />
             <Route path="/reports" element={<Reports />} />
             <Route path="/sync" element={<SyncIssues />} />
             <Route path="/staff" element={<Staff />} />

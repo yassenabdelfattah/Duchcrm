@@ -25,7 +25,7 @@ most of the design.
 
 **Built and tested:** Phases 1, 2 and 3 complete, plus the staff screen.
 
-- 41 migrations, 20 pgTAP suites, **374 database assertions**
+- 42 migrations, 21 pgTAP suites, **382 database assertions**
 - **68 TypeScript assertions** (webhook HMAC, money arithmetic, invoice
   totals, Shopify token exchange, Cairo dates)
 - 13 screens, 4 Edge Functions, 1 Cloudflare Worker
@@ -42,7 +42,7 @@ corrected forward (an adjustment), never by truncating.
 
 | | |
 |---|---|
-| Schema | All 41 migrations pushed. The seed is **not** pushed, deliberately. |
+| Schema | All 42 migrations pushed. The seed is **not** pushed, deliberately. |
 | Edge Functions | All four deployed. The three behind `verify_jwt` now also require the service role or an active staff member (`_shared/auth.ts`). |
 | Shopify | Catalogue: 47 products, 402 variants. Import matches on `shopify_variant_id`, so SKU renames in Shopify update in place. |
 | Location | `النزهه`, default, linked to Shopify location `90745733441`. |
@@ -467,8 +467,7 @@ Recorded from the user; most of the design follows from it. Fuller version in
 | `/orders` | Every order in full (customer, address, shipment number, items, shipping, note) from `v_order_list`. Search by order/shipment number, phone or name; filters; tabs with counts (to ship, on the road, owed = delivered and unpaid, returned); tracker line and history window. Invoice, settle, edit |
 | `/queue` | Packing queue: **one step** - shipment number, Ship, and it is with the courier (`ship_order`). Or deliver ourselves. The confirmation call is optional (it is also the only in-app cancel for a DM order). "With our driver" below is cash still to be handed in |
 | `/returns` | Checking returns back in, per item with a count. Looks up a courier tracking code or an order number. Tapping the box lists parcels coming back, orders out with our driver, and the last 30 days of deliveries |
-| `/stock` | Stock by variant with adjust; tab "الإخراج": take stock out for a photoshoot, gift, damage or a typed reason, track what has to come back, record returns. See DECISIONS #11 |
-| `/products` | Catalogue |
+| `/stock` | Products and stock in one page (`/products` redirects here): each product with photo, type, price and size chips carrying stock; search by name/SKU/barcode (a scan opens the product); filters by type and stock state. Pick sizes across products for received-from-production, a stock count (`record_stock_count`, difference worked out under lock) or taking out. Tab "الإخراج" tracks stock-outs. Names and prices stay Shopify's |
 | `/reports` | Four tabs: summary · log · refusals · custody |
 | `/settlements` | Entering the courier's statement |
 | `/sync` | Shopify divergences. A product-level issue names the product; a "no SKU" one closes itself when the SKUs arrive |
