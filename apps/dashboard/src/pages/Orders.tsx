@@ -9,6 +9,7 @@ import {
 } from '@duch/shared';
 import { useGetIdentity } from '@refinedev/core';
 import { supabase } from '../lib/supabase';
+import { arabicError } from '../lib/errors';
 import type { StaffIdentity } from '../providers/authProvider';
 import { useLocale } from '../i18n';
 import {
@@ -135,7 +136,7 @@ export function Orders() {
     const { data, error: queryError } = await query;
 
     if (queryError) {
-      setError(queryError.message);
+      setError(arabicError(queryError));
       return;
     }
     setError(null);
@@ -158,7 +159,7 @@ export function Orders() {
     setBusyId(null);
 
     if (rpcError) {
-      setError(rpcError.message);
+      setError(arabicError(rpcError));
       return;
     }
     await load(search);
@@ -403,7 +404,7 @@ function ReopenPaymentDialog({
     setBusy(false);
 
     if (rpcError) {
-      setError(rpcError.hint === 'order_on_settlement' ? t('orders.reopenOnStatement') : rpcError.message);
+      setError(rpcError.hint === 'order_on_settlement' ? t('orders.reopenOnStatement') : arabicError(rpcError));
       return;
     }
     onDone();

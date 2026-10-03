@@ -16,7 +16,15 @@ export type Locale = 'ar' | 'en';
 const DICTIONARIES: Record<Locale, Record<string, unknown>> = { en, ar };
 const STORAGE_KEY = 'duch.locale';
 
+/**
+ * Arabic only, for now - the owner's call. The English dictionary stays so it
+ * can be switched back on, but a browser that once chose English is brought
+ * back to Arabic rather than left on a language the shop no longer uses.
+ */
+const ARABIC_ONLY = true;
+
 function readStoredLocale(): Locale {
+  if (ARABIC_ONLY) return 'ar';
   try {
     const saved = localStorage.getItem(STORAGE_KEY);
     if (saved === 'ar' || saved === 'en') return saved;

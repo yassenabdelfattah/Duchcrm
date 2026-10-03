@@ -7,6 +7,7 @@ import {
   type PaymentMethod,
 } from '@duch/shared';
 import { supabase } from '../lib/supabase';
+import { arabicError } from '../lib/errors';
 import { useLocale } from '../i18n';
 import { useBarcodeScanner } from '../hooks/useBarcodeScanner';
 import { Badge, Button, Card, EmptyState, ErrorNote, Field, Input, Select, Spinner } from '../components/ui';
@@ -316,7 +317,7 @@ export function StoreSale() {
           const line = basket.find((l) => l.variant_id === match?.[1]);
           setError(t('sale.insufficient', { sku: line?.sku ?? '' }));
         } else {
-          setError(rpcError.message);
+          setError(arabicError(rpcError));
         }
         return;
       }

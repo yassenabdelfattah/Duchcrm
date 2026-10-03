@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { PAYMENT_METHODS, calculateInvoiceTotals, formatEGP, normalizeEgyptianPhone } from '@duch/shared';
 import type { PaymentMethod } from '@duch/shared';
 import { supabase } from '../lib/supabase';
+import { arabicError } from '../lib/errors';
 import { isolate, useLocale } from '../i18n';
 import { Button, ErrorNote, Field, Input, Modal, Select, Spinner } from './ui';
 
@@ -216,7 +217,7 @@ export function OrderEditor({
       onSaved();
       onClose();
     } catch (caught) {
-      setError((caught as { message?: string })?.message ?? t('app.somethingWentWrong'));
+      setError(arabicError(caught as { message?: string; code?: string; hint?: string }));
     } finally {
       setSaving(false);
     }

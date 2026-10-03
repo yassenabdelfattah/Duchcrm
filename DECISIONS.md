@@ -392,3 +392,30 @@ the screen actually needed to solve - see getting-started.md B4.
 If this becomes real friction, the fix is a narrowly-scoped Edge Function
 that checks the caller is an admin before calling `auth.admin.createUser`,
 not a general-purpose one.
+
+---
+
+## 10. Arabic only, and what goes on paper
+
+The owner's call on 2026-10-04: the CRM is Arabic only for now. The English
+dictionary stays so it can come back, but `ARABIC_ONLY` in `i18n/index.tsx`
+pins every browser to Arabic and the language button is gone. The brand is
+"دش" in Arabic text; the DUCH wordmark stays on printed paper.
+
+The database explains refusals in English, because tests and developers read
+them. Staff never see that text directly: every message on screen goes
+through `arabicError()` in `apps/dashboard/src/lib/errors.ts`, which
+translates the ones we know (keeping the order number in them) and puts any
+it does not know under an Arabic sentence. A new `raise exception` that staff
+can hit should get a rule there.
+
+The printouts carry only what the owner listed:
+
+- **Invoice (الفاتورة):** customer name, phone and address; each product with
+  quantity, price per piece and line total; discount and shipping when there
+  are any; the total. No payment method, no paid stamp, and never the order
+  note, which is written for staff.
+- **Packing slip (البوليصة):** the products, quantity, price per piece and
+  total, under the order number so the packer can match paper to box. The
+  courier's label carries the customer and the amount to collect.
+

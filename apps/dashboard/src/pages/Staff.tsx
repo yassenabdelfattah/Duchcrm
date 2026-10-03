@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useGetIdentity } from '@refinedev/core';
 import { STAFF_ROLES, formatDate, type StaffRole } from '@duch/shared';
 import { supabase } from '../lib/supabase';
+import { arabicError } from '../lib/errors';
 import { useLocale } from '../i18n';
 import type { StaffIdentity } from '../providers/authProvider';
 import {
@@ -53,7 +54,7 @@ export function Staff() {
       .then(({ data, error: rpcError }) => {
         if (cancelled) return;
         if (rpcError) {
-          setError(rpcError.message);
+          setError(arabicError(rpcError));
           return;
         }
         // Pending accounts are the reason this screen exists, so they lead.
@@ -195,7 +196,7 @@ function EditDialog({
     setSaving(false);
 
     if (updateError) {
-      setError(updateError.message);
+      setError(arabicError(updateError));
       return;
     }
 

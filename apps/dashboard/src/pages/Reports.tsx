@@ -9,6 +9,7 @@ import {
   sumMoney,
 } from '@duch/shared';
 import { supabase } from '../lib/supabase';
+import { arabicError } from '../lib/errors';
 import { useLocale } from '../i18n';
 import type { StaffIdentity } from '../providers/authProvider';
 import { Card, EmptyState, ErrorNote, Input, Spinner, cx } from '../components/ui';
@@ -288,7 +289,7 @@ export function Reports() {
       valuationResult.error ??
       unsettledResult.error;
     if (firstError) {
-      setError(firstError.message);
+      setError(arabicError(firstError));
       return;
     }
 

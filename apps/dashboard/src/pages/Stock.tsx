@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useGetIdentity } from '@refinedev/core';
 import { STOCK_MOVEMENT_REASONS, can, formatEGP, type StockMovementReason } from '@duch/shared';
 import { supabase } from '../lib/supabase';
+import { arabicError } from '../lib/errors';
 import { useLocale } from '../i18n';
 import type { StaffIdentity } from '../providers/authProvider';
 import {
@@ -238,7 +239,7 @@ function AdjustDialog({
     setSaving(false);
 
     if (rpcError) {
-      setError(rpcError.message);
+      setError(arabicError(rpcError));
       return;
     }
 

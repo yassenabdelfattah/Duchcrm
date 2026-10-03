@@ -61,7 +61,7 @@ export function Receipt({ sale }: { sale: CompletedSale }) {
       </div>
 
       <p className="pt-4 text-center text-xs text-stone-500">
-        {locale === 'ar' ? 'شكراً لتسوقك من دوتش' : 'Thank you for shopping with Duch'}
+        شكراً لتسوقك من دش
       </p>
     </div>
   );

@@ -4,7 +4,7 @@ import { useLocale } from '../i18n';
 import { Button, Card, ErrorNote, Field, Input } from '../components/ui';
 
 export function Login() {
-  const { t, locale, setLocale } = useLocale();
+  const { t } = useLocale();
   const { mutate: login, isPending } = useLogin<{ email: string; password: string }>();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -64,15 +64,6 @@ export function Login() {
           </form>
         </Card>
 
-        <div className="mt-4 text-center">
-          <Button
-            variant="ghost"
-            className="text-xs"
-            onClick={() => setLocale(locale === 'ar' ? 'en' : 'ar')}
-          >
-            {t('app.language')}
-          </Button>
-        </div>
       </div>
     </div>
   );

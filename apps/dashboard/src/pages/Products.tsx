@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useGetIdentity } from '@refinedev/core';
 import { can } from '@duch/shared';
 import { supabase } from '../lib/supabase';
+import { arabicError } from '../lib/errors';
 import { useLocale } from '../i18n';
 import type { StaffIdentity } from '../providers/authProvider';
 import { Badge, Button, Card, EmptyState, ErrorNote, Spinner } from '../components/ui';
@@ -69,7 +70,7 @@ export function Products() {
           // Not JSON - keep the generic message.
         }
       }
-      setError(message);
+      setError(arabicError(message));
       return;
     }
 

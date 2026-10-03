@@ -29,7 +29,7 @@ const NAV_ITEMS: NavItem[] = [
 ];
 
 export function Layout() {
-  const { t, locale, setLocale } = useLocale();
+  const { t } = useLocale();
   const { data: identity } = useGetIdentity<StaffIdentity>();
   const { mutate: logout } = useLogout();
 
@@ -60,16 +60,6 @@ export function Layout() {
           </nav>
 
           <div className="ms-auto flex items-center gap-2 sm:ms-0">
-            <Button
-              variant="ghost"
-              className="min-h-9 px-2 text-xs"
-              onClick={() => setLocale(locale === 'ar' ? 'en' : 'ar')}
-              // The label is the language you would switch TO, which is the
-              // convention people expect from a single toggle.
-              aria-label={t('app.language')}
-            >
-              {t('app.language')}
-            </Button>
             <Button variant="ghost" className="min-h-9 px-2 text-xs" onClick={() => logout()}>
               {t('app.signOut')}
             </Button>

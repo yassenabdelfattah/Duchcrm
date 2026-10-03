@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { can, formatDate, formatEGP } from '@duch/shared';
 import { useGetIdentity } from '@refinedev/core';
 import { supabase } from '../lib/supabase';
+import { arabicError } from '../lib/errors';
 import type { StaffIdentity } from '../providers/authProvider';
 import { useLocale } from '../i18n';
 import { useBarcodeScanner } from '../hooks/useBarcodeScanner';
@@ -270,7 +271,7 @@ function NewSettlementDialog({
 
     setBusy(false);
     if (error) {
-      onError(error.message);
+      onError(arabicError(error));
       return;
     }
     onCreated(data.id as string);
@@ -401,7 +402,7 @@ function SettlementDetail({
     setBusy(false);
 
     if (rpcError) {
-      setError(rpcError.message);
+      setError(arabicError(rpcError));
       return;
     }
     setAdjLabel('');
@@ -416,7 +417,7 @@ function SettlementDetail({
       .eq('id', settlementId);
 
     if (updateError) {
-      setError(updateError.message);
+      setError(arabicError(updateError));
       return;
     }
     setToast(t('settlements.noteSaved'));
@@ -473,7 +474,7 @@ function SettlementDetail({
       setBusy(false);
 
       if (rpcError) {
-        setError(rpcError.message);
+        setError(arabicError(rpcError));
         return;
       }
 
@@ -497,13 +498,13 @@ function SettlementDetail({
       .from('courier_settlements')
       .update({ net_received_egp: netReceived === '' ? null : Number(netReceived) })
       .eq('id', settlementId);
-    if (updateError) setError(updateError.message);
+    if (updateError) setError(arabicError(updateError));
     else await load();
   }
 
   async function removeLine(lineId: string) {
     const { error: rpcError } = await supabase.rpc('remove_settlement_line', { p_line_id: lineId });
-    if (rpcError) setError(rpcError.message);
+    if (rpcError) setError(arabicError(rpcError));
     else await load();
   }
 
@@ -516,7 +517,7 @@ function SettlementDetail({
     setBusy(false);
 
     if (rpcError) {
-      setError(rpcError.message);
+      setError(arabicError(rpcError));
       return;
     }
     const result = data as { orders_marked_paid: number };

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { can, formatEGP } from '@duch/shared';
 import { useGetIdentity } from '@refinedev/core';
 import { supabase } from '../lib/supabase';
+import { arabicError } from '../lib/errors';
 import type { StaffIdentity } from '../providers/authProvider';
 import { useLocale } from '../i18n';
 import {
@@ -103,7 +104,7 @@ export function PackingQueue() {
       .limit(500);
 
     if (queryError) {
-      setError(queryError.message);
+      setError(arabicError(queryError));
       return;
     }
     setError(null);
@@ -451,7 +452,7 @@ function describeError(
   // The courier's numbers are unique; a repeat is almost always a label
   // scanned twice, or the wrong parcel's label.
   if (error.code === '23505') return t('queue.shipmentNumberTaken');
-  return error.message;
+  return arabicError(error);
 }
 
 function toSlip(row: QueueRow): SlipOrder {

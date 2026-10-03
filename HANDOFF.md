@@ -198,6 +198,11 @@ whole product - so a "no SKU" issue for one product was overwritten by the
 next product's. It now also matches the Shopify product or inventory item in
 the details when there is no variant.
 
+**Error text on screen goes through `arabicError()`.** The database raises in
+English; `apps/dashboard/src/lib/errors.ts` turns it into Arabic. Showing
+`error.message` directly puts English in front of staff - add a rule there
+for any new message they can hit. See DECISIONS #10.
+
 **Website orders are numbered by Shopify (`#1402`), not the CRM.** Anything
 matching on order number must allow for the `#` - the returns lookup accepts
 it with or without. A `#1402` inside an Arabic sentence renders as `1402#`

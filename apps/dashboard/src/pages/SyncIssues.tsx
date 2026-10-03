@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useGetIdentity } from '@refinedev/core';
 import { can, formatDateTime, type SyncIssueType } from '@duch/shared';
 import { supabase } from '../lib/supabase';
+import { arabicError } from '../lib/errors';
 import { useLocale } from '../i18n';
 import type { StaffIdentity } from '../providers/authProvider';
 import { Badge, Button, Card, EmptyState, ErrorNote, Field, Input, Modal, Spinner } from '../components/ui';
@@ -125,7 +126,7 @@ export function SyncIssues() {
           // Not JSON - keep the generic message.
         }
       }
-      setCheckError(message);
+      setCheckError(arabicError(message));
       return;
     }
 
@@ -339,7 +340,7 @@ function ResolveDialog({
 
     setBusy(false);
     if (rpcError) {
-      setError(rpcError.message);
+      setError(arabicError(rpcError));
       return;
     }
     onDone();
@@ -358,7 +359,7 @@ function ResolveDialog({
           <table className="tabular w-full text-sm">
             <thead>
               <tr className="text-xs text-stone-500">
-                <th className="py-1 text-start font-semibold">SKU</th>
+                <th className="py-1 text-start font-semibold">{t('stock.sku')}</th>
                 <th className="py-1 text-end font-semibold">{t('sync.crmQuantity')}</th>
                 <th className="py-1 text-end font-semibold">{t('sync.shopifyQuantity')}</th>
               </tr>

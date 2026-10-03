@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { can, formatDate } from '@duch/shared';
 import { useGetIdentity } from '@refinedev/core';
 import { supabase } from '../lib/supabase';
+import { arabicError } from '../lib/errors';
 import type { StaffIdentity } from '../providers/authProvider';
 import { useLocale } from '../i18n';
 import { useBarcodeScanner } from '../hooks/useBarcodeScanner';
@@ -197,7 +198,7 @@ export function Returns() {
       if (rpcError) {
         setLooking(false);
         setCode('');
-        setError(rpcError.message);
+        setError(arabicError(rpcError));
         return;
       }
 
@@ -216,7 +217,7 @@ export function Returns() {
         if (orderError) {
           setLooking(false);
           setCode('');
-          setError(orderError.message);
+          setError(arabicError(orderError));
           return;
         }
 
@@ -705,7 +706,7 @@ function CheckInDialog({
 
       if (failError) {
         setBusy(false);
-        setError(failError.message);
+        setError(arabicError(failError));
         return;
       }
 
@@ -719,7 +720,7 @@ function CheckInDialog({
 
       if (lookupError) {
         setBusy(false);
-        setError(lookupError.message);
+        setError(arabicError(lookupError));
         return;
       }
 
@@ -733,7 +734,7 @@ function CheckInDialog({
 
       if (startError) {
         setBusy(false);
-        setError(startError.message);
+        setError(arabicError(startError));
         return;
       }
 
@@ -746,7 +747,7 @@ function CheckInDialog({
 
       if (lookupError) {
         setBusy(false);
-        setError(lookupError.message);
+        setError(arabicError(lookupError));
         return;
       }
 
@@ -767,7 +768,7 @@ function CheckInDialog({
     setBusy(false);
 
     if (receiveError) {
-      setError(receiveError.message);
+      setError(arabicError(receiveError));
       return;
     }
 
