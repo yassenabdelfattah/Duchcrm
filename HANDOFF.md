@@ -215,6 +215,15 @@ used to answer null, which let the service role through any check written
 without `is_service_request()`. Two sync functions relied on that and now
 include it explicitly; any new function the Worker calls must too.
 
+**The packing badge is live and per device.** `useQueueAlert` (in the
+layout) counts orders waiting to ship from `v_packing_queue`, refreshes on any
+change to `orders` over Realtime and every minute, and chimes and buzzes on a
+new order for people with `orders.ship`. "Seen" is a timestamp in
+localStorage, set whenever the packing screen loads - so each device has its
+own idea of what is new. Sound only plays once the page has been touched
+(browser rule) and only while the CRM is open; a locked-phone push would need
+a service worker.
+
 **Error text on screen goes through `arabicError()`.** The database raises in
 English; `apps/dashboard/src/lib/errors.ts` turns it into Arabic. Showing
 `error.message` directly puts English in front of staff - add a rule there

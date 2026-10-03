@@ -24,7 +24,11 @@
     "queue": "Packing queue",
     "returns": "Returns",
     "settlements": "Settlements",
-    "reports": "Reports"
+    "reports": "Reports",
+    "more": "More",
+    "newOrderSound": "New order sound",
+    "on": "On",
+    "off": "Off"
   },
   "auth": {
     "signIn": "Sign in",
@@ -202,7 +206,8 @@
     "shipmentNumber": "Courier's shipment number",
     "ship": "Ship",
     "shipmentNumberNeeded": "Enter or scan the courier's shipment number first.",
-    "shipmentNumberTaken": "That shipment number is already on another parcel. Check the label."
+    "shipmentNumberTaken": "That shipment number is already on another parcel. Check the label.",
+    "new": "New"
   },
   "fulfillment": {
     "awaiting_confirmation": "To call",
@@ -698,5 +703,17 @@
     "now": "now {{count}}",
     "receiveHelp": "Enter how many pieces of each size arrived. They are added to current stock.",
     "countHelp": "Enter the number you actually counted for each size. Only the difference is recorded, worked out when you save so a sale during the count is not lost."
+  },
+  "navShort": {
+    "dashboard": "Home",
+    "sell": "Sell",
+    "orders": "Orders",
+    "queue": "Packing",
+    "returns": "Returns",
+    "stock": "Stock",
+    "reports": "Reports",
+    "settlements": "Settlements",
+    "sync": "Sync",
+    "staff": "Staff"
   }
 }

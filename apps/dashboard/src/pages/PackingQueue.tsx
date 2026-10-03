@@ -1,8 +1,9 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { can, formatEGP } from '@duch/shared';
 import { useGetIdentity } from '@refinedev/core';
 import { supabase } from '../lib/supabase';
 import { arabicError } from '../lib/errors';
+import { markQueueSeen, readSeenAt } from '../hooks/useQueueAlert';
 import type { StaffIdentity } from '../providers/authProvider';
 import { useLocale } from '../i18n';
 import {
@@ -95,6 +96,9 @@ export function PackingQueue() {
   const [invoiceId, setInvoiceId] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [newCount, setNewCount] = useState(0);
+  // When the packer last looked, read before this visit counts as looking -
+  // so what arrived since is marked new on its card.
+  const seenBefore = useRef(Date.parse(readSeenAt()));
 
   const load = useCallback(async () => {
     const { data, error: queryError } = await supabase
@@ -109,6 +113,8 @@ export function PackingQueue() {
     }
     setError(null);
     setRows((data ?? []) as QueueRow[]);
+    // Being on this screen is seeing the queue: the badge on the menu clears.
+    markQueueSeen();
   }, []);
 
   useEffect(() => {
@@ -197,16 +203,23 @@ export function PackingQueue() {
   if (invoiceId) return <Invoice orderId={invoiceId} onClose={() => setInvoiceId(null)} />;
   if (!rows) return <Spinner label={t('app.loading')} />;
 
+  const isNew = (row: QueueRow) =>
+    TO_SHIP.includes(row.fulfillment_status) && Date.parse(row.created_at) > seenBefore.current;
+
   function renderCard(row: QueueRow) {
     const waiting = TO_SHIP.includes(row.fulfillment_status);
     const busy = busyId === row.order_id;
 
     return (
-            <Card key={row.order_id} className="space-y-3">
+            <Card
+              key={row.order_id}
+              className={cx('space-y-3', isNew(row) && 'ring-2 ring-duch-accent')}
+            >
               <div className="flex flex-wrap items-start gap-3">
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="tabular text-sm font-extrabold">{row.order_number}</span>
+                    {isNew(row) ? <Badge tone="bad">{t('queue.new')}</Badge> : null}
                     <Badge tone={row.payment_method === 'cod' ? 'warn' : 'good'}>
                       {t(`payment.${row.payment_method ?? 'cod'}`)}
                     </Badge>
