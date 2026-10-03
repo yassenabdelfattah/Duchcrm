@@ -43,7 +43,7 @@ type Action = 'trust_crm' | 'trust_shopify' | 'ignore';
 export function SyncIssues() {
   const { t, locale } = useLocale();
   const { data: identity } = useGetIdentity<StaffIdentity>();
-  const mayResolve = can(identity?.role, 'sync.resolve');
+  const mayResolve = can(identity?.permissions, 'sync.manage');
 
   const [issues, setIssues] = useState<SyncIssueRow[] | null>(null);
   // Issues about a whole product rather than a variant carry the Shopify

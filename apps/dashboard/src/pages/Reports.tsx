@@ -144,7 +144,7 @@ export function Reports() {
   // used everywhere else cost shows up. The database would already return
   // nothing for anyone else, but showing an always-empty tab is worse than
   // not showing it.
-  const mayViewValuation = can(identity?.role, 'stock.adjust');
+  const mayViewValuation = can(identity?.permissions, 'products.manage');
 
   const [from, setFrom] = useState(() => cairoDatePlusDays(-29));
   const [to, setTo] = useState(() => cairoDate());

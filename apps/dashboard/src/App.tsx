@@ -62,7 +62,7 @@ function ActiveStaffGate() {
   if (isLoading || (identity == null && !retried)) {
     return <Spinner label={t('app.loading')} />;
   }
-  if (!identity?.is_active || !identity.role) return <Navigate to="/pending" replace />;
+  if (!identity?.is_active || !identity.permissions) return <Navigate to="/pending" replace />;
 
   return <Outlet />;
 }

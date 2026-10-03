@@ -79,10 +79,10 @@ export function PackingQueue() {
   // Sales staff run the confirmation calls; packing staff do the physical
   // work. Showing everyone every button means half the shop taps things the
   // database then refuses, which reads as the app being broken.
-  const mayPack = can(identity?.role, 'orders.pack');
+  const mayPack = can(identity?.permissions, 'orders.ship');
   // Recording cash as received is settling money, so it follows who may
   // settle a paying-later order - not who packs.
-  const maySettle = can(identity?.role, 'sales.create');
+  const maySettle = can(identity?.permissions, 'orders.settle');
   const [rows, setRows] = useState<QueueRow[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   // Errors belong on the card they are about: with a long list, a message at

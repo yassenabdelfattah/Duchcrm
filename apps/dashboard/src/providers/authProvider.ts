@@ -6,7 +6,12 @@ export interface StaffIdentity {
   id: string;
   email: string | null;
   full_name: string;
+  /** The built-in role, or null for a custom one. */
   role: StaffRole | null;
+  role_id: string | null;
+  role_name: string | null;
+  /** What this person may do; null until their account has a role and is active. */
+  permissions: string[] | null;
   is_active: boolean;
   /** The business owner. Only unlocks reopening a paid order; see DECISIONS.md #2. */
   is_owner: boolean;
@@ -27,7 +32,7 @@ async function fetchIdentity(): Promise<StaffIdentity | null> {
 
   const { data, error } = await supabase
     .from('staff')
-    .select('id, full_name, role, is_active, is_owner')
+    .select('id, full_name, role, role_id, is_active, is_owner, roles!staff_role_id_fkey ( name_ar, permissions )')
     .eq('id', user.id)
     .maybeSingle();
 
@@ -39,16 +44,28 @@ async function fetchIdentity(): Promise<StaffIdentity | null> {
       email: user.email ?? null,
       full_name: user.email ?? '',
       role: null,
+      role_id: null,
+      role_name: null,
+      permissions: null,
       is_active: false,
       is_owner: false,
     };
   }
+
+  // Named, because roles and staff are linked twice (a role's creator is
+  // staff too) and an unnamed embed is refused as ambiguous.
+  const role = data.roles as unknown as { name_ar: string; permissions: string[] } | null;
 
   return {
     id: data.id as string,
     email: user.email ?? null,
     full_name: data.full_name as string,
     role: (data.role as StaffRole | null) ?? null,
+    role_id: (data.role_id as string | null) ?? null,
+    role_name: role?.name_ar ?? null,
+    // The same permissions the database checks, read from the same row - so
+    // what the screen offers and what the database allows cannot drift.
+    permissions: data.is_active && role ? role.permissions : null,
     is_active: Boolean(data.is_active),
     is_owner: Boolean(data.is_owner),
   };
@@ -101,6 +118,6 @@ export const authProvider: AuthProvider = {
 
   async getPermissions() {
     const identity = await fetchIdentity();
-    return identity?.role ?? null;
+    return identity?.permissions ?? null;
   },
 };

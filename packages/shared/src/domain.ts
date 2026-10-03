@@ -89,39 +89,37 @@ export const SHOPIFY_WEBHOOK_TOPICS = [
 ] as const;
 export type ShopifyWebhookTopic = (typeof SHOPIFY_WEBHOOK_TOPICS)[number];
 
-/** Permission matrix, kept in one place so UI and RLS tell the same story. */
-export const ROLE_CAPABILITIES: Record<StaffRole, readonly string[]> = {
-  admin: ['*'],
-  stock_manager: [
-    'orders.queue',
-    'orders.pack',
-    'products.read',
-    'products.write',
-    'stock.read',
-    'stock.adjust',
-    'stock.receive',
-    'sales.read',
-    'sales.create',
-    'sync.read',
-    'sync.resolve',
-    'settlements.manage',
-  ],
-  sales: [
-    'orders.queue',
-    'products.read',
-    'stock.read',
-    'sales.read',
-    'sales.create',
-    'customers.write',
-  ],
-  // Packing staff do the physical work: the queue, the slips, the handover.
-  // Sales staff see the queue and make the confirmation calls, but do not pack.
-  packing: ['orders.queue', 'orders.pack', 'products.read', 'stock.read', 'sales.read'],
-} as const;
+/**
+ * Every permission a role can be given - the same list as the database's
+ * known_permissions(). A role is a name and some of these; the built-in admin
+ * role holds "*", everything. The database enforces each one; the dashboard
+ * only uses them to decide what to show.
+ */
+export const PERMISSIONS = [
+  'sales.create',
+  'orders.read',
+  'orders.settle',
+  'orders.edit',
+  'orders.cancel',
+  'orders.ship',
+  'returns.manage',
+  'stock.read',
+  'stock.adjust',
+  'products.manage',
+  'reports.read',
+  'settlements.manage',
+  'sync.manage',
+  'staff.manage',
+] as const;
+export type Permission = (typeof PERMISSIONS)[number];
 
-export function can(role: StaffRole | null | undefined, capability: string): boolean {
-  if (!role) return false;
-  const caps = ROLE_CAPABILITIES[role];
-  if (!caps) return false;
-  return caps.includes('*') || caps.includes(capability);
+/** Whether a set of permissions includes this one. */
+export function can(permissions: readonly string[] | null | undefined, permission: Permission): boolean {
+  if (!permissions) return false;
+  return permissions.includes('*') || permissions.includes(permission);
+}
+
+/** Whether a set of permissions includes any of these. */
+export function canAny(permissions: readonly string[] | null | undefined, wanted: readonly Permission[]): boolean {
+  return wanted.some((permission) => can(permissions, permission));
 }

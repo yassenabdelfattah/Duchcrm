@@ -1,6 +1,6 @@
 import { NavLink, Outlet } from 'react-router';
 import { useGetIdentity, useLogout } from '@refinedev/core';
-import { can } from '@duch/shared';
+import { canAny, type Permission } from '@duch/shared';
 import { useLocale } from '../i18n';
 import type { StaffIdentity } from '../providers/authProvider';
 import { Button, cx } from './ui';
@@ -8,24 +8,26 @@ import { Button, cx } from './ui';
 interface NavItem {
   to: string;
   labelKey: string;
-  capability: string;
+  /** Shown to anyone holding one of these; null for every active staff member. */
+  permissions: Permission[] | null;
   icon: string;
 }
 
 const NAV_ITEMS: NavItem[] = [
-  { to: '/', labelKey: 'nav.dashboard', capability: 'stock.read', icon: '▦' },
-  { to: '/sell', labelKey: 'nav.sell', capability: 'sales.create', icon: '＋' },
-  // Everyone who can see a sale can look one up again. Settling a tab is
-  // gated inside the screen, and by the database underneath it.
-  { to: '/orders', labelKey: 'nav.orders', capability: 'sales.read', icon: '≡' },
-  { to: '/queue', labelKey: 'nav.queue', capability: 'orders.queue', icon: '☰' },
-  { to: '/returns', labelKey: 'nav.returns', capability: 'orders.queue', icon: '↩' },
-  { to: '/stock', labelKey: 'nav.stock', capability: 'stock.read', icon: '▤' },
-  { to: '/products', labelKey: 'nav.products', capability: 'products.read', icon: '✚' },
-  { to: '/reports', labelKey: 'nav.reports', capability: 'sales.read', icon: '▧' },
-  { to: '/settlements', labelKey: 'nav.settlements', capability: 'settlements.manage', icon: '₤' },
-  { to: '/sync', labelKey: 'nav.sync', capability: 'sync.read', icon: '⇄' },
-  { to: '/staff', labelKey: 'nav.staff', capability: 'staff.read', icon: '☺' },
+  { to: '/', labelKey: 'nav.dashboard', permissions: null, icon: '▦' },
+  { to: '/sell', labelKey: 'nav.sell', permissions: ['sales.create'], icon: '＋' },
+  // Settling and editing are gated inside the screen, and by the database
+  // underneath it.
+  { to: '/orders', labelKey: 'nav.orders', permissions: ['orders.read'], icon: '≡' },
+  // Whoever sees orders sees the queue; the buttons in it need orders.ship.
+  { to: '/queue', labelKey: 'nav.queue', permissions: ['orders.ship', 'orders.read'], icon: '☰' },
+  { to: '/returns', labelKey: 'nav.returns', permissions: ['returns.manage', 'orders.read'], icon: '↩' },
+  { to: '/stock', labelKey: 'nav.stock', permissions: ['stock.read', 'stock.adjust'], icon: '▤' },
+  { to: '/products', labelKey: 'nav.products', permissions: ['stock.read', 'products.manage'], icon: '✚' },
+  { to: '/reports', labelKey: 'nav.reports', permissions: ['reports.read'], icon: '▧' },
+  { to: '/settlements', labelKey: 'nav.settlements', permissions: ['settlements.manage'], icon: '₤' },
+  { to: '/sync', labelKey: 'nav.sync', permissions: ['sync.manage'], icon: '⇄' },
+  { to: '/staff', labelKey: 'nav.staff', permissions: ['staff.manage'], icon: '☺' },
 ];
 
 export function Layout() {
@@ -33,7 +35,9 @@ export function Layout() {
   const { data: identity } = useGetIdentity<StaffIdentity>();
   const { mutate: logout } = useLogout();
 
-  const visible = NAV_ITEMS.filter((item) => can(identity?.role, item.capability));
+  const visible = NAV_ITEMS.filter(
+    (item) => item.permissions === null || canAny(identity?.permissions, item.permissions),
+  );
 
   return (
     <div className="min-h-dvh">

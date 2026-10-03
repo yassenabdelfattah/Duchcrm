@@ -571,12 +571,50 @@
     "edit": "Edit",
     "editTitle": "Edit {{name}}",
     "activateAndSetRole": "Activate this account and give it a role.",
-    "createdAt": "Account created"
+    "createdAt": "Account created",
+    "owner": "Owner",
+    "roles": "Roles",
+    "newRole": "New role",
+    "editRole": "Edit role",
+    "builtIn": "Built in",
+    "holders": "{{count}} staff",
+    "noPermissions": "No permissions",
+    "pickRole": "Choose a role",
+    "roleName": "Role name",
+    "roleNameHint": "e.g. Cashier",
+    "roleNameNeeded": "Give the role a name.",
+    "deleteRole": "Delete role",
+    "roleInUse": "{{count}} staff have this role. Change their role before deleting it.",
+    "group": {
+      "sales": "Selling",
+      "orders": "Orders",
+      "shipping": "Shipping and returns",
+      "stock": "Stock and products",
+      "admin": "Management",
+      "other": "Other"
+    }
   },
   "role": {
     "admin": "Admin",
     "stock_manager": "Stock manager",
     "sales": "Sales",
     "packing": "Packing"
+  },
+  "permission": {
+    "all": "Everything",
+    "sales_create": "New sales and orders",
+    "orders_read": "See orders",
+    "orders_settle": "Record payments",
+    "orders_edit": "Edit orders",
+    "orders_cancel": "Cancel orders",
+    "orders_ship": "Packing and shipping",
+    "returns_manage": "Returns",
+    "stock_read": "See stock",
+    "stock_adjust": "Adjust and take out stock",
+    "products_manage": "Products and prices",
+    "reports_read": "Reports",
+    "settlements_manage": "Settlements",
+    "sync_manage": "Sync issues",
+    "staff_manage": "Staff and roles"
   }
 }

@@ -43,7 +43,7 @@ const MANUAL_REASONS: StockMovementReason[] = STOCK_MOVEMENT_REASONS.filter((rea
 export function Stock() {
   const { t, locale } = useLocale();
   const { data: identity } = useGetIdentity<StaffIdentity>();
-  const mayAdjust = can(identity?.role, 'stock.adjust');
+  const mayAdjust = can(identity?.permissions, 'stock.adjust');
 
   const [rows, setRows] = useState<StockRow[] | null>(null);
   const [search, setSearch] = useState('');

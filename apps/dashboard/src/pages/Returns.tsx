@@ -122,7 +122,7 @@ interface CheckinDayRow {
 export function Returns() {
   const { t, locale } = useLocale();
   const { data: identity } = useGetIdentity<StaffIdentity>();
-  const mayCheckIn = can(identity?.role, 'orders.pack');
+  const mayCheckIn = can(identity?.permissions, 'returns.manage');
 
   const [tab, setTab] = useState<'inbound' | 'short'>('inbound');
   const [inbound, setInbound] = useState<InboundRow[] | null>(null);

@@ -84,7 +84,7 @@ interface AwaitingRow {
 export function Settlements() {
   const { t, locale } = useLocale();
   const { data: identity } = useGetIdentity<StaffIdentity>();
-  const mayManage = can(identity?.role, 'settlements.manage');
+  const mayManage = can(identity?.permissions, 'settlements.manage');
 
   const [list, setList] = useState<SettlementRow[] | null>(null);
   const [awaiting, setAwaiting] = useState<AwaitingRow[] | null>(null);

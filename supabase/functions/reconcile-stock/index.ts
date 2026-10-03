@@ -20,7 +20,7 @@ import { fetchAllInventoryLevels } from '../_shared/shopify.ts';
 Deno.serve(withErrorReporting(async (req: Request): Promise<Response> => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
 
-  const refused = await authorize(req, ['admin', 'stock_manager']);
+  const refused = await authorize(req, 'sync.manage');
   if (refused) return refused;
 
   const db = adminClient();

@@ -319,6 +319,22 @@ it implies is independently enforced by a policy or a guard clause in a
 database function. If you ever find a rule that exists only in the React code,
 that is a bug in the database.
 
+**Rules name permissions, not roles (2026-10-05).** The owner wanted roles
+they name themselves, with exactly the permissions they tick. So a role is a
+row in `public.roles` - a name and a list from `known_permissions()` - and
+every policy and guard asks `has_permission('orders.ship')`, never "is this
+person packing". The four original roles are built-in rows, fixed, whose
+permissions reproduce what each could do before; the tests that exercised
+them still pass unchanged, which is the proof. `staff.role_id` is what is
+read; `staff.role` mirrors it for built-in roles and is null for a custom
+one. Two rules keep this from becoming a way to promote yourself: nobody can
+create, edit or give a role holding a permission they do not hold, and only
+an admin can change an admin or give the admin role ("*", everything).
+
+Cancelling is its own permission (`orders.cancel`) rather than part of
+editing, because sales staff could edit an order but never cancel one, and
+the built-in roles had to stay exactly as they were.
+
 Two consequences worth knowing:
 
 - **Unit cost lives in its own table** (`variant_costs`) rather than as a
@@ -326,7 +342,7 @@ Two consequences worth knowing:
   sales staff need to read variants to ring up a sale. A separate table can
   have its own policy, so "sales staff cannot see the factory's margin" is
   enforced rather than merely unrendered.
-- **The role is read from the database, not from the login token.** A token is
+- **Permissions are read from the database, not from the login token.** A token is
   valid for an hour after it is issued, so a token-based check would keep
   letting someone sell stock for up to an hour after you deactivated them.
   Reading the table costs one indexed lookup per query and makes deactivation
@@ -378,7 +394,8 @@ Three separate mechanisms, all solving the same class of problem:
 
 ## 9. The staff screen manages roles, not logins
 
-The staff screen lets an admin activate a signup and set its role. It
+The staff screen lets someone with the staff permission activate a signup,
+give it a role, and create or edit custom roles. It
 deliberately does not let an admin create a new login from the app.
 
 Creating one would mean giving an Edge Function the service role key's power

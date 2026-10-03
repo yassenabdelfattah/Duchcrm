@@ -571,12 +571,50 @@
     "edit": "تعديل",
     "editTitle": "تعديل {{name}}",
     "activateAndSetRole": "فعّل هذا الحساب وحدد صلاحيته.",
-    "createdAt": "تاريخ إنشاء الحساب"
+    "createdAt": "تاريخ إنشاء الحساب",
+    "owner": "المالك",
+    "roles": "الأدوار",
+    "newRole": "دور جديد",
+    "editRole": "تعديل الدور",
+    "builtIn": "أساسي",
+    "holders": "{{count}} موظف",
+    "noPermissions": "بدون صلاحيات",
+    "pickRole": "اختر الدور",
+    "roleName": "اسم الدور",
+    "roleNameHint": "مثلاً: كاشير",
+    "roleNameNeeded": "اكتب اسم الدور.",
+    "deleteRole": "حذف الدور",
+    "roleInUse": "هذا الدور مع {{count}} موظف. غيّر أدوارهم أولاً قبل الحذف.",
+    "group": {
+      "sales": "البيع",
+      "orders": "الطلبات",
+      "shipping": "الشحن والمرتجعات",
+      "stock": "المخزون والمنتجات",
+      "admin": "الإدارة",
+      "other": "أخرى"
+    }
   },
   "role": {
     "admin": "مسؤول",
     "stock_manager": "مسؤول المخزون",
     "sales": "المبيعات",
     "packing": "التعبئة"
+  },
+  "permission": {
+    "all": "كل الصلاحيات",
+    "sales_create": "بيع جديد وتسجيل الطلبات",
+    "orders_read": "رؤية الطلبات",
+    "orders_settle": "تسجيل التحصيل",
+    "orders_edit": "تعديل الطلبات",
+    "orders_cancel": "إلغاء الطلبات",
+    "orders_ship": "الشحن والتجهيز",
+    "returns_manage": "المرتجعات",
+    "stock_read": "رؤية المخزون",
+    "stock_adjust": "تعديل وإخراج المخزون",
+    "products_manage": "المنتجات والأسعار",
+    "reports_read": "التقارير",
+    "settlements_manage": "التسويات",
+    "sync_manage": "مشاكل المزامنة",
+    "staff_manage": "الموظفون والأدوار"
   }
 }

@@ -38,7 +38,7 @@ Deno.serve(withErrorReporting(async (req: Request): Promise<Response> => {
 
   // Every role that can move stock triggers a push: a sale, a return checked
   // in, an adjustment. The Worker's drain arrives as the service role.
-  const refused = await authorize(req, ['admin', 'stock_manager', 'sales', 'packing']);
+  const refused = await authorize(req, null);
   if (refused) return refused;
 
   const db = adminClient();

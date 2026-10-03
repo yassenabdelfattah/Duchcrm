@@ -25,7 +25,7 @@ most of the design.
 
 **Built and tested:** Phases 1, 2 and 3 complete, plus the staff screen.
 
-- 39 migrations, 18 pgTAP suites, **335 database assertions**
+- 40 migrations, 19 pgTAP suites, **357 database assertions**
 - **68 TypeScript assertions** (webhook HMAC, money arithmetic, invoice
   totals, Shopify token exchange, Cairo dates)
 - 13 screens, 4 Edge Functions, 1 Cloudflare Worker
@@ -42,7 +42,7 @@ corrected forward (an adjustment), never by truncating.
 
 | | |
 |---|---|
-| Schema | All 39 migrations pushed. The seed is **not** pushed, deliberately. |
+| Schema | All 40 migrations pushed. The seed is **not** pushed, deliberately. |
 | Edge Functions | All four deployed. The three behind `verify_jwt` now also require the service role or an active staff member (`_shared/auth.ts`). |
 | Shopify | Catalogue: 47 products, 402 variants. Import matches on `shopify_variant_id`, so SKU renames in Shopify update in place. |
 | Location | `النزهه`, default, linked to Shopify location `90745733441`. |
@@ -197,6 +197,23 @@ deduplicated on type, variant and location - all null for an issue about a
 whole product - so a "no SKU" issue for one product was overwritten by the
 next product's. It now also matches the Shopify product or inventory item in
 the details when there is no variant.
+
+**Checks name permissions, never roles.** Write `has_permission('orders.ship')`
+in a new function or policy, not `has_any_role(...)` - a custom role has no
+built-in role name, so a role-name check silently refuses it. The list is
+`known_permissions()` in the database and `PERMISSIONS` in
+`packages/shared/src/domain.ts`; keep them the same. See DECISIONS #5.
+
+**`staff` and `roles` are linked twice** (a role's `created_by` is staff), so
+embedding one in the other must name the link:
+`roles!staff_role_id_fkey ( ... )`. Unnamed, PostgREST answers 300 with
+PGRST201, and the dashboard read that as "no role" and sent everyone to the
+waiting screen until it was named.
+
+**`is_admin()` and `is_staff()` answer false, not null, for no user.** They
+used to answer null, which let the service role through any check written
+without `is_service_request()`. Two sync functions relied on that and now
+include it explicitly; any new function the Worker calls must too.
 
 **Error text on screen goes through `arabicError()`.** The database raises in
 English; `apps/dashboard/src/lib/errors.ts` turns it into Arabic. Showing
@@ -455,7 +472,7 @@ Recorded from the user; most of the design follows from it. Fuller version in
 | `/reports` | Four tabs: summary · log · refusals · custody |
 | `/settlements` | Entering the courier's statement |
 | `/sync` | Shopify divergences. A product-level issue names the product; a "no SKU" one closes itself when the SKUs arrive |
-| `/staff` | Activate a signup and set its role. Admin only |
+| `/staff` | Activate a signup and give it a role; create and edit custom roles by ticking permissions. Needs `staff.manage` |
 | `/login`, `/pending` | |
 
 ```

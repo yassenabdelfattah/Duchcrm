@@ -47,7 +47,7 @@ export function Dashboard() {
   const { data: identity } = useGetIdentity<StaffIdentity>();
   // Sales and packing staff cannot read sync_issues, so the count would always
   // come back zero for them. A confident zero is worse than no tile at all.
-  const maySeeSync = can(identity?.role, 'sync.read');
+  const maySeeSync = can(identity?.permissions, 'sync.manage');
   const [totals, setTotals] = useState<Totals | null>(null);
   const [movements, setMovements] = useState<MovementRow[] | null>(null);
 

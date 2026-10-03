@@ -20,7 +20,7 @@ interface ProductRow {
 export function Products() {
   const { t, locale } = useLocale();
   const { data: identity } = useGetIdentity<StaffIdentity>();
-  const mayImport = can(identity?.role, 'products.write');
+  const mayImport = can(identity?.permissions, 'products.manage');
 
   const [products, setProducts] = useState<ProductRow[] | null>(null);
   const [importing, setImporting] = useState(false);

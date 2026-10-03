@@ -171,7 +171,8 @@ function isClosed(row: { cancelled_at: string | null; fulfillment_status: string
 export function Orders() {
   const { t, locale } = useLocale();
   const { data: identity } = useGetIdentity<StaffIdentity>();
-  const maySettle = can(identity?.role, 'sales.create');
+  const maySettle = can(identity?.permissions, 'orders.settle');
+  const mayEdit = can(identity?.permissions, 'orders.edit');
 
   const initial = useMemo(readSavedView, []);
   const [tab, setTab] = useState<TabKey>(initial.tab);
@@ -445,6 +446,7 @@ export function Orders() {
               row={row}
               busy={busyId === row.id}
               maySettle={maySettle}
+              mayEdit={mayEdit}
               isOwner={Boolean(identity?.is_owner)}
               onHistory={() => setHistory(row)}
               onEdit={() => setEditing(row)}
@@ -545,6 +547,7 @@ function OrderCard({
   row,
   busy,
   maySettle,
+  mayEdit,
   isOwner,
   onHistory,
   onEdit,
@@ -555,6 +558,7 @@ function OrderCard({
   row: OrderRow;
   busy: boolean;
   maySettle: boolean;
+  mayEdit: boolean;
   isOwner: boolean;
   onHistory: () => void;
   onEdit: () => void;
@@ -705,7 +709,7 @@ function OrderCard({
         {/* Editing is offered even on a locked order: the customer's name and
             the note are still correctable, and the editor says which parts
             are fixed. */}
-        {maySettle && !cancelled ? (
+        {mayEdit && !cancelled ? (
           <Button variant="secondary" className="min-h-9 px-3 text-xs" onClick={onEdit}>
             {t('orders.edit')}
           </Button>

@@ -90,6 +90,16 @@ const RULES: Rule[] = [
   [/^This issue has no variant to adjust/, () => 'هذه المشكلة غير مرتبطة بصنف لتعديله.'],
   [/^Sync issue \S+ not found/, () => 'المشكلة غير موجودة.'],
 
+  // --- Roles -----------------------------------------------------------------------------
+  [/^You cannot give a role with permissions you do not have yourself/, () => 'لا يمكنك إعطاء دور فيه صلاحيات ليست لديك.'],
+  [/^Only an admin can change an admin/, () => 'المسؤول لا يغيّره إلا مسؤول.'],
+  [/^The built-in roles cannot be changed/, () => 'الأدوار الأساسية لا يمكن تعديلها أو حذفها.'],
+  [/^This role is still given to (\d+) staff/, (m) => `هذا الدور مع ${m[1]} موظف. غيّر أدوارهم أولاً.`],
+  [/^A role called (.+) already exists/, (m) => `يوجد دور باسم ${m[1]} بالفعل.`],
+  [/^Give the role a name/, () => 'اكتب اسم الدور.'],
+  [/^Unknown permission/, () => 'صلاحية غير معروفة.'],
+  [/^Role \S+ not found/, () => 'الدور غير موجود.'],
+
   // --- Not found -------------------------------------------------------------------
   [/^(Order \S+ not found|Unknown order)/, () => 'الطلب غير موجود.'],
   [/^Shipment \S+ not found/, () => 'الشحنة غير موجودة.'],
