@@ -8,6 +8,7 @@ import {
   type PaymentMethod,
 } from '@duch/shared';
 import { useGetIdentity } from '@refinedev/core';
+import { useSearchParams } from 'react-router';
 import { supabase } from '../lib/supabase';
 import { arabicError } from '../lib/errors';
 import type { StaffIdentity } from '../providers/authProvider';
@@ -174,7 +175,16 @@ export function Orders() {
   const maySettle = can(identity?.permissions, 'orders.settle');
   const mayEdit = can(identity?.permissions, 'orders.edit');
 
-  const initial = useMemo(readSavedView, []);
+  const [params] = useSearchParams();
+  // A link from the home screen names the list to open (?tab=owed); without
+  // one, the tab and filters this browser used last.
+  const initial = useMemo(() => {
+    const saved = readSavedView();
+    const linked = params.get('tab') as TabKey | null;
+    return linked && TABS.includes(linked) ? { tab: linked, filters: NO_FILTERS } : saved;
+    // Read once, on arrival.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const [tab, setTab] = useState<TabKey>(initial.tab);
   const [filters, setFilters] = useState<Filters>(initial.filters);
   const [search, setSearch] = useState('');

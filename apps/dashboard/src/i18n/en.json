@@ -685,7 +685,8 @@
       "all": "All",
       "out": "Sold out",
       "low": "Low",
-      "in": "In stock"
+      "in": "In stock",
+      "attention": "Low or sold out"
     },
     "selectAllSizes": "All sizes",
     "pieces": "pieces",
@@ -718,5 +719,22 @@
     "settlements": "Settlements",
     "sync": "Sync",
     "staff": "Staff"
+  },
+  "home": {
+    "morning": "Good morning",
+    "evening": "Good evening",
+    "todo": "To do",
+    "today": "Today",
+    "allClear": "All clear - nothing is waiting.",
+    "toShip": "Orders waiting to ship",
+    "newSince": "{{count}} new since you last looked",
+    "lateWithCourier": "Late with the courier (over {{days}} days)",
+    "owed": "Delivered, not paid",
+    "withDrivers": "Orders with our drivers",
+    "cashHeld": "Holding {{amount}}",
+    "outNotBack": "Pieces out, not back",
+    "overdueCount": "{{count}} past their return date",
+    "lowStock": "Sizes low or sold out",
+    "syncIssues": "Sync issues"
   }
 }

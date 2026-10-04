@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useGetIdentity } from '@refinedev/core';
+import { useSearchParams } from 'react-router';
 import { can, formatEGP, type StockMovementReason } from '@duch/shared';
 import { supabase } from '../lib/supabase';
 import { arabicError } from '../lib/errors';
@@ -70,7 +71,8 @@ interface ProductGroup {
   total: number;
 }
 
-type StockState = '' | 'out' | 'low' | 'in';
+/** 'attention' is low or sold out together - what the home screen's card counts. */
+type StockState = '' | 'out' | 'low' | 'in' | 'attention';
 type BulkMode = 'receive' | 'count';
 
 function variantLabel(row: { size: string | null; color: string | null }): string {
@@ -87,7 +89,10 @@ export function Stock() {
   const mayAdjust = can(identity?.permissions, 'stock.adjust');
   const mayImport = can(identity?.permissions, 'products.manage');
 
-  const [tab, setTab] = useState<'products' | 'out'>('products');
+  // A link from the home screen can open the stock-out tab (?tab=out) or a
+  // stock filter (?state=low).
+  const [params] = useSearchParams();
+  const [tab, setTab] = useState<'products' | 'out'>(() => (params.get('tab') === 'out' ? 'out' : 'products'));
   const [rows, setRows] = useState<VariantRow[] | null>(null);
   const [meta, setMeta] = useState<Map<string, ProductMeta>>(new Map());
   const [error, setError] = useState<string | null>(null);
@@ -97,7 +102,10 @@ export function Stock() {
 
   const [search, setSearch] = useState('');
   const [type, setType] = useState('');
-  const [stockState, setStockState] = useState<StockState>('');
+  const [stockState, setStockState] = useState<StockState>(() => {
+    const linked = params.get('state');
+    return linked === 'out' || linked === 'low' || linked === 'in' || linked === 'attention' ? linked : '';
+  });
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [selected, setSelected] = useState<Set<string>>(new Set());
 
@@ -196,7 +204,13 @@ export function Stock() {
     () =>
       groups.filter((group) => {
         if (type && group.type !== type) return false;
-        if (stockState && !group.variants.some((v) => stateOf(v) === stockState)) return false;
+        if (
+          stockState &&
+          !group.variants.some((v) =>
+            stockState === 'attention' ? stateOf(v) !== 'in' : stateOf(v) === stockState,
+          )
+        )
+          return false;
         if (!term) return true;
         return (
           group.title.toLowerCase().includes(term) ||
@@ -369,7 +383,8 @@ export function Stock() {
                   </option>
                 ))}
               </select>
-              {(['', 'out', 'low', 'in'] as StockState[]).map((value) => (
+              {/* The combined filter only shows while it is on, so it can be seen and cleared. */}
+              {(['', 'out', 'low', 'in', ...(stockState === 'attention' ? ['attention'] : [])] as StockState[]).map((value) => (
                 <button
                   key={value || 'all'}
                   type="button"
