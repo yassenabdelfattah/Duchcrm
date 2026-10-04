@@ -128,7 +128,18 @@ export function Dashboard() {
               .limit(2000)
           : none,
         seesStock ? supabase.from('v_stock_outs').select('status').in('status', ['out', 'overdue']).limit(500) : none,
-        seesStock ? supabase.from('v_low_stock').select('variant_id', { count: 'exact', head: true }) : none,
+        // Running low but still in stock - the sizes worth restocking. Sold-out
+        // sizes are most of the catalogue at any time (old drops, odd sizes),
+        // so counting them made this card a number nobody acts on.
+        seesStock
+          ? supabase
+              .from('v_stock_overview')
+              .select('variant_id', { count: 'exact', head: true })
+              .eq('is_active', true)
+              .eq('track_inventory', true)
+              .eq('product_status', 'active')
+              .eq('is_low_stock', true)
+          : none,
         seesSync ? supabase.from('sync_issues').select('id', { count: 'exact', head: true }).eq('status', 'open') : none,
         supabase.from('orders').select('total_egp').gte('created_at', cairoStartOfDay()).is('cancelled_at', null),
         seesStock
@@ -221,7 +232,7 @@ export function Dashboard() {
           count: low.count ?? 0,
           label: t('home.lowStock'),
           detail: null,
-          to: '/stock?state=attention',
+          to: '/stock?state=low',
           tone: 'wait',
         });
       }

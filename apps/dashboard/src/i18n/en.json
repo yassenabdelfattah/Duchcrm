@@ -734,7 +734,7 @@
     "cashHeld": "Holding {{amount}}",
     "outNotBack": "Pieces out, not back",
     "overdueCount": "{{count}} past their return date",
-    "lowStock": "Sizes low or sold out",
+    "lowStock": "Sizes running low",
     "syncIssues": "Sync issues"
   }
 }
