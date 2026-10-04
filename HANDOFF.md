@@ -472,7 +472,7 @@ Recorded from the user; most of the design follows from it. Fuller version in
 | Route | What it is for |
 |---|---|
 | `/` | Dashboard: today's takings, low stock, **overdue parcels**, sync issues |
-| `/sell` | Takes any order - shop, website or DM - with shipping and payment method |
+| `/sell` | Takes any order - shop, website or DM - with shipping and payment method. Search shows each product once with its sizes as buttons carrying what is left; a tap adds a size and the list stays open for the next; a scan or Enter on a single match adds and clears |
 | `/orders` | Every order in full (customer, address, shipment number, items, shipping, note) from `v_order_list`. Search by order/shipment number, phone or name; filters; tabs with counts (to ship, on the road, owed = delivered and unpaid, returned); tracker line and history window. Invoice, settle, edit |
 | `/queue` | Packing queue: **one step** - shipment number, Ship, and it is with the courier (`ship_order`). Or deliver ourselves. The confirmation call is optional (it is also the only in-app cancel for a DM order). "With our driver" below is cash still to be handed in |
 | `/returns` | Checking returns back in, per item with a count. Looks up a courier tracking code or an order number. Tapping the box lists parcels coming back, orders out with our driver, and the last 30 days of deliveries |

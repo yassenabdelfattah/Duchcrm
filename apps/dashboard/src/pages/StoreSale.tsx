@@ -10,12 +10,14 @@ import { supabase } from '../lib/supabase';
 import { arabicError } from '../lib/errors';
 import { useLocale } from '../i18n';
 import { useBarcodeScanner } from '../hooks/useBarcodeScanner';
-import { Badge, Button, Card, EmptyState, ErrorNote, Field, Input, Select, Spinner } from '../components/ui';
+import { Button, Card, Code, EmptyState, ErrorNote, Field, Input, Select, Spinner, cx } from '../components/ui';
 import { Invoice } from '../components/Invoice';
 import { Receipt } from '../components/Receipt';
 
 interface StockRow {
   variant_id: string;
+  product_id: string;
+  image_url: string | null;
   sku: string;
   barcode: string | null;
   size: string | null;
@@ -108,13 +110,16 @@ export function StoreSale() {
       const { data, error: searchError } = await supabase
         .from('v_stock_overview')
         .select(
-          'variant_id, sku, barcode, size, color, price_egp, product_title, product_title_ar, quantity, location_id',
+          'variant_id, product_id, image_url, sku, barcode, size, color, price_egp, product_title, product_title_ar, quantity, location_id',
         )
         .eq('location_id', locationId)
         .eq('is_active', true)
         .or(`sku.ilike.%${escaped}%,barcode.ilike.%${escaped}%,product_title.ilike.%${escaped}%`)
+        .order('product_title')
         .order('sku')
-        .limit(25);
+        // Enough for every size of every product a few letters can match -
+        // "CSP" alone is six products and 24 sizes.
+        .limit(300);
 
       if (searchError) throw searchError;
       return (data ?? []) as StockRow[];
@@ -190,12 +195,50 @@ export function StoreSale() {
           },
         ];
       });
+    },
+    [locale, t],
+  );
+
+  /** Picked from the search: the list stays open, so the next size is one more tap. */
+  const pickFromSearch = useCallback(
+    (row: StockRow) => {
+      addToBasket(row);
+    },
+    [addToBasket],
+  );
+
+  /** Scanned, or the only match: added, and the search is cleared for the next item. */
+  const addAndClear = useCallback(
+    (row: StockRow) => {
+      addToBasket(row);
       setQuery('');
       setResults([]);
       searchBox.current?.focus();
     },
-    [locale, t],
+    [addToBasket],
   );
+
+  // Search results grouped by product, so typing part of a SKU shows each
+  // product once with its sizes beside it rather than a long list of sizes.
+  const resultGroups = useMemo(() => {
+    const groups = new Map<string, { id: string; title: string; image_url: string | null; rows: StockRow[] }>();
+    for (const row of results) {
+      let group = groups.get(row.product_id);
+      if (!group) {
+        group = {
+          id: row.product_id,
+          title: locale === 'ar' && row.product_title_ar ? row.product_title_ar : row.product_title,
+          image_url: row.image_url,
+          rows: [],
+        };
+        groups.set(row.product_id, group);
+      }
+      group.rows.push(row);
+    }
+    return [...groups.values()];
+  }, [results, locale]);
+
+  const inBasket = useMemo(() => new Map(basket.map((line) => [line.variant_id, line.quantity])), [basket]);
 
   // --- Scanning ------------------------------------------------------------
 
@@ -212,7 +255,7 @@ export function StoreSale() {
           rows.find((row) => row.sku.toLowerCase() === code.toLowerCase());
 
         if (exact) {
-          addToBasket(exact);
+          addAndClear(exact);
         } else {
           setQuery(code);
           setResults(rows);
@@ -222,7 +265,7 @@ export function StoreSale() {
         setError(t('app.somethingWentWrong'));
       }
     },
-    [addToBasket, completed, runSearch, t],
+    [addAndClear, completed, runSearch, t],
   );
 
   useBarcodeScanner(handleScan, { enabled: !completed && !submitting });
@@ -435,58 +478,114 @@ export function StoreSale() {
   if (!locationId) return <Spinner label={t('app.loading')} />;
 
   return (
-    <div className="grid gap-4 lg:grid-cols-[1fr_22rem]">
+    <div className="grid grid-cols-[minmax(0,1fr)] gap-4 lg:grid-cols-[minmax(0,1fr)_22rem]">
       <div className="space-y-4">
         <Card>
           <Field label={t('sale.scanPrompt')}>
-            <Input
-              ref={searchBox}
-              autoFocus
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-              placeholder={t('sale.searchPlaceholder')}
-              inputMode="search"
-              autoComplete="off"
-            />
+            <div className="relative">
+              <Input
+                ref={searchBox}
+                autoFocus
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                onKeyDown={(event) => {
+                  // Enter on a search with exactly one size in stock adds it.
+                  // A scanner's Enter was already handled as a scan (the
+                  // scanner hook marks it), so it must not add a second one.
+                  if (event.key !== 'Enter' || event.defaultPrevented) return;
+                  const available = results.filter((row) => row.quantity > 0);
+                  const [only] = available;
+                  if (available.length === 1 && only) addAndClear(only);
+                }}
+                placeholder={t('sale.searchPlaceholder')}
+                inputMode="search"
+                autoComplete="off"
+                className="pe-10"
+              />
+              {query ? (
+                <button
+                  type="button"
+                  aria-label={t('sale.clearSearch')}
+                  onClick={() => {
+                    setQuery('');
+                    setResults([]);
+                    searchBox.current?.focus();
+                  }}
+                  className="absolute inset-y-0 end-0 flex w-10 items-center justify-center text-lg text-stone-400 hover:text-duch-ink"
+                >
+                  ×
+                </button>
+              ) : null}
+            </div>
           </Field>
 
           {searching ? <Spinner /> : null}
 
-          {results.length > 0 ? (
-            <ul className="mt-3 divide-y divide-duch-line">
-              {results.map((row) => (
-                <li key={row.variant_id}>
-                  <button
-                    type="button"
-                    onClick={() => addToBasket(row)}
-                    disabled={row.quantity <= 0}
-                    className="flex w-full items-center gap-3 py-3 text-start disabled:opacity-50"
-                  >
-                    <span className="min-w-0 flex-1">
-                      <span className="block truncate text-sm font-semibold">
-                        {locale === 'ar' && row.product_title_ar
-                          ? row.product_title_ar
-                          : row.product_title}
-                      </span>
-                      <span className="tabular block text-xs text-stone-500">
-                        {row.sku}
-                        {row.size || row.color
-                          ? ` · ${[row.size, row.color].filter(Boolean).join(' / ')}`
-                          : ''}
-                      </span>
-                    </span>
-                    <span className="tabular text-sm font-semibold">
-                      {formatEGP(Number(row.price_egp), locale)}
-                    </span>
-                    <Badge tone={row.quantity <= 0 ? 'bad' : row.quantity <= 3 ? 'warn' : 'good'}>
-                      {row.quantity <= 0
-                        ? t('sale.outOfStock')
-                        : t('sale.inStock', { count: row.quantity })}
-                    </Badge>
-                  </button>
-                </li>
-              ))}
-            </ul>
+          {resultGroups.length > 0 ? (
+            <div className="mt-3 space-y-1">
+              <p className="text-xs text-stone-500">
+                {t('sale.resultsCount', { products: resultGroups.length, sizes: results.length })}
+              </p>
+              <ul className="divide-y divide-duch-line">
+                {resultGroups.map((group) => (
+                  <li key={group.id} className="flex gap-3 py-3">
+                    {group.image_url ? (
+                      <img src={group.image_url} alt="" loading="lazy" className="size-14 shrink-0 rounded-lg object-cover" />
+                    ) : (
+                      <span className="size-14 shrink-0 rounded-lg bg-stone-100" />
+                    )}
+                    <div className="min-w-0 flex-1 space-y-2">
+                      <div className="flex flex-wrap items-baseline gap-x-2">
+                        <span className="text-sm font-bold">
+                          <bdi>{group.title}</bdi>
+                        </span>
+                        <span className="tabular text-xs text-stone-500">
+                          {formatEGP(Number(group.rows[0]?.price_egp ?? 0), locale)}
+                        </span>
+                      </div>
+                      {/* Every size with what is left; one tap puts it in the basket. */}
+                      <div className="flex flex-wrap gap-1.5">
+                        {group.rows.map((row) => {
+                          const taken = inBasket.get(row.variant_id) ?? 0;
+                          const left = row.quantity - taken;
+                          return (
+                            <button
+                              key={row.variant_id}
+                              type="button"
+                              title={row.sku}
+                              onClick={() => pickFromSearch(row)}
+                              disabled={left <= 0}
+                              className={cx(
+                                'relative min-w-16 rounded-lg border px-2 py-1.5 text-center leading-tight transition-colors disabled:cursor-not-allowed',
+                                row.quantity <= 0
+                                  ? 'border-dashed border-stone-300 text-stone-400'
+                                  : taken > 0
+                                    ? 'border-duch-ink bg-duch-ink text-white'
+                                    : row.quantity <= 3
+                                      ? 'border-amber-300 bg-amber-50 text-amber-900 hover:border-duch-ink'
+                                      : 'border-duch-line bg-white hover:border-duch-ink',
+                              )}
+                            >
+                              <span className="block text-xs font-bold">
+                                {[row.size, row.color].filter(Boolean).join(' / ') || <Code>{row.sku}</Code>}
+                              </span>
+                              <span className="tabular block text-[11px]">
+                                {row.quantity <= 0 ? t('sale.outOfStock') : t('sale.left', { count: left })}
+                              </span>
+                              {taken > 0 ? (
+                                <span className="tabular absolute -end-2 -top-2 rounded-full bg-duch-accent px-1.5 text-[11px] font-bold text-white">
+                                  ×{taken}
+                                </span>
+                              ) : null}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </div>
           ) : null}
 
           {query.trim().length >= 2 && !searching && results.length === 0 ? (

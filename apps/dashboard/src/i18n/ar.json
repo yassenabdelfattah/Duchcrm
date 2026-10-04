@@ -76,7 +76,10 @@
     "customerPhoneHint": "اختياري، لكنه ما يربط العميل بطلباته السابقة",
     "shipping": "الشحن",
     "includesShipping": "شامل {{amount}} شحن",
-    "queuedForPacking": "أُضيف الطلب إلى قائمة التجهيز، في انتظار مكالمة التأكيد."
+    "queuedForPacking": "أُضيف الطلب إلى قائمة التجهيز، في انتظار مكالمة التأكيد.",
+    "clearSearch": "مسح البحث",
+    "resultsCount": "{{products}} منتج · {{sizes}} مقاس",
+    "left": "باقي {{count}}"
   },
   "payment": {
     "cash": "نقدي",

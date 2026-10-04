@@ -76,7 +76,10 @@
     "customerPhoneHint": "Optional, but it is what links a customer to their past orders",
     "shipping": "Shipping",
     "includesShipping": "Includes {{amount}} shipping",
-    "queuedForPacking": "Added to the packing queue, waiting for its confirmation call."
+    "queuedForPacking": "Added to the packing queue, waiting for its confirmation call.",
+    "clearSearch": "Clear search",
+    "resultsCount": "{{products}} products · {{sizes}} sizes",
+    "left": "{{count}} left"
   },
   "payment": {
     "cash": "Cash",
