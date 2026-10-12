@@ -25,7 +25,7 @@ most of the design.
 
 **Built and tested:** Phases 1, 2 and 3 complete, plus the staff screen.
 
-- 42 migrations, 21 pgTAP suites, **382 database assertions**
+- 44 migrations, 22 pgTAP suites, **391 database assertions**
 - **68 TypeScript assertions** (webhook HMAC, money arithmetic, invoice
   totals, Shopify token exchange, Cairo dates)
 - 13 screens, 4 Edge Functions, 1 Cloudflare Worker
@@ -42,7 +42,7 @@ corrected forward (an adjustment), never by truncating.
 
 | | |
 |---|---|
-| Schema | All 42 migrations pushed. The seed is **not** pushed, deliberately. |
+| Schema | All 44 migrations pushed. The seed is **not** pushed, deliberately. |
 | Edge Functions | All four deployed. The three behind `verify_jwt` now also require the service role or an active staff member (`_shared/auth.ts`). |
 | Shopify | Catalogue: 47 products, 402 variants. Import matches on `shopify_variant_id`, so SKU renames in Shopify update in place. |
 | Location | `النزهه`, default, linked to Shopify location `90745733441`. |
@@ -223,6 +223,13 @@ localStorage, set whenever the packing screen loads - so each device has its
 own idea of what is new. Sound only plays once the page has been touched
 (browser rule) and only while the CRM is open; a locked-phone push would need
 a service worker.
+
+**Sizes come from any option named like "size".** Shopify option names are
+free text: "Size" on clothes, "Shoe Size" / "Shoe size" on the slippers. The
+import and the product webhook use `_shared/options.ts`; an exact-name match
+left 175 slipper sizes empty until migration 20261012090000 filled them from
+the stored options. Screens order sizes with `compareVariants()` in
+`packages/shared/src/sizes.ts` (colour, then S-M-L-XL or 39-40-41), never by SKU.
 
 **Error text on screen goes through `arabicError()`.** The database raises in
 English; `apps/dashboard/src/lib/errors.ts` turns it into Arabic. Showing

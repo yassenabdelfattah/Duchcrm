@@ -474,3 +474,11 @@ at the moment of saving, and writes only the sizes that changed. Names,
 prices and photos stay read-only: they are Shopify's, and the next import
 would overwrite an edit made in the CRM.
 
+**A courier parcel can be marked delivered by hand (2026-10-12).** Until
+Accurate's integration exists nothing else moves their parcels past "in
+transit". `mark_courier_delivered()` records that the customer has it and
+leaves the payment alone: cash on delivery stays unpaid, because Accurate
+holds the cash until their statement is reviewed or someone marks it paid.
+The order moves from "on the road" to "delivered, not paid" - the owed list.
+Our own drivers keep their own step, which records the cash at the same time.
+

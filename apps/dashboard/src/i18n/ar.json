@@ -477,7 +477,8 @@
       "out": "خرج",
       "delivered": "تم التسليم"
     },
-    "pickedUpInStore": "استلم من المحل"
+    "pickedUpInStore": "استلم من المحل",
+    "customerReceived": "استلمها العميل"
   },
   "reports": {
     "title": "التقارير والسجل",

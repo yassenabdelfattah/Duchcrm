@@ -43,6 +43,7 @@ const RULES: Rule[] = [
   [/^Order (\S+) is not ready to pack/, (m) => `الطلب ${m[1]} غير جاهز للتجهيز.`],
   [/^Only a packed order can be put back/, () => 'يمكن إرجاع الطلب المجهز فقط إلى التجهيز.'],
   [/^Order (\S+) has moved past confirmation/, (m) => `الطلب ${m[1]} تجاوز مرحلة التأكيد.`],
+  [/^Order (\S+) is not with the courier/, (m) => `الطلب ${m[1]} ليس مع شركة الشحن.`],
   [/^Order (\S+) is not out with one of our own drivers/, (m) => `الطلب ${m[1]} ليس مع أحد مندوبينا.`],
   [/^Order (\S+) is already with the courier or delivered/, (m) => `الطلب ${m[1]} مع شركة الشحن أو تم تسليمه. سجّل مرتجعاً بدلاً من ذلك.`],
   [/^Say who is delivering it/, () => 'اكتب اسم من سيقوم بالتوصيل.'],

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   PAYMENT_METHODS,
   can,
+  canAny,
   calculateInvoiceTotals,
   formatDateTime,
   formatEGP,
@@ -83,6 +84,8 @@ interface OrderRow {
   stage: 'to_ship' | 'on_the_road' | 'delivered' | 'back' | 'cancelled';
   stage_since: string;
 }
+
+type SettleAction = 'mark_order_paid' | 'complete_own_delivery' | 'mark_courier_delivered';
 
 const PAGE_SIZE = 50;
 
@@ -174,6 +177,7 @@ export function Orders() {
   const { data: identity } = useGetIdentity<StaffIdentity>();
   const maySettle = can(identity?.permissions, 'orders.settle');
   const mayEdit = can(identity?.permissions, 'orders.edit');
+  const mayDeliver = canAny(identity?.permissions, ['orders.settle', 'orders.ship']);
 
   const [params] = useSearchParams();
   // A link from the home screen names the list to open (?tab=owed); without
@@ -285,7 +289,7 @@ export function Orders() {
 
   const reload = () => setReloadToken((token) => token + 1);
 
-  async function settle(row: OrderRow, rpc: 'mark_order_paid' | 'complete_own_delivery' = 'mark_order_paid') {
+  async function settle(row: OrderRow, rpc: SettleAction = 'mark_order_paid') {
     setBusyId(row.id);
     setError(null);
     const { error: rpcError } = await supabase.rpc(rpc, { p_order_id: row.id });
@@ -457,6 +461,7 @@ export function Orders() {
               busy={busyId === row.id}
               maySettle={maySettle}
               mayEdit={mayEdit}
+              mayDeliver={mayDeliver}
               isOwner={Boolean(identity?.is_owner)}
               onHistory={() => setHistory(row)}
               onEdit={() => setEditing(row)}
@@ -558,6 +563,7 @@ function OrderCard({
   busy,
   maySettle,
   mayEdit,
+  mayDeliver,
   isOwner,
   onHistory,
   onEdit,
@@ -569,11 +575,12 @@ function OrderCard({
   busy: boolean;
   maySettle: boolean;
   mayEdit: boolean;
+  mayDeliver: boolean;
   isOwner: boolean;
   onHistory: () => void;
   onEdit: () => void;
   onInvoice: () => void;
-  onSettle: (rpc: 'mark_order_paid' | 'complete_own_delivery') => void;
+  onSettle: (rpc: SettleAction) => void;
   onReopen: () => void;
 }) {
   const { t, locale } = useLocale();
@@ -587,6 +594,10 @@ function OrderCard({
   // paid in one step, so it replaces mark paid there.
   const deliverable =
     maySettle && !cancelled && row.courier === 'own' && row.shipment_status === 'out_for_delivery';
+  // With a courier and the customer has it: delivered, while the courier
+  // still holds the cash. The payment is left for their statement.
+  const courierDelivered =
+    mayDeliver && !cancelled && row.stage === 'on_the_road' && row.courier !== null && row.courier !== 'own';
   // Every unpaid order but card, which is paid at the till - the owner's
   // decision, cash on delivery included.
   const settleable =
@@ -740,6 +751,17 @@ function OrderCard({
         {settleable ? (
           <Button className="ms-auto" disabled={busy} onClick={() => onSettle('mark_order_paid')}>
             {busy ? t('app.loading') : t('orders.markPaid')}
+          </Button>
+        ) : null}
+
+        {courierDelivered ? (
+          <Button
+            variant="secondary"
+            className={settleable ? undefined : 'ms-auto'}
+            disabled={busy}
+            onClick={() => onSettle('mark_courier_delivered')}
+          >
+            {busy ? t('app.loading') : t('orders.customerReceived')}
           </Button>
         ) : null}
 

@@ -477,7 +477,8 @@
       "out": "Out",
       "delivered": "Delivered"
     },
-    "pickedUpInStore": "Collected in the shop"
+    "pickedUpInStore": "Collected in the shop",
+    "customerReceived": "Customer received it"
   },
   "reports": {
     "title": "Reports and log",
