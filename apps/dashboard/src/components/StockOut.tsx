@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { formatDate, formatDateTime } from '@duch/shared';
+import { compareVariants, formatDate, formatDateTime } from '@duch/shared';
 import { supabase } from '../lib/supabase';
 import { arabicError } from '../lib/errors';
 import { useLocale } from '../i18n';
@@ -180,7 +180,7 @@ export function StockOutList({ mayAdjust, reloadToken }: { mayAdjust: boolean; r
             ) : null}
 
             <ul className="divide-y divide-duch-line rounded-lg border border-duch-line text-sm">
-              {row.lines.map((line) => (
+              {[...row.lines].sort((a, b) => a.title.localeCompare(b.title) || compareVariants(a, b)).map((line) => (
                 <li key={line.id} className="flex items-center gap-3 px-3 py-2">
                   <span className="min-w-0 flex-1">
                     <span className="block font-semibold">
@@ -331,7 +331,11 @@ export function StockOutDialog({
         .or(`sku.ilike.%${escaped}%,barcode.ilike.%${escaped}%,product_title.ilike.%${escaped}%`)
         .order('sku')
         .limit(30);
-      setResults((data ?? []) as PickRow[]);
+      setResults(
+        ((data ?? []) as PickRow[]).sort(
+          (a, b) => a.product_title.localeCompare(b.product_title) || compareVariants(a, b),
+        ),
+      );
     },
     [locationId],
   );

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   PAYMENT_METHODS,
   calculateBasket,
+  compareVariants,
   formatEGP,
   normalizeEgyptianPhone,
   type PaymentMethod,
@@ -235,6 +236,8 @@ export function StoreSale() {
       }
       group.rows.push(row);
     }
+    // Sizes smallest first (S, M, L, XL / 39, 40, 41), not in SKU order.
+    for (const group of groups.values()) group.rows.sort(compareVariants);
     return [...groups.values()];
   }, [results, locale]);
 

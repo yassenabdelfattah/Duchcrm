@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useGetIdentity } from '@refinedev/core';
 import { useSearchParams } from 'react-router';
-import { can, formatEGP, type StockMovementReason } from '@duch/shared';
+import { can, compareVariants, formatEGP, type StockMovementReason } from '@duch/shared';
 import { supabase } from '../lib/supabase';
 import { arabicError } from '../lib/errors';
 import { useLocale } from '../i18n';
@@ -191,6 +191,8 @@ export function Stock() {
       group.total += Number(row.quantity);
       group.unlinked ||= row.is_unlinked;
     }
+    // Sizes smallest first (S, M, L, XL / 39, 40, 41), not in SKU order.
+    for (const group of byProduct.values()) group.variants.sort(compareVariants);
     return [...byProduct.values()];
   }, [rows, meta, locale]);
 
@@ -236,7 +238,10 @@ export function Stock() {
   }, [term, groups]);
 
   const selectedRows = useMemo(
-    () => (rows ?? []).filter((row) => selected.has(row.variant_id)),
+    () =>
+      (rows ?? [])
+        .filter((row) => selected.has(row.variant_id))
+        .sort((a, b) => a.product_title.localeCompare(b.product_title) || compareVariants(a, b)),
     [rows, selected],
   );
 

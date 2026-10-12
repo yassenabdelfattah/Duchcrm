@@ -14,6 +14,7 @@
  */
 
 import { adminClient, json, withErrorReporting } from '../_shared/db.ts';
+import { colorOf, optionsFromRest, sizeOf } from '../_shared/options.ts';
 import { config } from '../_shared/env.ts';
 import { isValidShopifyWebhook, readWebhookHeaders } from '../_shared/verify-webhook.ts';
 
@@ -391,10 +392,19 @@ async function handleProductUpdate(
     const sku = (raw.sku as string | null)?.trim();
     if (!sku) continue; // A variant with no SKU cannot be tracked. Reported below.
 
+    // Size and colour too, so a product created in Shopify arrives whole
+    // rather than waiting for the next import to fill them in.
+    const options = optionsFromRest(payload.options, raw);
+
     const { error } = await db.from('variants').upsert(
       {
         product_id: product.id,
         shopify_variant_id: Number(raw.id),
+        // Only when the payload carried options: one without them must not
+        // blank the size and colour already stored.
+        ...(Object.keys(options).length > 0
+          ? { options, size: sizeOf(options), color: colorOf(options) }
+          : {}),
         shopify_inventory_item_id: raw.inventory_item_id ? Number(raw.inventory_item_id) : null,
         sku,
         barcode: (raw.barcode as string | null) ?? null,

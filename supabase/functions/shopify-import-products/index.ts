@@ -14,6 +14,7 @@
 import { authorize } from '../_shared/auth.ts';
 import { adminClient, corsHeaders, json, withErrorReporting } from '../_shared/db.ts';
 import { config } from '../_shared/env.ts';
+import { colorOf, sizeOf } from '../_shared/options.ts';
 import {
   fetchAllInventoryLevels,
   parseGid,
@@ -221,13 +222,6 @@ Deno.serve(withErrorReporting(async (req: Request): Promise<Response> => {
         const options = Object.fromEntries(
           (variant.selectedOptions ?? []).map((o) => [o.name, o.value]),
         );
-        const findOption = (...names: string[]) => {
-          for (const [key, value] of Object.entries(options)) {
-            if (names.some((n) => key.toLowerCase() === n)) return value;
-          }
-          return null;
-        };
-
         const weight = variant.inventoryItem?.measurement?.weight;
         const weightGrams = weight
           ? weight.unit === 'KILOGRAMS'
@@ -251,8 +245,8 @@ Deno.serve(withErrorReporting(async (req: Request): Promise<Response> => {
             shopify_inventory_item_id: parseGid(variant.inventoryItem?.id),
             sku,
             barcode: variant.barcode,
-            size: findOption('size', 'مقاس'),
-            color: findOption('color', 'colour', 'لون'),
+            size: sizeOf(options),
+            color: colorOf(options),
             options,
             price_egp: Number(variant.price ?? 0),
             compare_at_price_egp: variant.compareAtPrice ? Number(variant.compareAtPrice) : null,
