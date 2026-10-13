@@ -20,6 +20,7 @@ import {
 } from '../components/ui';
 import { Invoice } from '../components/Invoice';
 import { PackingSlip, type SlipOrder } from '../components/PackingSlip';
+import { ScanButton } from '../components/ScanButton';
 
 type FulfillmentStatus =
   | 'awaiting_confirmation'
@@ -320,6 +321,9 @@ export function PackingQueue() {
                       setTracking((current) => ({ ...current, [row.order_id]: event.target.value }))
                     }
                     disabled={busy}
+                  />
+                  <ScanButton
+                    onScan={(code) => setTracking((current) => ({ ...current, [row.order_id]: code }))}
                   />
                   <Button type="submit" disabled={busy}>
                     {busy ? t('app.loading') : t('queue.ship')}

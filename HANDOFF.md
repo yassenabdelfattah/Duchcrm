@@ -397,6 +397,29 @@ printing an invoice and looking at it, and then found a second time when a
 new table on `/returns` skipped that step and rendered `23/09/2026` as
 `232026/09/`.
 
+**The CRM installs as a phone app, and a service worker serves its shell.**
+`apps/dashboard/public/manifest.webmanifest` and `public/sw.js`, registered in
+`main.tsx` in production builds only, so `npm run dev` never has a stale
+worker. Pages are network-first, so a deploy shows on the next open;
+`/assets/` files are cache-first because their names change with their
+content. Top-level images (`/logo-black.png`, the icons) are cache-first
+too: **replace one under the same name and you must bump `CACHE` in
+`sw.js`**, or installed phones keep the old one. It never touches Supabase,
+which is another origin. Android's install offer arrives as an event that
+can fire before React mounts, so `index.html` keeps it on
+`window.__duchInstallPrompt`; iPhones have no offer, so the button there
+shows Share → Add to Home Screen instead.
+
+**The camera scanner is `components/ScanButton.tsx`.** Android Chrome reads
+barcodes natively (`BarcodeDetector`); iPhones get ZXing as WebAssembly
+(`barcode-detector/ponyfill`, about 1.1 MB), self-hosted from `/assets/`
+and only downloaded the first time someone opens the camera. Do not point
+it at a CDN: that is the library's default and the reason `lib/barcode.ts`
+overrides `locateFile`. The camera only works over HTTPS (or localhost) and
+from a tap. On the packing queue a camera read fills the shipment number
+and stops - shipping is still a tap, so a misread never sends a parcel out.
+A USB scanner's Enter still ships, as before.
+
 ---
 
 ## The design decisions that look wrong until explained

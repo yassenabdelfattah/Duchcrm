@@ -8,6 +8,7 @@ import { useLocale } from '../i18n';
 import { useBarcodeScanner } from '../hooks/useBarcodeScanner';
 import type { StaffIdentity } from '../providers/authProvider';
 import { StockOutDialog, StockOutList, type PickRow } from '../components/StockOut';
+import { ScanButton } from '../components/ScanButton';
 import {
   Badge,
   Button,
@@ -365,13 +366,17 @@ export function Stock() {
       {tab === 'products' ? (
         <>
           <div className="space-y-2">
-            <Input
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
-              placeholder={t('inventory.searchPlaceholder')}
-              autoComplete="off"
-              inputMode="search"
-            />
+            <div className="flex gap-2">
+              <Input
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+                placeholder={t('inventory.searchPlaceholder')}
+                autoComplete="off"
+                inputMode="search"
+                className="min-w-0 flex-1"
+              />
+              <ScanButton onScan={setSearch} />
+            </div>
             <div className="-mx-4 flex items-center gap-2 overflow-x-auto px-4 pb-1 sm:mx-0 sm:flex-wrap sm:px-0">
               <select
                 value={type}

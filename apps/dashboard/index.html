@@ -5,7 +5,14 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-    <meta name="theme-color" content="#111111" />
+    <meta name="theme-color" content="#ffffff" />
+    <!-- Installable as an app: the manifest for Android and desktop, and
+         Apple's own tags for "Add to Home Screen" on an iPhone. -->
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="دش" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <title>دش - نظام الإدارة</title>
     <link rel="icon" type="image/png" href="/favicon.png" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
@@ -16,14 +23,17 @@
       rel="stylesheet"
     />
     <script>
-      // Runs before the bundle so there is no flash of the wrong direction.
-      try {
-        var saved = localStorage.getItem('duch.locale') || 'ar';
-        document.documentElement.lang = saved;
-        document.documentElement.dir = saved === 'ar' ? 'rtl' : 'ltr';
-      } catch (e) {
-        /* private browsing; the default in the markup stands */
-      }
+      // The CRM is Arabic only for now (see ARABIC_ONLY in i18n), so the
+      // first paint is right-to-left whatever a browser once remembered.
+      document.documentElement.lang = 'ar';
+      document.documentElement.dir = 'rtl';
+      // Android offers installing before the app has loaded; keep the offer
+      // so the "Install app" button can use it later.
+      window.addEventListener('beforeinstallprompt', function (event) {
+        event.preventDefault();
+        window.__duchInstallPrompt = event;
+        window.dispatchEvent(new Event('duch:installable'));
+      });
     </script>
   </head>
   <body>

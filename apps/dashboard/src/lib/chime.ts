@@ -51,3 +51,19 @@ export function buzz() {
     // Not supported.
   }
 }
+
+/** A single short beep: a code was read. */
+export function beep() {
+  if (!context || context.state !== 'running') return;
+  const start = context.currentTime;
+  const oscillator = context.createOscillator();
+  const gain = context.createGain();
+  oscillator.type = 'square';
+  oscillator.frequency.value = 1800;
+  gain.gain.setValueAtTime(0.0001, start);
+  gain.gain.exponentialRampToValueAtTime(0.12, start + 0.01);
+  gain.gain.exponentialRampToValueAtTime(0.0001, start + 0.09);
+  oscillator.connect(gain).connect(context.destination);
+  oscillator.start(start);
+  oscillator.stop(start + 0.1);
+}

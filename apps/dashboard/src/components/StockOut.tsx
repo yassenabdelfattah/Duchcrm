@@ -17,6 +17,7 @@ import {
   cx,
   type StatusTone,
 } from './ui';
+import { ScanButton } from './ScanButton';
 
 /**
  * Taking stock out without an order - a photoshoot, a gift, something
@@ -429,13 +430,17 @@ export function StockOutDialog({
       <div className="space-y-4">
         <div>
           <Field label={t('stockOut.items')}>
-            <Input
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-              placeholder={t('sale.searchPlaceholder')}
-              autoComplete="off"
-              autoFocus
-            />
+            <div className="flex gap-2">
+              <Input
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                placeholder={t('sale.searchPlaceholder')}
+                autoComplete="off"
+                autoFocus
+                className="min-w-0 flex-1"
+              />
+              <ScanButton onScan={setQuery} />
+            </div>
           </Field>
           {results.length > 0 ? (
             <ul className="mt-1 max-h-56 divide-y divide-duch-line overflow-y-auto rounded-lg border border-duch-line">

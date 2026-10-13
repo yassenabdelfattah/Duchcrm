@@ -4,6 +4,14 @@ import { App } from './App';
 import { missingConfig } from './lib/supabase';
 import './styles.css';
 
+// Makes the CRM installable and quick to open from the home screen. Only in
+// a real build: in development it would keep serving yesterday's files.
+if ('serviceWorker' in navigator && import.meta.env.PROD) {
+  window.addEventListener('load', () => {
+    void navigator.serviceWorker.register('/sw.js').catch(() => undefined);
+  });
+}
+
 const container = document.getElementById('root');
 if (!container) throw new Error('No #root element in index.html');
 

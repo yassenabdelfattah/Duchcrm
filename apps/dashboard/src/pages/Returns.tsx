@@ -6,6 +6,7 @@ import { arabicError } from '../lib/errors';
 import type { StaffIdentity } from '../providers/authProvider';
 import { useLocale } from '../i18n';
 import { useBarcodeScanner } from '../hooks/useBarcodeScanner';
+import { ScanButton } from '../components/ScanButton';
 import {
   Badge,
   Button,
@@ -314,32 +315,41 @@ export function Returns() {
                   is why the list waits for a tap or a keystroke instead of
                   opening on focus - otherwise it would cover the page on every
                   visit. */}
-              <Input
-                ref={scanBox}
-                autoFocus
-                dir="ltr"
-                className="tabular text-lg"
-                placeholder={t('returns.scanPlaceholder')}
-                value={code}
-                onChange={(event) => {
-                  setCode(event.target.value);
-                  setListOpen(true);
-                }}
-                onPointerDown={() => setListOpen(true)}
-                onKeyDown={(event) => {
-                  if (event.key === 'Enter') {
+              <div className="flex gap-2">
+                <Input
+                  ref={scanBox}
+                  autoFocus
+                  dir="ltr"
+                  className="tabular min-w-0 flex-1 text-lg"
+                  placeholder={t('returns.scanPlaceholder')}
+                  value={code}
+                  onChange={(event) => {
+                    setCode(event.target.value);
+                    setListOpen(true);
+                  }}
+                  onPointerDown={() => setListOpen(true)}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter') {
+                      setListOpen(false);
+                      void find(code);
+                    }
+                    if (event.key === 'Escape') setListOpen(false);
+                  }}
+                  onFocus={() => setScanBoxFocused(true)}
+                  onBlur={() => {
+                    setScanBoxFocused(false);
                     setListOpen(false);
-                    void find(code);
-                  }
-                  if (event.key === 'Escape') setListOpen(false);
-                }}
-                onFocus={() => setScanBoxFocused(true)}
-                onBlur={() => {
-                  setScanBoxFocused(false);
-                  setListOpen(false);
-                }}
-                autoComplete="off"
-              />
+                  }}
+                  autoComplete="off"
+                />
+                <ScanButton
+                  onScan={(scanned) => {
+                    setListOpen(false);
+                    setCode(scanned);
+                    void find(scanned);
+                  }}
+                />
+              </div>
             </Field>
 
             {listOpen ? (

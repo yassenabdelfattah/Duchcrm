@@ -16,6 +16,7 @@ import { can, canAny, formatEGP } from '@duch/shared';
 import { supabase } from '../lib/supabase';
 import { useLocale } from '../i18n';
 import { readSeenAt } from '../hooks/useQueueAlert';
+import { InstallBanner } from '../components/InstallApp';
 import { Badge, Card, Code, Spinner, cx, type StatusTone } from '../components/ui';
 import type { StaffIdentity } from '../providers/authProvider';
 
@@ -294,6 +295,8 @@ export function Dashboard() {
           }).format(new Date())}
         </p>
       </div>
+
+      <InstallBanner />
 
       <section className="space-y-3">
         <h2 className="text-sm font-extrabold text-stone-600">{t('home.todo')}</h2>

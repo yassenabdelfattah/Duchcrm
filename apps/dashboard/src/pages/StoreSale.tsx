@@ -14,6 +14,7 @@ import { useBarcodeScanner } from '../hooks/useBarcodeScanner';
 import { Button, Card, Code, EmptyState, ErrorNote, Field, Input, Select, Spinner, cx } from '../components/ui';
 import { Invoice } from '../components/Invoice';
 import { Receipt } from '../components/Receipt';
+import { ScanButton } from '../components/ScanButton';
 
 interface StockRow {
   variant_id: string;
@@ -485,40 +486,43 @@ export function StoreSale() {
       <div className="space-y-4">
         <Card>
           <Field label={t('sale.scanPrompt')}>
-            <div className="relative">
-              <Input
-                ref={searchBox}
-                autoFocus
-                value={query}
-                onChange={(event) => setQuery(event.target.value)}
-                onKeyDown={(event) => {
-                  // Enter on a search with exactly one size in stock adds it.
-                  // A scanner's Enter was already handled as a scan (the
-                  // scanner hook marks it), so it must not add a second one.
-                  if (event.key !== 'Enter' || event.defaultPrevented) return;
-                  const available = results.filter((row) => row.quantity > 0);
-                  const [only] = available;
-                  if (available.length === 1 && only) addAndClear(only);
-                }}
-                placeholder={t('sale.searchPlaceholder')}
-                inputMode="search"
-                autoComplete="off"
-                className="pe-10"
-              />
-              {query ? (
-                <button
-                  type="button"
-                  aria-label={t('sale.clearSearch')}
-                  onClick={() => {
-                    setQuery('');
-                    setResults([]);
-                    searchBox.current?.focus();
+            <div className="flex gap-2">
+              <div className="relative min-w-0 flex-1">
+                <Input
+                  ref={searchBox}
+                  autoFocus
+                  value={query}
+                  onChange={(event) => setQuery(event.target.value)}
+                  onKeyDown={(event) => {
+                    // Enter on a search with exactly one size in stock adds it.
+                    // A scanner's Enter was already handled as a scan (the
+                    // scanner hook marks it), so it must not add a second one.
+                    if (event.key !== 'Enter' || event.defaultPrevented) return;
+                    const available = results.filter((row) => row.quantity > 0);
+                    const [only] = available;
+                    if (available.length === 1 && only) addAndClear(only);
                   }}
-                  className="absolute inset-y-0 end-0 flex w-10 items-center justify-center text-lg text-stone-400 hover:text-duch-ink"
-                >
-                  ×
-                </button>
-              ) : null}
+                  placeholder={t('sale.searchPlaceholder')}
+                  inputMode="search"
+                  autoComplete="off"
+                  className="pe-10"
+                />
+                {query ? (
+                  <button
+                    type="button"
+                    aria-label={t('sale.clearSearch')}
+                    onClick={() => {
+                      setQuery('');
+                      setResults([]);
+                      searchBox.current?.focus();
+                    }}
+                    className="absolute inset-y-0 end-0 flex w-10 items-center justify-center text-lg text-stone-400 hover:text-duch-ink"
+                  >
+                    ×
+                  </button>
+                ) : null}
+              </div>
+              <ScanButton onScan={(code) => void handleScan(code)} />
             </div>
           </Field>
 

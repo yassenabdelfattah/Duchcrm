@@ -22,6 +22,7 @@ import { can, canAny, type Permission } from '@duch/shared';
 import { useLocale } from '../i18n';
 import { useQueueAlert } from '../hooks/useQueueAlert';
 import type { StaffIdentity } from '../providers/authProvider';
+import { InstallAppRow } from './InstallApp';
 import { cx } from './ui';
 
 interface NavItem {
@@ -300,6 +301,7 @@ export function Layout() {
             ) : null}
 
             <div className="mt-4 space-y-1 border-t border-duch-line pt-3">
+              <InstallAppRow />
               {ships ? (
                 <button
                   type="button"

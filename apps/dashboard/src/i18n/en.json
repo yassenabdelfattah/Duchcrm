@@ -737,5 +737,25 @@
     "overdueCount": "{{count}} past their return date",
     "lowStock": "Sizes running low",
     "syncIssues": "Sync issues"
+  },
+  "install": {
+    "title": "Install the app",
+    "button": "Install the app",
+    "short": "Install",
+    "iosStep1": "Tap the Share button at the bottom of Safari",
+    "iosStep2": "Choose “Add to Home Screen”",
+    "iosNote": "Open the site in Safari. Duch then appears as an app on the home screen.",
+    "bannerTitle": "Install Duch on your phone",
+    "bannerBody": "Opens like an app from the home screen, full screen."
+  },
+  "scan": {
+    "open": "Scan with camera",
+    "title": "Barcode reader",
+    "aim": "Point the camera at the barcode",
+    "torch": "Torch",
+    "denied": "The site is not allowed to use the camera. Allow it in the browser settings.",
+    "noCamera": "This device has no camera.",
+    "failed": "The camera did not start. Try again.",
+    "notFound": "No item with barcode {{code}}"
   }
 }
