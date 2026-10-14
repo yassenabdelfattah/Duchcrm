@@ -156,7 +156,19 @@
     "sizesDiffer": "Differences: {{count}}",
     "resolveAll": "Resolve all {{count}}",
     "numbersFrom": "Shopify's numbers are from the check at {{when}}. If stock was changed in Shopify after that, press “Check with Shopify now” first.",
-    "forAll": "{{label}} — all {{count}}"
+    "forAll": "{{label}} — all {{count}}",
+    "order_changed_in_shopify": "Order changed in Shopify after it shipped",
+    "order_sync_failed": "Could not update the order in Shopify",
+    "orderChangedHelp": "Its items changed in Shopify while it was with the courier, so the CRM did not move stock. Check the order and edit it here if needed.",
+    "orderShopifyItems": "In Shopify",
+    "orderCrmItems": "In the CRM",
+    "orderEditFailed": "The edit is saved in the CRM but has not reached Shopify. It is retried automatically.",
+    "orderCancelFailed": "The cancellation is recorded in the CRM but has not reached Shopify. It is retried automatically.",
+    "tryAgain": "Try again now",
+    "orderSent": "The order was updated in Shopify.",
+    "orderStillFailing": "Shopify still refuses. The reason is on the issue.",
+    "orderDone": "Dealt with",
+    "orderDoneHelp": "Closes the issue. Edit the order here if needed."
   },
   "dashboard": {
     "title": "Today",
@@ -468,7 +480,14 @@
       "reopened": "Payment reopened",
       "itemsEdited": "Items edited",
       "edited": "Order details edited",
-      "system": "System"
+      "system": "System",
+      "itemsEditedShopify": "Items changed in Shopify; the CRM followed",
+      "shopifySynced": "Order updated in Shopify",
+      "shopifyCancelled": "Order cancelled in Shopify",
+      "shopifyShippingRefused": "Shopify refused the new shipping fee - change it in Shopify by hand",
+      "shopifyRefund": "Refunded in Shopify: {{amount}} EGP",
+      "paymentCorrected": "Payment status corrected: a Shopify edit had been recorded as a refund",
+      "shopifyItemsNotShipping": "Items updated in Shopify, but it refused the new shipping fee - change that in Shopify by hand"
     },
     "step": {
       "sold": "Sold",
@@ -478,7 +497,15 @@
       "delivered": "Delivered"
     },
     "pickedUpInStore": "Collected in the shop",
-    "customerReceived": "Customer received it"
+    "customerReceived": "Customer received it",
+    "cancel": "Cancel order",
+    "cancelTitle": "Cancel order {{orderNumber}}",
+    "cancelHelp": "The items go back into stock.",
+    "cancelShopify": "It is cancelled in Shopify too, without emailing the customer.",
+    "cancelReason": "Reason (optional)",
+    "cancelConfirm": "Cancel the order",
+    "shopifyPending": "Waiting to update Shopify",
+    "keepOrder": "Back"
   },
   "reports": {
     "title": "Reports and log",

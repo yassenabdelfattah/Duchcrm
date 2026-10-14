@@ -3,6 +3,7 @@ import { can, formatEGP } from '@duch/shared';
 import { useGetIdentity } from '@refinedev/core';
 import { supabase } from '../lib/supabase';
 import { arabicError } from '../lib/errors';
+import { sendOrderToShopify } from '../lib/shopifySync';
 import { markQueueSeen, readSeenAt } from '../hooks/useQueueAlert';
 import type { StaffIdentity } from '../providers/authProvider';
 import { useLocale } from '../i18n';
@@ -539,11 +540,15 @@ function CallDialog({
       p_hold_until: outcome === 'asked_to_delay' ? holdUntil : null,
     });
 
-    setBusy(false);
     if (rpcError) {
+      setBusy(false);
       setError(describeError(rpcError, t));
       return;
     }
+    // Cancelled on the call: a website order is cancelled in Shopify too.
+    // Queued by the database already; this only sends it now.
+    if (outcome === 'cancelled_by_customer') await sendOrderToShopify(target.order_id);
+    setBusy(false);
     onDone();
   }
 

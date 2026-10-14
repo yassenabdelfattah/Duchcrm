@@ -203,7 +203,8 @@ select is(
 select is(
   (select count(*)::int from public.stock_movements
     where reference_type = 'order_cancellation'
-      and reason = 'cancellation'),
+      and reason = 'cancellation'
+      and reference_id = (select id::text from public.orders where idempotency_key = 'sale-idem-key-00002')),
   1,
   'Cancelling appends a compensating movement rather than deleting the original'
 );

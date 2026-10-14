@@ -49,12 +49,28 @@ these:
 | `read_inventory` | Reading quantities for the nightly comparison |
 | `write_inventory` | Pushing our quantities to the storefront |
 | `read_orders` | Phase 3 — website orders |
+| `write_orders` | Cancelling a website order cancelled in the CRM |
+| `write_order_edits` | Changing a website order's items and shipping when it is edited in the CRM |
 | `read_customers` | Phase 3 — matching customers across channels |
 | `read_locations` | Resolving the location ID |
 
-Do not grant `write_products` or `write_orders`. The CRM does not create
-products or orders in Shopify, and a token that cannot do something is a token
-that cannot do it by accident.
+Do not grant `write_products`. The CRM never creates or edits products in
+Shopify, and a token that cannot do something is a token that cannot do it by
+accident. The two order scopes were added on 2026-10-15, when the CRM became
+the place orders are changed (DECISIONS #12).
+
+### Adding a scope later
+
+The app's scopes belong to a version. In the Dev Dashboard, open the app,
+create a new version with the scopes ticked, and release it. Then approve the
+new scopes on the store: Shopify asks in the store admin, under **Settings →
+Apps**, the next time the app is opened there. Do both together - Shopify's
+community reports an app's calls can be refused while a new required scope
+waits for approval. Stock pushes refused meanwhile are retried by the outbox.
+
+A token remembers the scopes it was issued with. `shopifyGraphQL` fetches a
+fresh one once when Shopify answers `ACCESS_DENIED`, so a token from before
+the approval does not keep failing for its remaining 24 hours.
 
 ### Get the credentials
 

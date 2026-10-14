@@ -12,6 +12,7 @@ import { useGetIdentity } from '@refinedev/core';
 import { useSearchParams } from 'react-router';
 import { supabase } from '../lib/supabase';
 import { arabicError } from '../lib/errors';
+import { sendOrderToShopify } from '../lib/shopifySync';
 import type { StaffIdentity } from '../providers/authProvider';
 import { useLocale } from '../i18n';
 import {
@@ -83,6 +84,10 @@ interface OrderRow {
   unit_count: number;
   stage: 'to_ship' | 'on_the_road' | 'delivered' | 'back' | 'cancelled';
   stage_since: string;
+  /** Set on an order that came from the website. */
+  shopify_order_id: number | null;
+  /** A change made here has not reached Shopify yet. */
+  shopify_pending: boolean;
 }
 
 type SettleAction = 'mark_order_paid' | 'complete_own_delivery' | 'mark_courier_delivered';
@@ -178,6 +183,7 @@ export function Orders() {
   const maySettle = can(identity?.permissions, 'orders.settle');
   const mayEdit = can(identity?.permissions, 'orders.edit');
   const mayDeliver = canAny(identity?.permissions, ['orders.settle', 'orders.ship']);
+  const mayCancel = can(identity?.permissions, 'orders.cancel');
 
   const [params] = useSearchParams();
   // A link from the home screen names the list to open (?tab=owed); without
@@ -205,6 +211,7 @@ export function Orders() {
   const [editing, setEditing] = useState<OrderRow | null>(null);
   const [history, setHistory] = useState<OrderRow | null>(null);
   const [reopening, setReopening] = useState<OrderRow | null>(null);
+  const [cancelling, setCancelling] = useState<OrderRow | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
 
   // Remember the tab and filters per browser, so the person who always works
@@ -429,6 +436,7 @@ export function Orders() {
             cancelled_at: editing.cancelled_at,
             customer_id: editing.customer_id,
             customers: { full_name: editing.customer_name, phone: editing.customer_phone },
+            shopify_order_id: editing.shopify_order_id,
           }}
           onClose={() => setEditing(null)}
           onSaved={reload}
@@ -448,6 +456,17 @@ export function Orders() {
 
       {history ? <OrderHistory order={history} onClose={() => setHistory(null)} /> : null}
 
+      {cancelling ? (
+        <CancelOrderDialog
+          order={cancelling}
+          onClose={() => setCancelling(null)}
+          onDone={() => {
+            setCancelling(null);
+            reload();
+          }}
+        />
+      ) : null}
+
       {!rows ? (
         <Spinner label={t('app.loading')} />
       ) : rows.length === 0 ? (
@@ -462,12 +481,14 @@ export function Orders() {
               maySettle={maySettle}
               mayEdit={mayEdit}
               mayDeliver={mayDeliver}
+              mayCancel={mayCancel}
               isOwner={Boolean(identity?.is_owner)}
               onHistory={() => setHistory(row)}
               onEdit={() => setEditing(row)}
               onInvoice={() => setInvoiceId(row.id)}
               onSettle={(rpc) => void settle(row, rpc)}
               onReopen={() => setReopening(row)}
+              onCancel={() => setCancelling(row)}
             />
           ))}
 
@@ -564,24 +585,28 @@ function OrderCard({
   maySettle,
   mayEdit,
   mayDeliver,
+  mayCancel,
   isOwner,
   onHistory,
   onEdit,
   onInvoice,
   onSettle,
   onReopen,
+  onCancel,
 }: {
   row: OrderRow;
   busy: boolean;
   maySettle: boolean;
   mayEdit: boolean;
   mayDeliver: boolean;
+  mayCancel: boolean;
   isOwner: boolean;
   onHistory: () => void;
   onEdit: () => void;
   onInvoice: () => void;
   onSettle: (rpc: SettleAction) => void;
   onReopen: () => void;
+  onCancel: () => void;
 }) {
   const { t, locale } = useLocale();
   const totals = calculateInvoiceTotals(row);
@@ -616,6 +641,9 @@ function OrderCard({
           <div className="flex flex-wrap items-center gap-2 text-xs text-stone-600">
             <StatusPill tone={where.tone}>{where.label}</StatusPill>
             {row.stage !== 'cancelled' ? <span>{sinceLabel(row.stage_since, t)}</span> : null}
+            {row.shopify_pending ? (
+              <span className="text-amber-700">{t('orders.shopifyPending')}</span>
+            ) : null}
           </div>
         </div>
 
@@ -739,6 +767,14 @@ function OrderCard({
           {t('sale.printInvoice')}
         </Button>
 
+        {/* Only before it leaves: after that the goods come back through
+            returns, not by changing a status. */}
+        {mayCancel && !cancelled && row.stage === 'to_ship' ? (
+          <Button variant="secondary" className="min-h-9 px-3 text-xs text-red-700" onClick={onCancel}>
+            {t('orders.cancel')}
+          </Button>
+        ) : null}
+
         {/* Owner only - the database refuses anyone else. For a payment
             recorded by mistake, which the ordinary editor cannot touch once
             the order is paid. */}
@@ -779,6 +815,68 @@ function OrderCard({
   );
 }
 
+// --- Cancelling ------------------------------------------------------------------
+
+/**
+ * Cancels an order that has not left yet: its items go back on the shelf, and
+ * a website order is cancelled in Shopify too, without emailing the customer.
+ */
+function CancelOrderDialog({
+  order,
+  onClose,
+  onDone,
+}: {
+  order: OrderRow;
+  onClose: () => void;
+  onDone: () => void;
+}) {
+  const { t } = useLocale();
+  const [reason, setReason] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function confirm() {
+    setBusy(true);
+    setError(null);
+    const { error: rpcError } = await supabase.rpc('cancel_order', {
+      p_order_id: order.id,
+      p_reason: reason.trim() || null,
+    });
+    if (rpcError) {
+      setBusy(false);
+      setError(arabicError(rpcError));
+      return;
+    }
+    // Queued by the database; sent now rather than in a minute. A failure
+    // here is retried by the Worker, so it does not stop the cancel.
+    if (order.shopify_order_id) await sendOrderToShopify(order.id);
+    setBusy(false);
+    onDone();
+  }
+
+  return (
+    <Modal open title={t('orders.cancelTitle', { orderNumber: order.order_number })} onClose={onClose}>
+      <div className="space-y-3">
+        <p className="text-sm">{t('orders.cancelHelp')}</p>
+        {order.shopify_order_id ? <p className="text-sm text-stone-600">{t('orders.cancelShopify')}</p> : null}
+        <Field label={t('orders.cancelReason')}>
+          <Input value={reason} onChange={(event) => setReason(event.target.value)} />
+        </Field>
+        {error ? <ErrorNote>{error}</ErrorNote> : null}
+        <div className="flex justify-end gap-2">
+          {/* Not "cancel": beside "cancel the order" that reads as the same button. */}
+          <Button variant="secondary" onClick={onClose} disabled={busy}>
+            {t('orders.keepOrder')}
+          </Button>
+          <Button variant="danger" onClick={() => void confirm()} disabled={busy}>
+            {busy ? t('app.loading') : t('orders.cancelConfirm')}
+          </Button>
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
 // --- The tracker: every step, who did it, and when ----------------------------------
 
 interface OrderEvent {
@@ -814,7 +912,21 @@ function describeEvent(event: OrderEvent, t: (k: string, p?: Record<string, unkn
     case 'payment_reopened':
       return t('orders.history.reopened');
     case 'items_edited':
-      return t('orders.history.itemsEdited');
+      return event.details?.source === 'shopify'
+        ? t('orders.history.itemsEditedShopify')
+        : t('orders.history.itemsEdited');
+    case 'shopify_synced':
+      if (event.details?.action === 'cancel') return t('orders.history.shopifyCancelled');
+      if (event.details?.shipping_updated === false) {
+        return event.details?.items_changed
+          ? t('orders.history.shopifyItemsNotShipping')
+          : t('orders.history.shopifyShippingRefused');
+      }
+      return t('orders.history.shopifySynced');
+    case 'shopify_refund':
+      return t('orders.history.shopifyRefund', { amount: String(event.details?.amount_egp ?? '') });
+    case 'payment_corrected':
+      return t('orders.history.paymentCorrected');
     case 'edited':
       return t('orders.history.edited');
     default:

@@ -17,6 +17,12 @@ describe('arabicError', () => {
     );
   });
 
+  it('sends an order paid online to Shopify to be cancelled, where the customer is refunded', () => {
+    expect(
+      arabicError({ code: '23514', message: 'Order #1420 was paid online. Cancel it in Shopify so the customer is refunded.' }),
+    ).toBe('الطلب #1420 مدفوع أونلاين. ألغِه من شوبيفاي حتى يسترد العميل أمواله.');
+  });
+
   it('turns any permission refusal into one sentence', () => {
     expect(arabicError({ code: '42501', message: 'You may not ship orders' })).toBe('ليس لديك صلاحية لهذا الإجراء.');
     expect(arabicError({ code: '42501', message: 'something new' })).toBe('ليس لديك صلاحية لهذا الإجراء.');

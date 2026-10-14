@@ -3,6 +3,7 @@ import { PAYMENT_METHODS, calculateInvoiceTotals, formatEGP, normalizeEgyptianPh
 import type { PaymentMethod } from '@duch/shared';
 import { supabase } from '../lib/supabase';
 import { arabicError } from '../lib/errors';
+import { sendOrderToShopify } from '../lib/shopifySync';
 import { isolate, useLocale } from '../i18n';
 import { Button, ErrorNote, Field, Input, Modal, Select, Spinner } from './ui';
 
@@ -32,6 +33,8 @@ interface EditableOrder {
   cancelled_at: string | null;
   customer_id: string | null;
   customers: { full_name: string | null; phone: string | null } | null;
+  /** Set on a website order: the edit is sent on to Shopify after saving. */
+  shopify_order_id?: number | null;
 }
 
 interface LineRow {
@@ -213,6 +216,10 @@ export function OrderEditor({
         p_channel: moneyLocked ? null : channel,
       });
       if (detailsError) throw detailsError;
+
+      // Saved here; Shopify's copy follows. The database queued it, so a
+      // failure now is retried within the minute and never loses the edit.
+      if (order.shopify_order_id && !moneyLocked) await sendOrderToShopify(order.id);
 
       onSaved();
       onClose();

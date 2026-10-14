@@ -168,10 +168,10 @@ async function handle(
       return handleOrderCreate(payload, db);
 
     case 'orders/updated':
-      // Shopify sends this for anything from an address correction to a tag
-      // change. Creating the order if we somehow missed orders/create is the
-      // useful part; beyond that the CRM owns the order's state, not Shopify.
-      return handleOrderCreate(payload, db);
+      // Sent for anything from a tag to an edit of the items. The CRM follows
+      // an edit while the order is still here (DECISIONS #12); it also creates
+      // the order if orders/create was missed.
+      return handleOrderUpdated(payload, db);
 
     case 'orders/cancelled':
       return handleOrderCancelled(payload, db);
@@ -266,6 +266,36 @@ async function handleOrderCreate(
   };
 }
 
+/**
+ * Shopify's version of an order changed. The database decides what that
+ * means - follow it, ignore it as old news or as our own edit coming back, or
+ * flag it because the parcel has left - and says which variants moved.
+ */
+async function handleOrderUpdated(
+  payload: Record<string, unknown>,
+  db: ReturnType<typeof adminClient>,
+): Promise<HandlerResult> {
+  const { data, error } = await db.rpc('sync_shopify_order_lines', { p_payload: payload });
+  if (error) throw new Error(`sync_shopify_order_lines failed: ${error.message}`);
+
+  const result = data as {
+    result: string;
+    order_id?: string;
+    order_number?: string;
+    variant_ids?: string[];
+  };
+
+  if (result.order_id && result.variant_ids?.length) {
+    await pushVariants(db, result.order_id, result.variant_ids);
+  }
+
+  return {
+    status: result.result === 'updated' || result.result === 'created' ? 'processed' : 'ignored',
+    reason: result.result === 'updated' || result.result === 'created' ? undefined : `order_${result.result}`,
+    detail: { order_number: result.order_number ?? null, result: result.result },
+  };
+}
+
 async function handleOrderCancelled(
   payload: Record<string, unknown>,
   db: ReturnType<typeof adminClient>,
@@ -347,6 +377,26 @@ async function pushInventoryFor(
 
     if (!order?.location_id) return;
 
+    await db.functions.invoke('push-inventory', {
+      body: { variant_ids: variantIds, location_id: order.location_id },
+    });
+  } catch (error) {
+    console.warn('Immediate inventory push failed; the outbox will retry', error);
+  }
+}
+
+/**
+ * Pushes named variants - including ones no longer on the order, which is
+ * exactly the case after an item was taken off it. Best effort, as above.
+ */
+async function pushVariants(
+  db: ReturnType<typeof adminClient>,
+  orderId: string,
+  variantIds: string[],
+): Promise<void> {
+  try {
+    const { data: order } = await db.from('orders').select('location_id').eq('id', orderId).single();
+    if (!order?.location_id) return;
     await db.functions.invoke('push-inventory', {
       body: { variant_ids: variantIds, location_id: order.location_id },
     });

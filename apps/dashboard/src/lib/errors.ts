@@ -21,6 +21,7 @@ type Rule = [RegExp, (match: RegExpExecArray) => string];
 // come before the general ones that would also match them.
 const RULES: Rule[] = [
   // --- Orders: closed, paid, cancelled -------------------------------------
+  [/^Order (\S+) was paid online\. Cancel it in Shopify/, (m) => `الطلب ${m[1]} مدفوع أونلاين. ألغِه من شوبيفاي حتى يسترد العميل أمواله.`],
   [/^Order (\S+) was returned, so nothing is owed on it/, (m) => `الطلب ${m[1]} مرتجع، فلا يوجد عليه مستحق.`],
   [/^Order (\S+) was returned\. Its money and items are closed/, (m) => `الطلب ${m[1]} مرتجع، فمبالغه وأصنافه مغلقة. يمكن تعديل الملاحظة فقط.`],
   [/^Order (\S+) has been paid for\./, (m) => `الطلب ${m[1]} مدفوع، فلا يمكن تغيير مبالغه. سجّل مرتجعاً بدلاً من ذلك.`],

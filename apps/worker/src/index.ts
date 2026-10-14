@@ -7,7 +7,8 @@
  *
  * Schedules are declared in wrangler.toml:
  *   every minute  drain the inventory outbox (the safety net behind the fast
- *                 push the sale screen makes directly)
+ *                 push the sale screen makes directly), and send website
+ *                 order changes still waiting to reach Shopify
  *   00:00 UTC     nightly reconciliation, roughly 2am in Cairo
  */
 
@@ -78,6 +79,19 @@ export default {
             }
           })(),
         );
+        ctx.waitUntil(
+          (async () => {
+            const result = await callEdgeFunction(env, 'shopify-order-sync', { drain: true, limit: 20 });
+            if (!result.ok) {
+              // Same as above: each order retries with backoff and opens a
+              // sync issue on its own after three failures.
+              console.warn('shopify-order-sync drain did not succeed', result);
+            } else {
+              const processed = (result.body as { processed?: number })?.processed ?? 0;
+              if (processed > 0) console.log(`Sent ${processed} order changes to Shopify`);
+            }
+          })(),
+        );
         break;
       }
 
@@ -130,6 +144,10 @@ export default {
 
     if (url.pathname === '/run/push-inventory') {
       return Response.json(await callEdgeFunction(env, 'push-inventory', { drain: true }));
+    }
+
+    if (url.pathname === '/run/order-sync') {
+      return Response.json(await callEdgeFunction(env, 'shopify-order-sync', { drain: true }));
     }
 
     if (url.pathname === '/run/reconcile') {

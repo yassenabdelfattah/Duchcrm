@@ -69,5 +69,8 @@ verify_jwt = true
 [functions.reconcile-stock]
 verify_jwt = true
 
+[functions.shopify-order-sync]
+verify_jwt = true
+
 [analytics]
 enabled = false

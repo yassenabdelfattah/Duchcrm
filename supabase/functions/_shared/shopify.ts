@@ -128,6 +128,19 @@ export async function shopifyGraphQL<T>(
 
     const body = (await response.json()) as GraphQLResponse<T>;
 
+    // A token remembers the permissions the app had when it was issued. One
+    // fetched before new permissions were approved on the store keeps being
+    // refused for the rest of its 24 hours, so a refusal gets one fresh token
+    // - the same single retry as a 401 above.
+    const denied = body.errors?.some(
+      (e) => (e.extensions as { code?: string } | undefined)?.code === 'ACCESS_DENIED',
+    );
+    if (denied && !reauthorised) {
+      reauthorised = true;
+      shopifyToken().invalidate();
+      continue;
+    }
+
     // The cost-based limiter reports THROTTLED inside a 200 response.
     const throttled = body.errors?.some(
       (e) => (e.extensions as { code?: string } | undefined)?.code === 'THROTTLED',
@@ -151,6 +164,7 @@ export async function shopifyGraphQL<T>(
 export const gid = {
   inventoryItem: (id: number | string) => `gid://shopify/InventoryItem/${id}`,
   location: (id: number | string) => `gid://shopify/Location/${id}`,
+  order: (id: number | string) => `gid://shopify/Order/${id}`,
   product: (id: number | string) => `gid://shopify/Product/${id}`,
   variant: (id: number | string) => `gid://shopify/ProductVariant/${id}`,
 };

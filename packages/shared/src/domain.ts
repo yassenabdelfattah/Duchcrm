@@ -70,6 +70,9 @@ export const SYNC_ISSUE_TYPES = [
   'missing_in_crm',
   'push_failed',
   'unmapped_inventory_item',
+  // About a whole website order rather than stock (DECISIONS #12).
+  'order_changed_in_shopify',
+  'order_sync_failed',
 ] as const;
 export type SyncIssueType = (typeof SYNC_ISSUE_TYPES)[number];
 

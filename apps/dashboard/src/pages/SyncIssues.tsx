@@ -3,6 +3,7 @@ import { useGetIdentity } from '@refinedev/core';
 import { can, formatDateTime, type SyncIssueType } from '@duch/shared';
 import { supabase } from '../lib/supabase';
 import { arabicError } from '../lib/errors';
+import { sendOrderToShopify } from '../lib/shopifySync';
 import { useLocale } from '../i18n';
 import type { StaffIdentity } from '../providers/authProvider';
 import { Badge, Button, Card, EmptyState, ErrorNote, Field, Input, Modal, Spinner } from '../components/ui';
@@ -32,6 +33,16 @@ interface ProductGroup {
 
 type Action = 'trust_crm' | 'trust_shopify' | 'ignore';
 
+/** About a whole website order rather than a size's stock. */
+function isOrderIssue(issue: SyncIssueRow): boolean {
+  return issue.type === 'order_changed_in_shopify' || issue.type === 'order_sync_failed';
+}
+
+/** ["TEE-M x1", "TEE-L x2"] as one line; anything else as a dash. */
+function listOf(value: unknown): string {
+  return Array.isArray(value) && value.length > 0 ? value.map(String).join('، ') : '—';
+}
+
 /**
  * The review queue for everywhere the CRM and Shopify disagree.
  *
@@ -53,6 +64,7 @@ export function SyncIssues() {
     null,
   );
   const [checking, setChecking] = useState(false);
+  const [retrying, setRetrying] = useState<string | null>(null);
   const [checkMessage, setCheckMessage] = useState<string | null>(null);
   const [checkError, setCheckError] = useState<string | null>(null);
   const [reloadToken, setReloadToken] = useState(0);
@@ -100,6 +112,19 @@ export function SyncIssues() {
       cancelled = true;
     };
   }, [reloadToken]);
+
+  // A website order Shopify would not take: send it again now - after the
+  // app's permissions were fixed, say. Getting through closes the issue.
+  async function retry(issueId: string, orderId: string) {
+    setRetrying(issueId);
+    setCheckError(null);
+    setCheckMessage(null);
+    const sent = await sendOrderToShopify(orderId);
+    setRetrying(null);
+    if (sent) setCheckMessage(t('sync.orderSent'));
+    else setCheckError(t('sync.orderStillFailing'));
+    setReloadToken((token) => token + 1);
+  }
 
   async function checkNow() {
     setChecking(true);
@@ -166,7 +191,9 @@ export function SyncIssues() {
   function renderIssue(issue: SyncIssueRow) {
     return (
       <Card key={issue.id} className="flex flex-wrap items-center gap-4">
-        <div className="min-w-0 flex-1">
+        {/* At least 14rem, so on a phone the buttons go underneath rather
+            than squeezing the words into a column one word wide. */}
+        <div className="min-w-[14rem] flex-1">
           <div className="flex flex-wrap items-center gap-2">
             <Badge tone="warn">{t(`sync.${issue.type}`)}</Badge>
             {issue.occurrences > 1 ? (
@@ -175,7 +202,34 @@ export function SyncIssues() {
               </span>
             ) : null}
           </div>
-          {issue.variants ? (
+          {isOrderIssue(issue) ? (
+            // About a website order: which one, and what is wrong with it.
+            <div className="mt-1 space-y-0.5 text-sm">
+              <p className="font-semibold">
+                <bdi>{String(issue.details?.order_number ?? '—')}</bdi>
+              </p>
+              {issue.type === 'order_changed_in_shopify' ? (
+                <>
+                  <p className="text-xs text-stone-600">{t('sync.orderChangedHelp')}</p>
+                  <p className="tabular text-xs">
+                    {t('sync.orderShopifyItems')}: <bdi>{listOf(issue.details?.shopify_items)}</bdi>
+                  </p>
+                  <p className="tabular text-xs">
+                    {t('sync.orderCrmItems')}: <bdi>{listOf(issue.details?.crm_items)}</bdi>
+                  </p>
+                </>
+              ) : (
+                <>
+                  <p className="text-xs text-stone-600">
+                    {issue.details?.action === 'cancel' ? t('sync.orderCancelFailed') : t('sync.orderEditFailed')}
+                  </p>
+                  <p className="text-xs break-all text-stone-500" dir="ltr">
+                    {String(issue.details?.error ?? '')}
+                  </p>
+                </>
+              )}
+            </div>
+          ) : issue.variants ? (
             <p className="tabular mt-1 text-sm font-semibold">
               {issue.variants.sku}
               {issue.variants.size || issue.variants.color
@@ -217,6 +271,16 @@ export function SyncIssues() {
               <dd className="text-lg font-extrabold">{issue.shopify_quantity ?? '—'}</dd>
             </div>
           </dl>
+        ) : null}
+
+        {issue.type === 'order_sync_failed' && typeof issue.details?.order_id === 'string' ? (
+          <Button
+            variant="secondary"
+            disabled={retrying === issue.id}
+            onClick={() => void retry(issue.id, issue.details.order_id as string)}
+          >
+            {retrying === issue.id ? t('app.loading') : t('sync.tryAgain')}
+          </Button>
         ) : null}
 
         {mayResolve ? (
@@ -346,11 +410,15 @@ function ResolveDialog({
     onDone();
   }
 
-  const choices: Array<{ action: Action; label: string; help: string }> = [
-    { action: 'trust_crm', label: t('sync.trustCrm'), help: t('sync.trustCrmHelp') },
-    { action: 'trust_shopify', label: t('sync.trustShopify'), help: t('sync.trustShopifyHelp') },
-    { action: 'ignore', label: t('sync.ignore'), help: t('sync.ignoreHelp') },
-  ];
+  // An order issue has no number to pick between: someone deals with the
+  // order itself, then closes this.
+  const choices: Array<{ action: Action; label: string; help: string }> = targets.every(isOrderIssue)
+    ? [{ action: 'ignore', label: t('sync.orderDone'), help: t('sync.orderDoneHelp') }]
+    : [
+        { action: 'trust_crm', label: t('sync.trustCrm'), help: t('sync.trustCrmHelp') },
+        { action: 'trust_shopify', label: t('sync.trustShopify'), help: t('sync.trustShopifyHelp') },
+        { action: 'ignore', label: t('sync.ignore'), help: t('sync.ignoreHelp') },
+      ];
 
   return (
     <Modal open title={title ?? t('sync.resolve')} onClose={onClose}>

@@ -482,3 +482,65 @@ holds the cash until their statement is reviewed or someone marks it paid.
 The order moves from "on the road" to "delivered, not paid" - the owed list.
 Our own drivers keep their own step, which records the cash at the same time.
 
+
+---
+
+## 12. Orders: the CRM decides, Shopify follows
+
+Asked for by the owner on 2026-10-15: "I want all moves to be on the CRM" -
+and for an order changed on the confirmation call to change in Shopify too.
+
+Until then a website order lived in two places that never spoke after the
+first webhook. Changed in the CRM, the Shopify order kept its old items and
+total. Changed in Shopify, the CRM order stayed as it was, while Shopify's
+"refund" for the removed item put stock back here as if it had been returned.
+On #1406 one piece came back twice - from Shopify's refund, and from the same
+change made in the CRM - and was corrected by hand with a stock-out. The same
+refund marked #1403 and #1406 "partially refunded" with no money moved,
+which took #1403 (delivered, cash on delivery) off the owed list.
+
+**A Shopify refund never moves stock.** Shopify sends one when an item is
+taken off an order in an edit, and when a returned item is refunded. The
+first is the order's own lines changing, the second is a parcel checked in by
+hand on `/returns` - which is how every other channel already worked. And a
+refund only marks an order refunded when money actually moved: an edit to a
+cash-on-delivery order is a refund with no transactions at all.
+
+**A change made in the CRM is queued for Shopify.** `update_order_items`, a
+new shipping fee, and `cancel_order` put the order in `shopify_order_outbox`.
+The `shopify-order-sync` function sends it - at once from the screen, and
+every minute from the Worker until it lands. The queue holds the order, not
+the change: the job reads what Shopify's order holds now and works out the
+edit that makes it hold what the CRM's does (`order-edit-plan.ts`), so a job
+that runs twice changes nothing the second time. Rule three of #1, for
+orders. Three failures in a row open a Sync issue with a "try again" button;
+success closes it.
+
+**A change made in Shopify is followed** - while the order has not left the
+building. `orders/updated` goes to `sync_shopify_order_lines`, which rewrites
+the CRM's lines to Shopify's and moves the stock by the difference, once.
+After shipping it moves nothing (#3: nothing moves while goods are in a van)
+and opens a Sync issue instead. Two things stop it undoing a newer change
+with an older one: Shopify's `updated_at` is kept on the order and anything
+older is ignored, including webhooks that left Shopify before our own edit
+landed; and while a CRM change is still queued, the CRM's version wins.
+
+**Neither side restocks the other.** Our edits and cancels tell Shopify
+`restock: false`, and afterwards the CRM pushes its own numbers for every
+variant involved. Shopify's own count moves when an item is added to an
+order, so a push that happened to land first would leave it one short;
+pushing again after the edit puts our number back on top whatever the order
+of events.
+
+**No email to the customer** - the owner's choice, since every order is
+phoned before it ships.
+
+**An order paid online is cancelled in Shopify, not here.** Cancelling one
+from the CRM would not refund the customer; Shopify's cancel screen does, and
+its webhook then cancels the CRM order and puts the stock back. Every website
+order so far has been cash on delivery.
+
+**What the app may do changed.** It now holds `write_order_edits` and
+`write_orders`, which `docs/shopify-app-setup.md` used to say not to grant.
+The reason that advice gave - a token that cannot do something cannot do it
+by accident - still holds for products, which the CRM never writes.

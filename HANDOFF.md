@@ -25,10 +25,11 @@ most of the design.
 
 **Built and tested:** Phases 1, 2 and 3 complete, plus the staff screen.
 
-- 44 migrations, 22 pgTAP suites, **391 database assertions**
-- **68 TypeScript assertions** (webhook HMAC, money arithmetic, invoice
-  totals, Shopify token exchange, Cairo dates)
-- 13 screens, 4 Edge Functions, 1 Cloudflare Worker
+- 46 migrations, 23 pgTAP suites, **434 database assertions**
+- **90 TypeScript assertions** (webhook HMAC, money arithmetic, invoice
+  totals, Shopify token exchange, Cairo dates, sizes, Arabic errors, the
+  Shopify order-edit plan)
+- 13 screens, 5 Edge Functions, 1 Cloudflare Worker
 - 48 commits, working tree clean
 
 **Not built:** wholesale (Phase 4), staff chat and analytics (Phase 5), Meta
@@ -43,13 +44,13 @@ corrected forward (an adjustment), never by truncating.
 | | |
 |---|---|
 | Schema | All 44 migrations pushed. The seed is **not** pushed, deliberately. |
-| Edge Functions | All four deployed. The three behind `verify_jwt` now also require the service role or an active staff member (`_shared/auth.ts`). |
+| Edge Functions | All five deployed. The four behind `verify_jwt` also require the service role or an active staff member (`_shared/auth.ts`). |
 | Shopify | Catalogue: 47 products, 402 variants. Import matches on `shopify_variant_id`, so SKU renames in Shopify update in place. |
 | Location | `النزهه`, default, linked to Shopify location `90745733441`. |
 | Stock | Opening balance imported from Shopify on 2026-09-27 after a hand count: 225 variants with stock, the rest at zero. Three slippers (`HSL-39F-BLK`, `HSL-44M-OLV`, `HSL-45M-OLV`) came in at -1 - Shopify's `available`, meaning an unshipped website order and nothing on the shelf. |
 | Pushes to Shopify | **On.** First drain verified: 237 pushes succeeded, only the puffer jackets actually changed on Shopify. |
 | Dashboard | Live at **https://duch-crm.yassentah.workers.dev** - a Workers project (not Pages), built from GitHub on every push to `master`. |
-| Worker (cron) | **Deployed 2026-09-27** as `duch-crm-worker`: outbox drain every minute, reconcile at 00:00 UTC. Always pass `-c apps/worker/wrangler.toml` - without it Wrangler can resolve the dashboard's root config instead. Its first run pushed the first live website order's two variants; Shopify recorded no change, confirming a web sale is not double-counted. |
+| Worker (cron) | **Deployed 2026-09-27** as `duch-crm-worker`: outbox drain and website order changes (`shopify-order-sync`) every minute, reconcile at 00:00 UTC. Always pass `-c apps/worker/wrangler.toml` - without it Wrangler can resolve the dashboard's root config instead. Its first run pushed the first live website order's two variants; Shopify recorded no change, confirming a web sale is not double-counted. |
 | Webhooks | All seven registered and verified. |
 | Staff | Six accounts: one `stock_manager`, five still `admin`. `yassen@duch.store` carries `is_owner` - set by migration 20260928110000, changeable only in the database. |
 
@@ -397,6 +398,39 @@ printing an invoice and looking at it, and then found a second time when a
 new table on `/returns` skipped that step and rendered `23/09/2026` as
 `232026/09/`.
 
+**A Shopify refund never moves stock, and only money makes an order
+refunded.** Shopify sends `refunds/create` for an item taken off an order in
+an edit (`restock_type: cancel`, no transactions) as well as for real
+refunds. Restocking from it counted #1406's piece twice, once more when the
+same change was made in the CRM, and the zero refund marked #1403 and #1406
+"partially refunded" - which took #1403 off the owed list. Removed items come
+back through the order's lines (`sync_shopify_order_lines`), returned parcels
+through `/returns`. Both orders were set back to unpaid by migration
+20261015090100.
+
+**`orders/updated` is followed, not ignored.** It used to be "create if
+missing". Now `sync_shopify_order_lines` compares Shopify's
+`current_quantity` per variant with the CRM's lines: equal is a no-op (our
+own edit coming back, a tag, an address), different before shipping is
+followed, different after shipping is a Sync issue. Shopify's `updated_at` is
+kept in `orders.shopify_updated_at` and anything not newer is ignored, and a
+change still waiting in `shopify_order_outbox` wins over Shopify's. Remove
+either guard and an older webhook can quietly undo an edit.
+
+**`cancel_order` queues a cancel for Shopify unless Shopify started it.**
+`cancel_shopify_order` sets `duch.from_shopify` for its call and clears it
+straight after; a setting lasts the whole transaction, and the tests found a
+later cancel in the same transaction being taken for Shopify's. A website
+order paid online is refused with "cancel it in Shopify", where the customer
+is refunded.
+
+**Shopify edits are sent with `restock: false`, then our stock is pushed
+again.** The CRM's numbers are the ones that count. Adding an item in
+Shopify commits a unit by itself, so the variants on both sides are pushed
+after the edit lands (`queue_inventory_push`), whatever happened in between.
+The shipping fee is changed in a second edit committed only if every step
+worked - half a swap would leave no shipping charge, or two.
+
 **The CRM installs as a phone app, and a service worker serves its shell.**
 `apps/dashboard/public/manifest.webmanifest` and `public/sw.js`, registered in
 `main.tsx` in production builds only, so `npm run dev` never has a stale
@@ -433,6 +467,11 @@ stops two cashiers selling the same last item. Proven by a two-connection test.
 
 **We mirror Shopify's `available`, not `on_hand`.** Writing `on_hand`
 double-counts website orders and destroys a unit per sale.
+
+**Website orders are changed in the CRM and Shopify follows** (DECISIONS
+#12). An edit or cancel here is queued and sent to Shopify; an edit made in
+Shopify is followed here until the order ships, then flagged instead. A
+Shopify refund never moves stock.
 
 **A webhook from Shopify never changes stock.** It is classified as echo,
 agreement or divergence and recorded. Only a reconcile opens a quantity
@@ -503,13 +542,13 @@ Recorded from the user; most of the design follows from it. Fuller version in
 |---|---|
 | `/` | Home as a to-do list, per role: orders to ship (and how many new), late with the courier (7+ days, same line as Orders), delivered not paid, cash with our drivers, stock out not back (and overdue), sizes running low but still in stock (sold out is most of the catalogue at any time, so it is left to the stock page's filter), sync issues. Each card opens the list filtered (`/orders?tab=`, `/stock?tab=out`, `/stock?state=low`). Then today's sales and the latest stock movements |
 | `/sell` | Takes any order - shop, website or DM - with shipping and payment method. Search shows each product once with its sizes as buttons carrying what is left; a tap adds a size and the list stays open for the next; a scan or Enter on a single match adds and clears |
-| `/orders` | Every order in full (customer, address, shipment number, items, shipping, note) from `v_order_list`. Search by order/shipment number, phone or name; filters; tabs with counts (to ship, on the road, owed = delivered and unpaid, returned); tracker line and history window. Invoice, settle, edit |
+| `/orders` | Every order in full (customer, address, shipment number, items, shipping, note) from `v_order_list`. Search by order/shipment number, phone or name; filters; tabs with counts (to ship, on the road, owed = delivered and unpaid, returned); tracker line and history window. Invoice, settle, edit, cancel (before it ships, `orders.cancel`). A website order's edit or cancel goes on to Shopify; "waiting to update Shopify" shows until it lands |
 | `/queue` | Packing queue: **one step** - shipment number, Ship, and it is with the courier (`ship_order`). Or deliver ourselves. The confirmation call is optional (it is also the only in-app cancel for a DM order). "With our driver" below is cash still to be handed in |
 | `/returns` | Checking returns back in, per item with a count. Looks up a courier tracking code or an order number. Tapping the box lists parcels coming back, orders out with our driver, and the last 30 days of deliveries |
 | `/stock` | Products and stock in one page (`/products` redirects here): each product with photo, type, price and size chips carrying stock; search by name/SKU/barcode (a scan opens the product); filters by type and stock state. Pick sizes across products for received-from-production, a stock count (`record_stock_count`, difference worked out under lock) or taking out. Tab "الإخراج" tracks stock-outs. Names and prices stay Shopify's |
 | `/reports` | Four tabs: summary · log · refusals · custody |
 | `/settlements` | Entering the courier's statement |
-| `/sync` | Shopify divergences. A product-level issue names the product; a "no SKU" one closes itself when the SKUs arrive |
+| `/sync` | Shopify divergences. A product-level issue names the product; a "no SKU" one closes itself when the SKUs arrive. Order issues name the order: changed in Shopify after it shipped (both item lists shown), or a change Shopify refused three times (reason shown, "try again now") |
 | `/staff` | Activate a signup and give it a role; create and edit custom roles by ticking permissions. Needs `staff.manage` |
 | `/login`, `/pending` | |
 
@@ -519,7 +558,7 @@ apps/worker         Cloudflare Worker, cron only
 packages/shared     Enums, money maths, date formatting
 supabase/migrations Every schema change, in order
 supabase/functions  shopify-webhook, shopify-import-products,
-                    push-inventory, reconcile-stock
+                    push-inventory, reconcile-stock, shopify-order-sync
 supabase/tests      pgTAP suites
 tests/              vitest
 docs/               getting-started, shopify-app-setup, going-live,
