@@ -109,7 +109,7 @@ Deno.serve(withErrorReporting(async (req: Request): Promise<Response> => {
       await pushStock(db, target.location_id, outcome.variantIds);
       results.push({ order_id: job.order_id, action: job.action, ok: true, detail: outcome.details });
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
+      const message = await explain(error);
       console.error(`Shopify ${job.action} failed for order ${job.order_id}: ${message}`);
       await db.rpc('complete_shopify_order_sync', {
         p_order_id: job.order_id,
@@ -126,6 +126,38 @@ Deno.serve(withErrorReporting(async (req: Request): Promise<Response> => {
   const failed = results.filter((r) => !r.ok).length;
   return json({ ok: true, processed: results.length - failed, failed, results });
 }));
+
+/**
+ * The error as it goes on the Sync issue. A refusal for lack of permission
+ * also lists what the app does hold on the store, so whoever reads it can see
+ * at once which scope still needs approving - the first live run failed for
+ * hours on exactly this, reported only as an unreadable null.
+ */
+async function explain(error: unknown): Promise<string> {
+  const message = error instanceof Error ? error.message : String(error);
+  if (!/ACCESS_DENIED|access denied|required access/i.test(message)) return message;
+  try {
+    const body = await shopifyGraphQL<{
+      currentAppInstallation: { accessScopes: Array<{ handle: string }> } | null;
+    }>(SCOPES, {}, { maxAttempts: 1 });
+    const granted = body.data?.currentAppInstallation?.accessScopes.map((s) => s.handle).sort() ?? [];
+    const missing = ['write_order_edits', 'write_orders'].filter((scope) => !granted.includes(scope));
+    return `${message} | The app holds: ${granted.join(', ') || 'nothing readable'}` +
+      (missing.length ? ` | Not approved on the store yet: ${missing.join(', ')}` : '');
+  } catch {
+    return message;
+  }
+}
+
+const SCOPES = /* GraphQL */ `
+  query DuchAppScopes {
+    currentAppInstallation {
+      accessScopes {
+        handle
+      }
+    }
+  }
+`;
 
 async function loadTarget(db: Db, orderId: string): Promise<Target> {
   const { data, error } = await db.rpc('shopify_order_sync_target', { p_order_id: orderId });
@@ -354,8 +386,8 @@ type Calculated = NonNullable<BeginData['orderEditBegin']['calculatedOrder']>;
 
 async function beginEdit(target: Target): Promise<Calculated> {
   const begin = await shopifyGraphQL<BeginData>(BEGIN, { id: gid.order(target.shopify_order_id) });
-  const problem = problems(begin, begin.data?.orderEditBegin.userErrors);
-  const calculated = begin.data?.orderEditBegin.calculatedOrder;
+  const problem = problems(begin, begin.data?.orderEditBegin?.userErrors);
+  const calculated = begin.data?.orderEditBegin?.calculatedOrder;
   if (problem || !calculated) {
     throw new Error(`orderEditBegin: ${problem ?? 'no calculated order returned'}`);
   }
@@ -381,9 +413,9 @@ async function commitEdit(calculatedOrderId: string, target: Target): Promise<st
     };
   }>(COMMIT, { id: calculatedOrderId, staffNote: `Duch CRM - ${target.order_number}` });
 
-  const problem = problems(commit, commit.data?.orderEditCommit.userErrors);
+  const problem = problems(commit, commit.data?.orderEditCommit?.userErrors);
   if (problem) throw new Error(`orderEditCommit: ${problem}`);
-  return commit.data?.orderEditCommit.order?.updatedAt ?? null;
+  return commit.data?.orderEditCommit?.order?.updatedAt ?? null;
 }
 
 async function runStep(calculatedOrderId: string, step: EditStep): Promise<string | null> {
@@ -393,7 +425,7 @@ async function runStep(calculatedOrderId: string, step: EditStep): Promise<strin
         SET_QUANTITY,
         { id: calculatedOrderId, lineItemId: step.lineItemId, quantity: step.quantity },
       );
-      return problems(body, body.data?.orderEditSetQuantity.userErrors);
+      return problems(body, body.data?.orderEditSetQuantity?.userErrors);
     }
     case 'addVariant': {
       const body = await shopifyGraphQL<{ orderEditAddVariant: { userErrors: Array<{ message: string }> } }>(
@@ -405,14 +437,14 @@ async function runStep(calculatedOrderId: string, step: EditStep): Promise<strin
           allowDuplicates: step.allowDuplicates,
         },
       );
-      return problems(body, body.data?.orderEditAddVariant.userErrors);
+      return problems(body, body.data?.orderEditAddVariant?.userErrors);
     }
     case 'removeShipping': {
       const body = await shopifyGraphQL<{ orderEditRemoveShippingLine: { userErrors: Array<{ message: string }> } }>(
         REMOVE_SHIPPING,
         { id: calculatedOrderId, shippingLineId: step.shippingLineId },
       );
-      return problems(body, body.data?.orderEditRemoveShippingLine.userErrors);
+      return problems(body, body.data?.orderEditRemoveShippingLine?.userErrors);
     }
     case 'addShipping': {
       const body = await shopifyGraphQL<{ orderEditAddShippingLine: { userErrors: Array<{ message: string }> } }>(
@@ -425,7 +457,7 @@ async function runStep(calculatedOrderId: string, step: EditStep): Promise<strin
           },
         },
       );
-      return problems(body, body.data?.orderEditAddShippingLine.userErrors);
+      return problems(body, body.data?.orderEditAddShippingLine?.userErrors);
     }
   }
 }
@@ -465,7 +497,7 @@ async function cancelInShopify(target: Target): Promise<Outcome> {
     staffNote: `Cancelled in Duch CRM - ${target.order_number}`,
   });
 
-  const userErrors = body.data?.orderCancel.orderCancelUserErrors ?? [];
+  const userErrors = body.data?.orderCancel?.orderCancelUserErrors ?? [];
   // Cancelled already - in Shopify by hand, or by an earlier run whose answer
   // was lost - is the result we wanted.
   const already = userErrors.length > 0 && userErrors.every((e) => /already.*cancel|cancel.*already/i.test(`${e.code ?? ''} ${e.message}`));
