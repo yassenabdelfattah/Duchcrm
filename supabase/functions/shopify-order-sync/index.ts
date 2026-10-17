@@ -345,30 +345,31 @@ async function editInShopify(db: Db, target: Target): Promise<Outcome> {
   }
 
   const changed = items.steps.length > 0 || shippingUpdated === true;
+
+  // Every size on either side has its stock pushed again, even when nothing
+  // needed changing. Someone may have edited the order by hand in Shopify as
+  // well, and adding an item there takes one off Shopify's count after ours
+  // was sent - #1416's BSB-S-BIE showed one short that way. Pushing our
+  // number is harmless when Shopify already has it.
+  const shopifyIds = first.lineItems.nodes
+    .map((node) => parseGid(node.variant?.id))
+    .filter((id): id is number => id !== null);
+  const { data: before } = shopifyIds.length
+    ? await db.from('variants').select('id').in('shopify_variant_id', shopifyIds)
+    : { data: [] as Array<{ id: string }> };
+  const variantIds = [
+    ...new Set([
+      ...(before ?? []).map((row) => row.id as string),
+      ...target.lines.map((line) => line.variant_id).filter((id): id is string => id !== null),
+    ]),
+  ];
+
   if (!changed) {
     // Already the same. The edit session is simply left to expire.
     return {
       details: { changed: false, ...(shippingUpdated === false ? { shipping_updated: false } : {}) },
-      variantIds: [],
+      variantIds,
     };
-  }
-
-  // Every variant that was on either side, pushed again after Shopify's own
-  // count moved for the edit.
-  let variantIds: string[] = [];
-  if (items.steps.length > 0) {
-    const shopifyIds = first.lineItems.nodes
-      .map((node) => parseGid(node.variant?.id))
-      .filter((id): id is number => id !== null);
-    const { data: before } = shopifyIds.length
-      ? await db.from('variants').select('id').in('shopify_variant_id', shopifyIds)
-      : { data: [] as Array<{ id: string }> };
-    variantIds = [
-      ...new Set([
-        ...(before ?? []).map((row) => row.id as string),
-        ...target.lines.map((line) => line.variant_id).filter((id): id is string => id !== null),
-      ]),
-    ];
   }
 
   return {
