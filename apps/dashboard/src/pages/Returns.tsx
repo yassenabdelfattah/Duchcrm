@@ -34,6 +34,7 @@ const RETURN_REASONS = [
 
 interface InboundRow {
   return_id: string;
+  type: string;
   status: string;
   reason: string | null;
   order_id: string;
@@ -91,7 +92,9 @@ interface Lookup {
     customer_phone: string | null;
     governorate: string | null;
   };
-  return: { id: string; reason: string | null; status: string } | null;
+  return: { id: string; type?: string; reason: string | null; status: string } | null;
+  /** Set when the parcel is an exchange's old piece. */
+  exchange?: { original_order_number: string | null; replacement_order_number: string | null } | null;
   lines: LookupLine[];
   order_lines: OrderLine[];
 }
@@ -498,6 +501,7 @@ export function Returns() {
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="tabular text-sm font-extrabold">{row.order_number}</span>
+                    {row.type === 'exchange' ? <Badge>{t('exchange.badge')}</Badge> : null}
                     {row.reason ? (
                       <Badge tone="warn">{t(`returnReason.${row.reason}`)}</Badge>
                     ) : null}
@@ -806,6 +810,16 @@ function CheckInDialog({
         <p className="tabular rounded-lg bg-stone-50 px-3 py-2 text-xs text-stone-600" dir="ltr">
           {target.tracking_number ?? target.order.order_number}
         </p>
+
+        {/* An exchange's old piece: back on the shelf, and the sale stands. */}
+        {target.exchange ? (
+          <p className="rounded-lg bg-sky-50 px-3 py-2 text-xs text-sky-900">
+            {t('exchange.checkInNote', {
+              original: target.exchange.original_order_number ?? '—',
+              replacement: target.exchange.replacement_order_number ?? '—',
+            })}
+          </p>
+        ) : null}
 
         {needsReason ? (
           <div className="space-y-2">

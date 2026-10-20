@@ -23,6 +23,15 @@ describe('arabicError', () => {
     ).toBe('الطلب #1420 مدفوع أونلاين. ألغِه من شوبيفاي حتى يسترد العميل أمواله.');
   });
 
+  it('explains an exchange the database refused', () => {
+    expect(arabicError({ code: '23514', message: 'Only 0 of EX-M can still come back' })).toBe(
+      'يمكن إرجاع 0 فقط من EX-M.',
+    );
+    expect(
+      arabicError({ code: '23514', message: 'Order D2610-00006 has not been delivered, so there is nothing to exchange yet' }),
+    ).toBe('الطلب D2610-00006 لم يُسلَّم بعد، فلا يوجد ما يُستبدل. عدّل الطلب بدلاً من ذلك.');
+  });
+
   it('turns any permission refusal into one sentence', () => {
     expect(arabicError({ code: '42501', message: 'You may not ship orders' })).toBe('ليس لديك صلاحية لهذا الإجراء.');
     expect(arabicError({ code: '42501', message: 'something new' })).toBe('ليس لديك صلاحية لهذا الإجراء.');

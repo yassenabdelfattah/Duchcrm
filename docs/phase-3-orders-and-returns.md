@@ -247,8 +247,13 @@ and returns to us batched on a later run.
 So it is two movements of goods sharing one courier visit. Modelled as a return
 plus a linked replacement order, which keeps the stock ledger honest at both
 ends: one garment leaves, a different one comes back, each with its own
-condition check. The replacement carries no money — the customer already paid
-for the original.
+condition check.
+
+**Built 2026-10-21, and the money changed.** The replacement is credited the
+old piece's value and carries the difference: a dearer piece is collected
+with it, a cheaper one leaves money owed back. The courier fee is the
+customer's for a size or a change of mind, free for a fault or a wrong item.
+Exchanges also happen in the shop. See DECISIONS.md #13.
 
 ---
 

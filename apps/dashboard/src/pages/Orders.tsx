@@ -33,6 +33,7 @@ import {
 } from '../components/ui';
 import { Invoice } from '../components/Invoice';
 import { OrderEditor } from '../components/OrderEditor';
+import { ExchangeDialog } from '../components/ExchangeDialog';
 
 /**
  * Every order, findable, and each one telling its whole story.
@@ -88,9 +89,17 @@ interface OrderRow {
   shopify_order_id: number | null;
   /** A change made here has not reached Shopify yet. */
   shopify_pending: boolean;
+  /** On a replacement: the order it was exchanged from. */
+  exchange_for_order_id: string | null;
+  exchange_for_order_number: string | null;
+  /** On a replacement that cost less: owed back to the customer. */
+  exchange_refund_egp: number;
+  exchange_refunded_at: string | null;
+  /** On an original: the replacements made for it. */
+  exchanged_in: string | null;
 }
 
-type SettleAction = 'mark_order_paid' | 'complete_own_delivery' | 'mark_courier_delivered';
+type SettleAction = 'mark_order_paid' | 'complete_own_delivery' | 'mark_courier_delivered' | 'mark_exchange_refunded';
 
 const PAGE_SIZE = 50;
 
@@ -184,6 +193,11 @@ export function Orders() {
   const mayEdit = can(identity?.permissions, 'orders.edit');
   const mayDeliver = canAny(identity?.permissions, ['orders.settle', 'orders.ship']);
   const mayCancel = can(identity?.permissions, 'orders.cancel');
+  // An exchange edits an order, takes a return and rings up a replacement.
+  const mayExchange =
+    can(identity?.permissions, 'orders.edit') &&
+    can(identity?.permissions, 'returns.manage') &&
+    can(identity?.permissions, 'sales.create');
 
   const [params] = useSearchParams();
   // A link from the home screen names the list to open (?tab=owed); without
@@ -212,6 +226,8 @@ export function Orders() {
   const [history, setHistory] = useState<OrderRow | null>(null);
   const [reopening, setReopening] = useState<OrderRow | null>(null);
   const [cancelling, setCancelling] = useState<OrderRow | null>(null);
+  const [exchanging, setExchanging] = useState<OrderRow | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
 
   // Remember the tab and filters per browser, so the person who always works
@@ -418,6 +434,37 @@ export function Orders() {
       </div>
 
       {error ? <ErrorNote>{error}</ErrorNote> : null}
+      {notice ? (
+        <p className="rounded-lg bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-800">{notice}</p>
+      ) : null}
+
+      {exchanging ? (
+        <ExchangeDialog
+          order={{
+            id: exchanging.id,
+            order_number: exchanging.order_number,
+            subtotal_egp: exchanging.subtotal_egp,
+            total_egp: exchanging.total_egp,
+            shipping_egp: exchanging.shipping_egp,
+          }}
+          onClose={() => setExchanging(null)}
+          onDone={(result) => {
+            setExchanging(null);
+            setNotice(
+              result.refund_due_egp > 0
+                ? t(result.in_store ? 'exchange.doneRefundShop' : 'exchange.doneRefund', {
+                    orderNumber: result.replacement_order_number,
+                    amount: formatEGP(result.refund_due_egp, locale),
+                  })
+                : t('exchange.done', {
+                    orderNumber: result.replacement_order_number,
+                    amount: formatEGP(result.amount_due_egp, locale),
+                  }),
+            );
+            reload();
+          }}
+        />
+      ) : null}
 
       {editing ? (
         <OrderEditor
@@ -482,6 +529,7 @@ export function Orders() {
               mayEdit={mayEdit}
               mayDeliver={mayDeliver}
               mayCancel={mayCancel}
+              mayExchange={mayExchange}
               isOwner={Boolean(identity?.is_owner)}
               onHistory={() => setHistory(row)}
               onEdit={() => setEditing(row)}
@@ -489,6 +537,10 @@ export function Orders() {
               onSettle={(rpc) => void settle(row, rpc)}
               onReopen={() => setReopening(row)}
               onCancel={() => setCancelling(row)}
+              onExchange={() => {
+                setNotice(null);
+                setExchanging(row);
+              }}
             />
           ))}
 
@@ -586,6 +638,7 @@ function OrderCard({
   mayEdit,
   mayDeliver,
   mayCancel,
+  mayExchange,
   isOwner,
   onHistory,
   onEdit,
@@ -593,6 +646,7 @@ function OrderCard({
   onSettle,
   onReopen,
   onCancel,
+  onExchange,
 }: {
   row: OrderRow;
   busy: boolean;
@@ -600,6 +654,7 @@ function OrderCard({
   mayEdit: boolean;
   mayDeliver: boolean;
   mayCancel: boolean;
+  mayExchange: boolean;
   isOwner: boolean;
   onHistory: () => void;
   onEdit: () => void;
@@ -607,6 +662,7 @@ function OrderCard({
   onSettle: (rpc: SettleAction) => void;
   onReopen: () => void;
   onCancel: () => void;
+  onExchange: () => void;
 }) {
   const { t, locale } = useLocale();
   const totals = calculateInvoiceTotals(row);
@@ -645,6 +701,14 @@ function OrderCard({
               <span className="text-amber-700">{t('orders.shopifyPending')}</span>
             ) : null}
           </div>
+          {row.exchange_for_order_number ? (
+            <p className="text-xs font-semibold text-sky-800">
+              {t('exchange.forOrder', { orderNumber: row.exchange_for_order_number })}
+            </p>
+          ) : null}
+          {row.exchanged_in ? (
+            <p className="text-xs text-sky-800">{t('exchange.exchangedIn', { orderNumbers: row.exchanged_in })}</p>
+          ) : null}
         </div>
 
         <div className="text-end">
@@ -732,7 +796,8 @@ function OrderCard({
           </span>
           {totals.discount_egp > 0 ? (
             <span>
-              {t('sale.discount')} −{formatEGP(totals.discount_egp, locale)}
+              {row.exchange_for_order_id ? t('exchange.credit') : t('sale.discount')} −
+              {formatEGP(totals.discount_egp, locale)}
             </span>
           ) : null}
           <span>
@@ -743,6 +808,30 @@ function OrderCard({
           </span>
         </li>
       </ul>
+
+      {Number(row.exchange_refund_egp) > 0 ? (
+        row.exchange_refunded_at ? (
+          <p className="text-xs text-stone-500">
+            {t('exchange.refunded', { amount: formatEGP(Number(row.exchange_refund_egp), locale) })}
+          </p>
+        ) : (
+          <div className="flex flex-wrap items-center gap-2 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900">
+            <span className="flex-1 font-bold">
+              {t('exchange.owedBack', { amount: formatEGP(Number(row.exchange_refund_egp), locale) })}
+            </span>
+            {maySettle ? (
+              <Button
+                variant="secondary"
+                className="min-h-9 px-3 text-xs"
+                disabled={busy}
+                onClick={() => onSettle('mark_exchange_refunded')}
+              >
+                {t('exchange.markRefunded')}
+              </Button>
+            ) : null}
+          </div>
+        )
+      ) : null}
 
       {row.note ? (
         <p className="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900">
@@ -769,6 +858,12 @@ function OrderCard({
 
         {/* Only before it leaves: after that the goods come back through
             returns, not by changing a status. */}
+        {mayExchange && !cancelled && row.stage === 'delivered' ? (
+          <Button variant="secondary" className="min-h-9 px-3 text-xs" onClick={onExchange}>
+            {t('exchange.button')}
+          </Button>
+        ) : null}
+
         {mayCancel && !cancelled && row.stage === 'to_ship' ? (
           <Button variant="secondary" className="min-h-9 px-3 text-xs text-red-700" onClick={onCancel}>
             {t('orders.cancel')}
@@ -927,6 +1022,10 @@ function describeEvent(event: OrderEvent, t: (k: string, p?: Record<string, unkn
       return t('orders.history.shopifyRefund', { amount: String(event.details?.amount_egp ?? '') });
     case 'payment_corrected':
       return t('orders.history.paymentCorrected');
+    case 'exchange':
+      return t('orders.history.exchange', { orderNumber: String(event.details?.replacement_order_number ?? '') });
+    case 'exchange_refunded':
+      return t('orders.history.exchangeRefunded', { amount: String(event.details?.amount_egp ?? '') });
     case 'edited':
       return t('orders.history.edited');
     default:

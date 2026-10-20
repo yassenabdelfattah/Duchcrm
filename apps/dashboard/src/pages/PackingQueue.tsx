@@ -59,6 +59,9 @@ interface QueueRow {
   tracking_number: string | null;
   cod_amount_egp: number | null;
   customer_prior_refusals: number;
+  /** A replacement: what it was exchanged for, and the old piece to collect. */
+  exchange_for_order_number: string | null;
+  exchange_collect_items: string | null;
   courier: string | null;
   driver_name: string | null;
   handed_over_at: string | null;
@@ -265,6 +268,19 @@ export function PackingQueue() {
               <p className="tabular rounded-lg bg-stone-50 px-3 py-2 text-xs text-stone-600">
                 {row.items ?? '—'}
               </p>
+
+              {/* The courier swaps at the door: tell the packer, so the label
+                  says to collect the old piece. */}
+              {row.exchange_for_order_number ? (
+                <p className="rounded-lg bg-sky-50 px-3 py-2 text-xs text-sky-900">
+                  <span className="font-bold">
+                    {t('exchange.forOrder', { orderNumber: row.exchange_for_order_number })}
+                  </span>
+                  {row.exchange_collect_items ? (
+                    <span className="tabular block">{t('exchange.collect', { items: row.exchange_collect_items })}</span>
+                  ) : null}
+                </p>
+              ) : null}
 
               {/* Who is holding this order's cash, and since when - the same
                   question the courier custody list answers for Accurate. */}

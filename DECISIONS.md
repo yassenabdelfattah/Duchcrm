@@ -544,3 +544,49 @@ order so far has been cash on delivery.
 `write_orders`, which `docs/shopify-app-setup.md` used to say not to grant.
 The reason that advice gave - a token that cannot do something cannot do it
 by accident - still holds for products, which the CRM never writes.
+
+---
+
+## 13. Exchanges: a return plus a replacement order
+
+Built 2026-10-21 on the owner's rules: exchanges happen both ways - the
+courier swaps at the customer's door, or the customer walks into the shop;
+the courier fee is the customer's when they want a different size or did
+not like the piece, and free when it was our fault (faulty, wrong item sent),
+editable either way; and a different price is settled both ways.
+
+An exchange is two movements of goods that happen to share a visit, so it
+is modelled as two things the CRM already understood: a return of the old
+piece (`returns.type = 'exchange'`) and a new order for the replacement,
+linked by `orders.exchange_for_order_id` and `returns.replacement_order_id`.
+
+**The original order is left alone.** It was delivered, and its money is
+what it was. The first `create_exchange`, written in Phase 3 and never used,
+reused `receive_return`, which marks an order returned - on a cash-on-delivery
+order that takes it off the owed list, as happened to #1403 another way.
+`receive_return` now leaves the order alone for an exchange.
+
+**The replacement carries only the difference.** Its lines are the new
+pieces at their price; the old piece's value - what the customer actually
+paid for it, the order's own discount spread across the goods - is its
+discount, labelled as the returned piece's value on the card and invoice.
+So revenue counts only the difference, and `v_sales_summary_daily` leaves
+replacements out of order and unit counts: the units went out on the
+original. A cheaper replacement leaves credit over, in
+`exchange_refund_egp`, owed to the customer until someone records paying
+it (`mark_exchange_refunded`); in the shop it is handed back on the spot.
+
+**Stock follows the goods, as always.** The new piece leaves when the
+exchange is made, like any order. The old piece comes back only when it is
+physically checked in (#3): at once in the shop, otherwise from the
+courier's parcel on `/returns`, where scanning the replacement's tracking
+code finds it. A piece checked in damaged does not go back on the shelf.
+
+**By courier the replacement skips the confirmation call** - the exchange
+was arranged on the phone - and goes straight to packing, flagged so the
+packer knows the courier collects the old piece (`shipments.collects_return`).
+Cancelling the replacement closes the exchange: the old piece is not coming
+back for it.
+
+**Shopify is not told.** The website order is what the customer bought; the
+replacement is the CRM's own order. Stock pushes keep Shopify's counts right.

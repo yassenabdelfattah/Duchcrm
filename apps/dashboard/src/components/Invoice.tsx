@@ -43,6 +43,8 @@ interface InvoiceOrder {
   discount_egp: number;
   shipping_egp: number;
   total_egp: number;
+  /** Set on an exchange's replacement: its "discount" is the piece returned. */
+  exchange_for_order_id: string | null;
   customers: InvoiceCustomer | null;
 }
 
@@ -71,7 +73,7 @@ export function Invoice({ orderId, onClose }: { orderId: string; onClose: () => 
         supabase
           .from('orders')
           .select(
-            'order_number, created_at, subtotal_egp, discount_egp, shipping_egp, total_egp,' +
+            'order_number, created_at, subtotal_egp, discount_egp, shipping_egp, total_egp, exchange_for_order_id,' +
               ' customers ( full_name, phone, address_line1, address_line2, city, governorate )',
           )
           .eq('id', orderId)
@@ -231,7 +233,7 @@ export function Invoice({ orderId, onClose }: { orderId: string; onClose: () => 
 
             {totals.discount_egp > 0 ? (
               <div className="tabular flex justify-between py-1">
-                <span className="font-bold">الخصم</span>
+                <span className="font-bold">{order.exchange_for_order_id ? 'قيمة القطعة المرتجعة' : 'الخصم'}</span>
                 <span>−{formatEGP(totals.discount_egp, 'ar')}</span>
               </div>
             ) : null}

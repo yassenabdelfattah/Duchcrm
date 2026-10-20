@@ -25,8 +25,8 @@ most of the design.
 
 **Built and tested:** Phases 1, 2 and 3 complete, plus the staff screen.
 
-- 46 migrations, 23 pgTAP suites, **434 database assertions**
-- **90 TypeScript assertions** (webhook HMAC, money arithmetic, invoice
+- 47 migrations, 24 pgTAP suites, **464 database assertions**
+- **91 TypeScript assertions** (webhook HMAC, money arithmetic, invoice
   totals, Shopify token exchange, Cairo dates, sizes, Arabic errors, the
   Shopify order-edit plan)
 - 13 screens, 5 Edge Functions, 1 Cloudflare Worker
@@ -431,6 +431,13 @@ after the edit lands (`queue_inventory_push`), whatever happened in between.
 The shipping fee is changed in a second edit committed only if every step
 worked - half a swap would leave no shipping charge, or two.
 
+**An exchange never marks its original order returned.** `receive_return`
+closes the order for a plain return; for `type = 'exchange'` it leaves it
+delivered, because the sale stands with a different piece. The replacement
+order's discount is the returned piece's credit, so anything that reads
+`discount_egp` as a discount (a report, a label) must check
+`exchange_for_order_id` first - the card and invoice already do.
+
 **The CRM installs as a phone app, and a service worker serves its shell.**
 `apps/dashboard/public/manifest.webmanifest` and `public/sw.js`, registered in
 `main.tsx` in production builds only, so `npm run dev` never has a stale
@@ -542,9 +549,9 @@ Recorded from the user; most of the design follows from it. Fuller version in
 |---|---|
 | `/` | Home as a to-do list, per role: orders to ship (and how many new), late with the courier (7+ days, same line as Orders), delivered not paid, cash with our drivers, stock out not back (and overdue), sizes running low but still in stock (sold out is most of the catalogue at any time, so it is left to the stock page's filter), sync issues. Each card opens the list filtered (`/orders?tab=`, `/stock?tab=out`, `/stock?state=low`). Then today's sales and the latest stock movements |
 | `/sell` | Takes any order - shop, website or DM - with shipping and payment method. Search shows each product once with its sizes as buttons carrying what is left; a tap adds a size and the list stays open for the next; a scan or Enter on a single match adds and clears |
-| `/orders` | Every order in full (customer, address, shipment number, items, shipping, note) from `v_order_list`. Search by order/shipment number, phone or name; filters; tabs with counts (to ship, on the road, owed = delivered and unpaid, returned); tracker line and history window. Invoice, settle, edit, cancel (before it ships, `orders.cancel`). A website order's edit or cancel goes on to Shopify; "waiting to update Shopify" shows until it lands |
+| `/orders` | Every order in full (customer, address, shipment number, items, shipping, note) from `v_order_list`. Search by order/shipment number, phone or name; filters; tabs with counts (to ship, on the road, owed = delivered and unpaid, returned); tracker line and history window. Invoice, settle, edit, cancel (before it ships, `orders.cancel`), exchange (delivered orders, by courier or in the shop - DECISIONS #13; a cheaper replacement shows what is owed back, with "paid back"). A website order's edit or cancel goes on to Shopify; "waiting to update Shopify" shows until it lands |
 | `/queue` | Packing queue: **one step** - shipment number, Ship, and it is with the courier (`ship_order`). Or deliver ourselves. The confirmation call is optional (it is also the only in-app cancel for a DM order). "With our driver" below is cash still to be handed in |
-| `/returns` | Checking returns back in, per item with a count. Looks up a courier tracking code or an order number. Tapping the box lists parcels coming back, orders out with our driver, and the last 30 days of deliveries |
+| `/returns` | Checking returns back in, per item with a count. Looks up a courier tracking code or an order number - an exchange's old piece by its replacement's code or number. Tapping the box lists parcels coming back, orders out with our driver, and the last 30 days of deliveries |
 | `/stock` | Products and stock in one page (`/products` redirects here): each product with photo, type, price and size chips carrying stock; search by name/SKU/barcode (a scan opens the product); filters by type and stock state. Pick sizes across products for received-from-production, a stock count (`record_stock_count`, difference worked out under lock) or taking out. Tab "الإخراج" tracks stock-outs. Names and prices stay Shopify's |
 | `/reports` | Four tabs: summary · log · refusals · custody |
 | `/settlements` | Entering the courier's statement |

@@ -487,7 +487,9 @@
       "shopifyShippingRefused": "Shopify refused the new shipping fee - change it in Shopify by hand",
       "shopifyRefund": "Refunded in Shopify: {{amount}} EGP",
       "paymentCorrected": "Payment status corrected: a Shopify edit had been recorded as a refund",
-      "shopifyItemsNotShipping": "Items updated in Shopify, but it refused the new shipping fee - change that in Shopify by hand"
+      "shopifyItemsNotShipping": "Items updated in Shopify, but it refused the new shipping fee - change that in Shopify by hand",
+      "exchange": "Exchanged - replacement order {{orderNumber}}",
+      "exchangeRefunded": "Difference paid back: {{amount}} EGP"
     },
     "step": {
       "sold": "Sold",
@@ -784,5 +786,37 @@
     "noCamera": "This device has no camera.",
     "failed": "The camera did not start. Try again.",
     "notFound": "No item with barcode {{code}}"
+  },
+  "exchange": {
+    "button": "Exchange",
+    "badge": "Exchange",
+    "title": "Exchange",
+    "byCourier": "By courier",
+    "inStore": "In the shop",
+    "byCourierHelp": "The new piece is packed and shipped as a new order, and the courier collects the old one. It goes back into stock when checked in on Returns.",
+    "inStoreHelp": "The customer is in the shop: they take the new piece now, and the old one goes back into stock at once.",
+    "comingBack": "Coming back",
+    "goingOut": "Going out instead",
+    "searchOther": "Another product: search by name or SKU",
+    "damaged": "Damaged - does not go back into stock",
+    "why": "Why",
+    "courierFee": "Shipping the customer pays",
+    "paidBy": "Difference paid by",
+    "credit": "Value of the piece back",
+    "newPieces": "New piece",
+    "customerPays": "Customer pays",
+    "weOwe": "We owe the customer",
+    "feeStillPaid": "The customer still pays the courier {{fee}} shipping.",
+    "confirm": "Confirm the exchange",
+    "done": "Exchanged: new order {{orderNumber}} - the customer pays {{amount}}.",
+    "doneRefund": "Exchanged: new order {{orderNumber}} - {{amount}} owed to the customer.",
+    "forOrder": "Exchange for order {{orderNumber}}",
+    "exchangedIn": "Exchanged in: {{orderNumbers}}",
+    "collect": "Courier collects from the customer: {{items}}",
+    "owedBack": "{{amount}} owed to the customer",
+    "markRefunded": "Paid back",
+    "refunded": "{{amount}} paid back to the customer",
+    "checkInNote": "An exchanged piece from order {{original}} (replacement {{replacement}}). It goes back into stock; the original order stays as it was.",
+    "doneRefundShop": "Exchanged: new order {{orderNumber}} - hand {{amount}} back to the customer now."
   }
 }
