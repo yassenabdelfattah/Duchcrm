@@ -8,7 +8,7 @@
 -- ---------------------------------------------------------------------------
 
 begin;
-select plan(43);
+select plan(45);
 
 -- --- Fixtures --------------------------------------------------------------
 
@@ -456,6 +456,21 @@ select is(
     where o.shopify_order_id = 6006 and e.event_type = 'shopify_refund'),
   1,
   'The same refund delivered twice is counted once');
+
+-- --- Orders from before the CRM ------------------------------------------------
+
+-- Tidying old orders in Shopify sends orders/updated for each. An order placed
+-- before go-live is history: its stock was in the opening count (2026-10-22).
+select is(
+  public.sync_shopify_order_lines(pg_temp.web_order(6999, '2026-10-22T13:00:00+03:00',
+    jsonb_build_array(pg_temp.line(88801, 'SYNC-A', 1, 1))) || '{"created_at": "2026-03-10T21:04:33+02:00"}'::jsonb) ->> 'result',
+  'before_crm',
+  'An order placed in Shopify before go-live is not imported when it is changed there');
+
+select is(
+  (select count(*)::integer from public.orders where shopify_order_id = 6999),
+  0,
+  '...so it takes nothing out of stock');
 
 select * from finish();
 rollback;

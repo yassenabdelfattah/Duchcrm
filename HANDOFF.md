@@ -25,7 +25,7 @@ most of the design.
 
 **Built and tested:** Phases 1, 2 and 3 complete, plus the staff screen.
 
-- 47 migrations, 24 pgTAP suites, **464 database assertions**
+- 48 migrations, 24 pgTAP suites, **466 database assertions**
 - **91 TypeScript assertions** (webhook HMAC, money arithmetic, invoice
   totals, Shopify token exchange, Cairo dates, sizes, Arabic errors, the
   Shopify order-edit plan)
@@ -430,6 +430,14 @@ Shopify commits a unit by itself, so the variants on both sides are pushed
 after the edit lands (`queue_inventory_push`), whatever happened in between.
 The shipping fee is changed in a second edit committed only if every step
 worked - half a swap would leave no shipping charge, or two.
+
+**Tidying old orders in Shopify used to import them.** `orders/updated`
+for an unknown order creates it - but not one placed before
+`settings.shopify_orders_since`, since 2026-10-22, when 67 pre-go-live
+orders came in that way and held 62 pieces of stock. They are archived
+(`orders.archived_at`), not deleted: `v_order_list` leaves archived orders
+out, and anything new that lists orders straight from the table must too.
+Order history is append-only and stays that way.
 
 **An exchange never marks its original order returned.** `receive_return`
 closes the order for a plain return; for `type = 'exchange'` it leaves it

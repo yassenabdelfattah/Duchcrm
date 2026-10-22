@@ -540,6 +540,18 @@ from the CRM would not refund the customer; Shopify's cancel screen does, and
 its webhook then cancels the CRM order and puts the stock back. Every website
 order so far has been cash on delivery.
 
+**Orders from before the CRM are never imported (2026-10-22).** An
+`orders/updated` for an order the CRM does not know used to create it, as a
+safety net for a lost `orders/create`. Tidying old orders in Shopify then
+imported 67 orders from January to September, taking 160 pieces out of stock
+- 98 came back as the tidy-up cancelled them, 62 stayed held by orders long
+since dealt with, whose stock was already in the opening count. The line is
+now `settings.shopify_orders_since` (go-live, 27 September): anything placed
+before it is ignored. The 67 were archived rather than deleted - their stock
+given back with a correcting movement each, their history kept (order_events
+is append-only, and deleting it was refused), and `archived_at` keeps them
+out of every list.
+
 **What the app may do changed.** It now holds `write_order_edits` and
 `write_orders`, which `docs/shopify-app-setup.md` used to say not to grant.
 The reason that advice gave - a token that cannot do something cannot do it
