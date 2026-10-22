@@ -418,7 +418,10 @@
       "to_ship": "للشحن",
       "on_the_road": "مع المندوب",
       "owed": "غير محصّل",
-      "back": "مرتجع"
+      "back": "مرتجع",
+      "open": "مفتوحة",
+      "late": "متأخرة",
+      "archive": "الأرشيف"
     },
     "filter": {
       "channelAll": "كل المصادر",
@@ -426,7 +429,24 @@
       "paidAll": "مدفوع وغير مدفوع",
       "deliveryAll": "كل طرق التوصيل",
       "periodAll": "كل الفترات",
-      "clear": "مسح الفلاتر"
+      "clear": "مسح الفلاتر",
+      "label": {
+        "channel": "المصدر",
+        "method": "طريقة الدفع",
+        "paid": "التحصيل",
+        "delivery": "التوصيل",
+        "governorate": "المحافظة",
+        "period": "الفترة"
+      },
+      "governorateAll": "كل المحافظات",
+      "range": "من تاريخ إلى تاريخ",
+      "rangeChip": "من {{from}} إلى {{to}}",
+      "from": "من",
+      "to": "إلى",
+      "exchange": "الاستبدالات فقط",
+      "hasNote": "عليها ملاحظة",
+      "done": "تم",
+      "remove": "إزالة"
     },
     "courier": {
       "accurate": "Accurate",
@@ -507,7 +527,35 @@
     "cancelReason": "السبب (اختياري)",
     "cancelConfirm": "تأكيد الإلغاء",
     "shopifyPending": "في انتظار تحديث شوبيفاي",
-    "keepOrder": "رجوع"
+    "keepOrder": "رجوع",
+    "filters": "الفلاتر",
+    "sortLabel": "الترتيب",
+    "searchAll": "البحث في كل الطلبات، والأرشيف معها",
+    "emptyArchive": "لا توجد طلبات منتهية بعد.",
+    "sort": {
+      "newest": "الأحدث",
+      "oldest": "الأقدم",
+      "value": "الأعلى قيمة",
+      "waiting": "الأطول انتظاراً"
+    },
+    "bulk": {
+      "selectAll": "تحديد الكل",
+      "selectOne": "تحديد {{orderNumber}}",
+      "selected": "{{count}} محدد",
+      "clear": "إلغاء التحديد",
+      "markPaid": "تسجيل كمدفوع ({{count}})",
+      "received": "استلمها العميل ({{count}})",
+      "none": "لا يوجد إجراء ينطبق على المحدد",
+      "confirmPaidTitle": "تسجيل {{count}} طلب كمدفوع",
+      "confirmReceivedTitle": "تسجيل استلام العميل لـ {{count}} طلب",
+      "total": "الإجمالي: {{amount}}",
+      "skipped": "{{count}} من المحدد لا ينطبق عليه هذا، وسيبقى كما هو.",
+      "confirm": "تأكيد",
+      "progress": "جاري التسجيل {{done}} من {{count}}…",
+      "donePaid": "تم تسجيل {{count}} طلب كمدفوع.",
+      "doneReceived": "تم تسجيل استلام {{count}} طلب.",
+      "failed": "تعذّر {{count}}: {{list}}"
+    }
   },
   "reports": {
     "title": "التقارير والسجل",

@@ -418,7 +418,10 @@
       "to_ship": "To ship",
       "on_the_road": "On the road",
       "owed": "Owed",
-      "back": "Returned"
+      "back": "Returned",
+      "open": "Open",
+      "late": "Late",
+      "archive": "Archive"
     },
     "filter": {
       "channelAll": "All channels",
@@ -426,7 +429,24 @@
       "paidAll": "Paid and unpaid",
       "deliveryAll": "All delivery",
       "periodAll": "Any time",
-      "clear": "Clear filters"
+      "clear": "Clear filters",
+      "label": {
+        "channel": "Channel",
+        "method": "Payment method",
+        "paid": "Payment",
+        "delivery": "Delivery",
+        "governorate": "Governorate",
+        "period": "Period"
+      },
+      "governorateAll": "All governorates",
+      "range": "From a date to a date",
+      "rangeChip": "{{from}} to {{to}}",
+      "from": "From",
+      "to": "To",
+      "exchange": "Exchanges only",
+      "hasNote": "Has a note",
+      "done": "Done",
+      "remove": "Remove"
     },
     "courier": {
       "accurate": "Accurate",
@@ -507,7 +527,35 @@
     "cancelReason": "Reason (optional)",
     "cancelConfirm": "Cancel the order",
     "shopifyPending": "Waiting to update Shopify",
-    "keepOrder": "Back"
+    "keepOrder": "Back",
+    "filters": "Filters",
+    "sortLabel": "Sort",
+    "searchAll": "Searching every order, archive included",
+    "emptyArchive": "No finished orders yet.",
+    "sort": {
+      "newest": "Newest",
+      "oldest": "Oldest",
+      "value": "Highest value",
+      "waiting": "Waiting longest"
+    },
+    "bulk": {
+      "selectAll": "Select all",
+      "selectOne": "Select {{orderNumber}}",
+      "selected": "{{count}} selected",
+      "clear": "Clear selection",
+      "markPaid": "Mark paid ({{count}})",
+      "received": "Customer received ({{count}})",
+      "none": "Nothing applies to all of these",
+      "confirmPaidTitle": "Mark {{count}} orders paid",
+      "confirmReceivedTitle": "Mark {{count}} orders received",
+      "total": "Total: {{amount}}",
+      "skipped": "{{count}} of the selected do not apply and stay as they are.",
+      "confirm": "Confirm",
+      "progress": "Recording {{done}} of {{count}}…",
+      "donePaid": "{{count}} orders marked paid.",
+      "doneReceived": "{{count}} orders marked received.",
+      "failed": "{{count}} could not be: {{list}}"
+    }
   },
   "reports": {
     "title": "Reports and log",

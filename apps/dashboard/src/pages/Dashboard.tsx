@@ -176,7 +176,7 @@ export function Dashboard() {
           count: late.count ?? 0,
           label: t('home.lateWithCourier', { days: COURIER_LATE_DAYS }),
           detail: null,
-          to: '/orders?tab=on_the_road',
+          to: '/orders?tab=late',
           tone: 'back',
         });
 

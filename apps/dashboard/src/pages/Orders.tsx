@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { ChevronDown, SlidersHorizontal, X } from 'lucide-react';
 import {
   PAYMENT_METHODS,
   can,
@@ -18,7 +19,6 @@ import { useLocale } from '../i18n';
 import {
   Badge,
   Button,
-  Card,
   Code,
   EmptyState,
   ErrorNote,
@@ -36,15 +36,18 @@ import { OrderEditor } from '../components/OrderEditor';
 import { ExchangeDialog } from '../components/ExchangeDialog';
 
 /**
- * Every order, findable, and each one telling its whole story.
+ * Every order, findable, and each one a line until it is needed.
  *
- * The owner's ask (2026-10-04): an order in the list shows all of itself -
- * number, customer name, phone and address, the shipment number, what they
- * took, shipping and the note - and where it is now and for how long. The
- * list is searchable by any number or name someone quotes, filterable, and
- * split into the lists people check every day, each with its count.
+ * The owner's asks: an order shows all of itself - customer, address, the
+ * shipment number, what they took, shipping, the note, where it is and for
+ * how long (2026-10-04) - and the list is organised the way Shopify's is
+ * (2026-10-23): one line per order with its next step as a button, tap to
+ * open the rest; tick several and settle them together; lists with counts,
+ * filters added as chips, and finished orders moved to an archive by
+ * themselves.
  *
- * It reads v_order_list, which flattens all of that into one row per order.
+ * It reads v_order_list, which flattens all of that into one row per order
+ * and says whether anything is left to do on it (is_closed).
  */
 
 interface OrderItem {
@@ -97,6 +100,9 @@ interface OrderRow {
   exchange_refunded_at: string | null;
   /** On an original: the replacements made for it. */
   exchanged_in: string | null;
+  /** Nothing left to do on it: it lives in the archive. */
+  is_closed: boolean;
+  customer_governorate: string | null;
 }
 
 type SettleAction = 'mark_order_paid' | 'complete_own_delivery' | 'mark_courier_delivered' | 'mark_exchange_refunded';
@@ -106,37 +112,69 @@ const PAGE_SIZE = 50;
 /** A parcel with the courier this long is late - the same line the custody report draws. */
 const COURIER_LATE_DAYS = 7;
 
-// --- Tabs and filters -----------------------------------------------------------
+// --- Lists, filters and order -----------------------------------------------------
 
-type TabKey = 'all' | 'to_ship' | 'on_the_road' | 'owed' | 'back';
-const TABS: TabKey[] = ['all', 'to_ship', 'on_the_road', 'owed', 'back'];
+type TabKey = 'open' | 'to_ship' | 'on_the_road' | 'late' | 'owed' | 'back' | 'archive';
+const TABS: TabKey[] = ['open', 'to_ship', 'on_the_road', 'late', 'owed', 'back', 'archive'];
 
 interface Filters {
   channel: string;
   method: string;
   paid: '' | 'paid' | 'unpaid';
   delivery: '' | 'accurate' | 'own';
-  period: '' | 'today' | '7' | '30';
+  period: '' | 'today' | '7' | '30' | 'range';
+  /** yyyy-mm-dd, for period "range". */
+  from: string;
+  to: string;
+  governorate: string;
+  exchange: boolean;
+  hasNote: boolean;
 }
 
-const NO_FILTERS: Filters = { channel: '', method: '', paid: '', delivery: '', period: '' };
+const NO_FILTERS: Filters = {
+  channel: '',
+  method: '',
+  paid: '',
+  delivery: '',
+  period: '',
+  from: '',
+  to: '',
+  governorate: '',
+  exchange: false,
+  hasNote: false,
+};
+
+type SortKey = 'newest' | 'oldest' | 'value' | 'waiting';
+const SORTS: SortKey[] = ['newest', 'oldest', 'value', 'waiting'];
+
 const STORAGE_KEY = 'duch.orders.view';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any -- the PostgREST builder's generics are not worth spelling out here
 type Query = any;
 
-/** Narrows a query to one tab. "Owed" is delivered and not paid: the customer has it, we do not have the money. */
+/**
+ * Narrows a query to one list. "Owed" is delivered and not paid: the
+ * customer has it, we do not have the money. "Late" is the same seven days
+ * the custody report and the home screen use.
+ */
 function applyTab(query: Query, tab: TabKey): Query {
   switch (tab) {
+    case 'open':
+      return query.eq('is_closed', false);
     case 'to_ship':
     case 'on_the_road':
       return query.eq('stage', tab);
+    case 'late':
+      return query
+        .eq('stage', 'on_the_road')
+        .neq('courier', 'own')
+        .lt('stage_since', new Date(Date.now() - COURIER_LATE_DAYS * 86_400_000).toISOString());
     case 'owed':
       return query.eq('stage', 'delivered').eq('payment_status', 'pending');
     case 'back':
-      return query.eq('stage', 'back');
-    default:
-      return query;
+      return query.eq('stage', 'back').eq('is_closed', false);
+    case 'archive':
+      return query.eq('is_closed', true);
   }
 }
 
@@ -146,9 +184,18 @@ function applyFilters(query: Query, filters: Filters): Query {
   if (filters.method) q = q.eq('payment_method', filters.method);
   if (filters.paid === 'paid') q = q.eq('payment_status', 'paid');
   if (filters.paid === 'unpaid') q = q.eq('payment_status', 'pending');
-  if (filters.delivery === 'own') q = q.eq('courier', 'own');
-  if (filters.delivery === 'accurate') q = q.eq('courier', 'accurate');
-  if (filters.period) {
+  if (filters.delivery) q = q.eq('courier', filters.delivery);
+  if (filters.governorate) q = q.eq('customer_governorate', filters.governorate);
+  if (filters.exchange) q = q.not('exchange_for_order_id', 'is', null);
+  if (filters.hasNote) q = q.not('note', 'is', null);
+  if (filters.period === 'range') {
+    if (filters.from) q = q.gte('created_at', new Date(`${filters.from}T00:00:00`).toISOString());
+    if (filters.to) {
+      const end = new Date(`${filters.to}T00:00:00`);
+      end.setDate(end.getDate() + 1);
+      q = q.lt('created_at', end.toISOString());
+    }
+  } else if (filters.period) {
     const since = new Date();
     if (filters.period === 'today') since.setHours(0, 0, 0, 0);
     else since.setDate(since.getDate() - Number(filters.period));
@@ -157,19 +204,39 @@ function applyFilters(query: Query, filters: Filters): Query {
   return q;
 }
 
-function readSavedView(): { tab: TabKey; filters: Filters } {
+function applySort(query: Query, sort: SortKey): Query {
+  switch (sort) {
+    case 'oldest':
+      return query.order('created_at', { ascending: true });
+    case 'value':
+      return query.order('total_egp', { ascending: false }).order('created_at', { ascending: false });
+    case 'waiting':
+      return query.order('stage_since', { ascending: true });
+    default:
+      return query.order('created_at', { ascending: false });
+  }
+}
+
+function readSavedView(): { tab: TabKey; filters: Filters; sort: SortKey } {
   try {
     const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? 'null') as {
-      tab?: TabKey;
+      tab?: string;
       filters?: Partial<Filters>;
+      sort?: SortKey;
     } | null;
-    if (saved && TABS.includes(saved.tab as TabKey)) {
-      return { tab: saved.tab as TabKey, filters: { ...NO_FILTERS, ...saved.filters } };
+    if (saved) {
+      // "all" was the first list before the archive existed.
+      const tab = saved.tab === 'all' ? 'open' : (saved.tab as TabKey);
+      return {
+        tab: TABS.includes(tab) ? tab : 'open',
+        filters: { ...NO_FILTERS, ...saved.filters },
+        sort: SORTS.includes(saved.sort as SortKey) ? (saved.sort as SortKey) : 'newest',
+      };
     }
   } catch {
     // Private browsing or a corrupt value: start from the defaults.
   }
-  return { tab: 'all', filters: NO_FILTERS };
+  return { tab: 'open', filters: NO_FILTERS, sort: 'newest' };
 }
 
 /**
@@ -186,31 +253,91 @@ function isClosed(row: { cancelled_at: string | null; fulfillment_status: string
   );
 }
 
+interface Permissions {
+  maySettle: boolean;
+  mayEdit: boolean;
+  mayDeliver: boolean;
+  mayCancel: boolean;
+  mayExchange: boolean;
+  isOwner: boolean;
+}
+
+/**
+ * Which of the money and delivery steps an order offers this person. One
+ * place, so the row's button, the opened order and the bulk actions agree.
+ */
+function stepsFor(row: OrderRow, p: Permissions) {
+  const cancelled = row.cancelled_at !== null;
+  // Out with one of our own drivers: "cash received" records it delivered and
+  // paid in one step, so it replaces mark paid there.
+  const deliverable =
+    p.maySettle && !cancelled && row.courier === 'own' && row.shipment_status === 'out_for_delivery';
+  // With a courier and the customer has it: delivered, while the courier
+  // still holds the cash. The payment is left for their statement.
+  const courierDelivered =
+    p.mayDeliver && !cancelled && row.stage === 'on_the_road' && row.courier !== null && row.courier !== 'own';
+  // Every unpaid order but card, which is paid at the till - the owner's
+  // decision, cash on delivery included.
+  const settleable =
+    p.maySettle && !isClosed(row) && !deliverable && row.payment_status === 'pending' && row.payment_method !== 'card';
+  const refundOwed = p.maySettle && Number(row.exchange_refund_egp) > 0 && !row.exchange_refunded_at;
+  return { cancelled, deliverable, courierDelivered, settleable, refundOwed };
+}
+
+/** The one step shown on the line itself: what this order is waiting for. */
+function nextStep(
+  row: OrderRow,
+  p: Permissions,
+  t: (k: string, v?: Record<string, unknown>) => string,
+): { rpc: SettleAction; label: string } | null {
+  const steps = stepsFor(row, p);
+  if (steps.deliverable) {
+    return {
+      rpc: 'complete_own_delivery',
+      label: row.payment_method === 'cod' ? t('queue.cashReceived') : t('queue.delivered'),
+    };
+  }
+  if (steps.courierDelivered) return { rpc: 'mark_courier_delivered', label: t('orders.customerReceived') };
+  if (steps.settleable && row.stage === 'delivered') return { rpc: 'mark_order_paid', label: t('orders.markPaid') };
+  if (steps.refundOwed) return { rpc: 'mark_exchange_refunded', label: t('exchange.markRefunded') };
+  return null;
+}
+
+/** What the customer pays: goods after discount, plus shipping. */
+const payable = (row: OrderRow) => Number(row.total_egp) + Number(row.shipping_egp);
+
+type BulkAction = 'mark_order_paid' | 'mark_courier_delivered';
+
 export function Orders() {
   const { t, locale } = useLocale();
   const { data: identity } = useGetIdentity<StaffIdentity>();
-  const maySettle = can(identity?.permissions, 'orders.settle');
-  const mayEdit = can(identity?.permissions, 'orders.edit');
-  const mayDeliver = canAny(identity?.permissions, ['orders.settle', 'orders.ship']);
-  const mayCancel = can(identity?.permissions, 'orders.cancel');
-  // An exchange edits an order, takes a return and rings up a replacement.
-  const mayExchange =
-    can(identity?.permissions, 'orders.edit') &&
-    can(identity?.permissions, 'returns.manage') &&
-    can(identity?.permissions, 'sales.create');
+  const perms: Permissions = {
+    maySettle: can(identity?.permissions, 'orders.settle'),
+    mayEdit: can(identity?.permissions, 'orders.edit'),
+    mayDeliver: canAny(identity?.permissions, ['orders.settle', 'orders.ship']),
+    mayCancel: can(identity?.permissions, 'orders.cancel'),
+    // An exchange edits an order, takes a return and rings up a replacement.
+    mayExchange:
+      can(identity?.permissions, 'orders.edit') &&
+      can(identity?.permissions, 'returns.manage') &&
+      can(identity?.permissions, 'sales.create'),
+    isOwner: Boolean(identity?.is_owner),
+  };
+  const maySelect = perms.maySettle || perms.mayDeliver;
 
   const [params] = useSearchParams();
   // A link from the home screen names the list to open (?tab=owed); without
-  // one, the tab and filters this browser used last.
+  // one, the list, filters and order this browser used last.
   const initial = useMemo(() => {
     const saved = readSavedView();
     const linked = params.get('tab') as TabKey | null;
-    return linked && TABS.includes(linked) ? { tab: linked, filters: NO_FILTERS } : saved;
+    return linked && TABS.includes(linked) ? { ...saved, tab: linked, filters: NO_FILTERS } : saved;
     // Read once, on arrival.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   const [tab, setTab] = useState<TabKey>(initial.tab);
   const [filters, setFilters] = useState<Filters>(initial.filters);
+  const [sort, setSort] = useState<SortKey>(initial.sort);
   const [search, setSearch] = useState('');
   const [limit, setLimit] = useState(PAGE_SIZE);
 
@@ -218,8 +345,15 @@ export function Orders() {
   const [hasMore, setHasMore] = useState(false);
   const [counts, setCounts] = useState<Partial<Record<TabKey, number>>>({});
   const [owedTotal, setOwedTotal] = useState(0);
+  const [governorates, setGovernorates] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   const [reloadToken, setReloadToken] = useState(0);
+
+  const [expanded, setExpanded] = useState<string | null>(null);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [bulk, setBulk] = useState<BulkAction | null>(null);
 
   const [invoiceId, setInvoiceId] = useState<string | null>(null);
   const [editing, setEditing] = useState<OrderRow | null>(null);
@@ -227,34 +361,36 @@ export function Orders() {
   const [reopening, setReopening] = useState<OrderRow | null>(null);
   const [cancelling, setCancelling] = useState<OrderRow | null>(null);
   const [exchanging, setExchanging] = useState<OrderRow | null>(null);
-  const [notice, setNotice] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
 
-  // Remember the tab and filters per browser, so the person who always works
-  // from "to ship" lands there.
+  // Remember the list, filters and order per browser, so the person who
+  // always works from "owed" lands there.
   useEffect(() => {
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify({ tab, filters }));
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({ tab, filters, sort }));
     } catch {
       // Not worth interrupting anyone over.
     }
-  }, [tab, filters]);
+  }, [tab, filters, sort]);
 
-  // A new search, tab or filter starts again from the first page.
+  const term = search.trim().replace(/[%,()*]/g, '');
+
+  // A new list, filter, order or search starts again from the top, with
+  // nothing ticked and nothing open.
   useEffect(() => {
     setLimit(PAGE_SIZE);
-  }, [tab, filters, search]);
+    setSelected(new Set());
+    setExpanded(null);
+  }, [tab, filters, sort, term]);
 
   const load = useCallback(async () => {
-    let query: Query = supabase
-      .from('v_order_list')
-      .select('*')
-      .order('created_at', { ascending: false })
-      .limit(limit + 1);
+    let query: Query = supabase.from('v_order_list').select('*').limit(limit + 1);
+    query = applySort(query, sort);
+    // A search looks through every order, archive included: someone quoting
+    // a number down the phone does not know which list it is in.
+    if (!term) query = applyTab(query, tab);
+    query = applyFilters(query, filters);
 
-    query = applyFilters(applyTab(query, tab), filters);
-
-    const term = search.trim().replace(/[%,()*]/g, '');
     if (term) {
       // The numbers and names people actually quote down the phone.
       query = query.or(
@@ -276,7 +412,7 @@ export function Orders() {
     const list = (data ?? []) as OrderRow[];
     setHasMore(list.length > limit);
     setRows(list.slice(0, limit));
-  }, [tab, filters, search, limit]);
+  }, [tab, filters, sort, term, limit]);
 
   useEffect(() => {
     // Debounced, so typing an order number does not fire a query per key.
@@ -284,7 +420,7 @@ export function Orders() {
     return () => clearTimeout(timer);
   }, [load, reloadToken]);
 
-  // The tab counts are the day's to-do list, so they ignore the search and
+  // The counts are the day's to-do list, so they ignore the search and
   // filters - they always say how many are waiting in each list.
   useEffect(() => {
     let cancelled = false;
@@ -310,11 +446,29 @@ export function Orders() {
     };
   }, [reloadToken]);
 
+  // The governorates customers have actually ordered from, for the filter.
+  useEffect(() => {
+    supabase
+      .from('v_order_list')
+      .select('customer_governorate')
+      .not('customer_governorate', 'is', null)
+      .limit(5000)
+      .then(({ data }) => {
+        const names = new Set(
+          ((data ?? []) as Array<{ customer_governorate: string | null }>)
+            .map((row) => row.customer_governorate?.trim())
+            .filter((name): name is string => Boolean(name)),
+        );
+        setGovernorates([...names].sort((a, b) => a.localeCompare(b, 'ar')));
+      });
+  }, []);
+
   const reload = () => setReloadToken((token) => token + 1);
 
   async function settle(row: OrderRow, rpc: SettleAction = 'mark_order_paid') {
     setBusyId(row.id);
     setError(null);
+    setNotice(null);
     const { error: rpcError } = await supabase.rpc(rpc, { p_order_id: row.id });
     setBusyId(null);
 
@@ -325,12 +479,24 @@ export function Orders() {
     reload();
   }
 
-  const activeFilters = Object.values(filters).filter(Boolean).length;
+  const selectedRows = (rows ?? []).filter((row) => selected.has(row.id));
+  const eligible = (action: BulkAction) =>
+    selectedRows.filter((row) => {
+      const steps = stepsFor(row, perms);
+      return action === 'mark_order_paid' ? steps.settleable : steps.courierDelivered;
+    });
+  const allSelected = Boolean(rows?.length) && selectedRows.length === rows?.length;
+
+  function toggleAll() {
+    setSelected(allSelected ? new Set() : new Set((rows ?? []).map((row) => row.id)));
+  }
+
+  const activeFilters = activeFilterChips(filters, t);
 
   if (invoiceId) return <Invoice orderId={invoiceId} onClose={() => setInvoiceId(null)} />;
 
   return (
-    <div className="space-y-4">
+    <div className={cx('space-y-4', selected.size > 0 && 'pb-20 sm:pb-0')}>
       <div className="flex flex-wrap items-center gap-3">
         <h1 className="text-lg font-extrabold">{t('orders.title')}</h1>
         {owedTotal > 0 ? (
@@ -351,18 +517,21 @@ export function Orders() {
             <button
               key={key}
               type="button"
-              onClick={() => setTab(key)}
+              onClick={() => {
+                setTab(key);
+                setSearch('');
+              }}
               className={cx(
                 'flex min-h-10 items-center gap-2 rounded-lg px-3 text-sm font-bold transition-colors',
-                tab === key ? 'bg-duch-ink text-white' : 'text-stone-600 hover:bg-stone-100',
+                tab === key && !term ? 'bg-duch-ink text-white' : 'text-stone-600 hover:bg-stone-100',
               )}
             >
               {t(`orders.tab.${key}`)}
-              {counts[key] !== undefined ? (
+              {counts[key] !== undefined && key !== 'archive' ? (
                 <span
                   className={cx(
                     'tabular rounded-md px-1.5 text-xs',
-                    tab === key ? 'bg-duch-accent text-white' : 'bg-stone-100 text-duch-ink',
+                    tab === key && !term ? 'bg-duch-accent text-white' : 'bg-stone-100 text-duch-ink',
                   )}
                 >
                   {counts[key]}
@@ -374,63 +543,54 @@ export function Orders() {
       </div>
 
       <div className="space-y-2">
-        <Input
-          value={search}
-          onChange={(event) => setSearch(event.target.value)}
-          placeholder={t('orders.searchPlaceholder')}
-          autoComplete="off"
-          inputMode="search"
-        />
-
-        {/* One row that scrolls sideways on a phone, rather than three rows
-            of filters pushing the orders off the screen. */}
-        <div className="-mx-4 flex items-center gap-2 overflow-x-auto px-4 pb-1 sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0">
-          <FilterSelect
-            value={filters.channel}
-            onChange={(channel) => setFilters((f) => ({ ...f, channel }))}
-            allLabel={t('orders.filter.channelAll')}
-            options={['store', 'online', 'dm'].map((value) => [value, t(`channel.${value}`)])}
+        <div className="flex gap-2">
+          <Input
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            placeholder={t('orders.searchPlaceholder')}
+            autoComplete="off"
+            inputMode="search"
+            className="min-w-0 flex-1"
           />
-          <FilterSelect
-            value={filters.method}
-            onChange={(method) => setFilters((f) => ({ ...f, method }))}
-            allLabel={t('orders.filter.methodAll')}
-            options={PAYMENT_METHODS.map((value) => [value, t(`payment.${value}`)])}
-          />
-          <FilterSelect
-            value={filters.paid}
-            onChange={(paid) => setFilters((f) => ({ ...f, paid: paid as Filters['paid'] }))}
-            allLabel={t('orders.filter.paidAll')}
-            options={[
-              ['paid', t('paymentStatus.paid')],
-              ['unpaid', t('paymentStatus.pending')],
-            ]}
-          />
-          <FilterSelect
-            value={filters.delivery}
-            onChange={(delivery) => setFilters((f) => ({ ...f, delivery: delivery as Filters['delivery'] }))}
-            allLabel={t('orders.filter.deliveryAll')}
-            options={[
-              ['accurate', t('orders.courier.accurate')],
-              ['own', t('orders.courier.own')],
-            ]}
-          />
-          <FilterSelect
-            value={filters.period}
-            onChange={(period) => setFilters((f) => ({ ...f, period: period as Filters['period'] }))}
-            allLabel={t('orders.filter.periodAll')}
-            options={[
-              ['today', t('reports.preset.today')],
-              ['7', t('reports.preset.week')],
-              ['30', t('reports.preset.month')],
-            ]}
-          />
-          {activeFilters > 0 ? (
-            <Button variant="ghost" className="min-h-9 px-2 text-xs" onClick={() => setFilters(NO_FILTERS)}>
-              {t('orders.filter.clear')}
-            </Button>
-          ) : null}
+          <button
+            type="button"
+            onClick={() => setFiltersOpen(true)}
+            className={cx(
+              'flex min-h-11 shrink-0 items-center gap-1.5 rounded-lg border px-3 text-sm font-bold',
+              activeFilters.length > 0
+                ? 'border-duch-ink bg-duch-ink text-white'
+                : 'border-duch-line bg-white text-duch-ink hover:bg-stone-50',
+            )}
+          >
+            <SlidersHorizontal className="size-4" />
+            <span className="hidden sm:inline">{t('orders.filters')}</span>
+            {activeFilters.length > 0 ? <span className="tabular">{activeFilters.length}</span> : null}
+          </button>
         </div>
+
+        {/* What is narrowing the list, each removable on its own. */}
+        {activeFilters.length > 0 ? (
+          <div className="flex flex-wrap items-center gap-1.5">
+            {activeFilters.map((chip) => (
+              <button
+                key={chip.key}
+                type="button"
+                onClick={() => setFilters((f) => ({ ...f, ...chip.clear }))}
+                className="flex min-h-8 items-center gap-1 rounded-full bg-stone-100 px-3 text-xs font-semibold text-duch-ink hover:bg-stone-200"
+              >
+                {chip.label}
+                <X className="size-3.5" aria-label={t('orders.filter.remove')} />
+              </button>
+            ))}
+            <button
+              type="button"
+              onClick={() => setFilters(NO_FILTERS)}
+              className="min-h-8 px-2 text-xs font-semibold text-stone-500 underline"
+            >
+              {t('orders.filter.clear')}
+            </button>
+          </div>
+        ) : null}
       </div>
 
       {error ? <ErrorNote>{error}</ErrorNote> : null}
@@ -514,38 +674,113 @@ export function Orders() {
         />
       ) : null}
 
+      {filtersOpen ? (
+        <FilterSheet
+          filters={filters}
+          sort={sort}
+          governorates={governorates}
+          onChange={setFilters}
+          onSort={setSort}
+          onClose={() => setFiltersOpen(false)}
+        />
+      ) : null}
+
+      {bulk ? (
+        <BulkDialog
+          action={bulk}
+          rows={eligible(bulk)}
+          skipped={selectedRows.length - eligible(bulk).length}
+          onClose={() => setBulk(null)}
+          onDone={(message) => {
+            setBulk(null);
+            setSelected(new Set());
+            setNotice(message);
+            reload();
+          }}
+        />
+      ) : null}
+
       {!rows ? (
         <Spinner label={t('app.loading')} />
-      ) : rows.length === 0 ? (
-        <EmptyState title={t('orders.empty')} />
       ) : (
-        <div className="space-y-3">
-          {rows.map((row) => (
-            <OrderCard
-              key={row.id}
-              row={row}
-              busy={busyId === row.id}
-              maySettle={maySettle}
-              mayEdit={mayEdit}
-              mayDeliver={mayDeliver}
-              mayCancel={mayCancel}
-              mayExchange={mayExchange}
-              isOwner={Boolean(identity?.is_owner)}
-              onHistory={() => setHistory(row)}
-              onEdit={() => setEditing(row)}
-              onInvoice={() => setInvoiceId(row.id)}
-              onSettle={(rpc) => void settle(row, rpc)}
-              onReopen={() => setReopening(row)}
-              onCancel={() => setCancelling(row)}
-              onExchange={() => {
-                setNotice(null);
-                setExchanging(row);
-              }}
-            />
-          ))}
+        <div className="space-y-2">
+          {/* The line above the list: what is shown, ticking all of it, and
+              the order it is in. */}
+          <div className="flex flex-wrap items-center gap-3 text-xs text-stone-600">
+            {maySelect && rows.length > 0 ? (
+              <label className="flex min-h-9 items-center gap-2 font-semibold">
+                <input
+                  type="checkbox"
+                  className="size-5 accent-duch-ink"
+                  checked={allSelected}
+                  onChange={toggleAll}
+                />
+                {t('orders.bulk.selectAll')}
+              </label>
+            ) : null}
+            {term ? <span>{t('orders.searchAll')}</span> : null}
+            <label className="ms-auto flex items-center gap-1.5">
+              <span>{t('orders.sortLabel')}</span>
+              <select
+                value={sort}
+                onChange={(event) => setSort(event.target.value as SortKey)}
+                className="min-h-9 rounded-lg border border-duch-line bg-white px-2 text-xs font-semibold text-duch-ink"
+              >
+                {SORTS.map((key) => (
+                  <option key={key} value={key}>
+                    {t(`orders.sort.${key}`)}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+
+          {rows.length === 0 ? (
+            <EmptyState title={tab === 'archive' && !term ? t('orders.emptyArchive') : t('orders.empty')} />
+          ) : (
+            <ul className="overflow-hidden rounded-xl border border-duch-line bg-white">
+              {rows.map((row) => (
+                <OrderLine
+                  key={row.id}
+                  row={row}
+                  step={nextStep(row, perms, t)}
+                  busy={busyId === row.id}
+                  selectable={maySelect}
+                  selected={selected.has(row.id)}
+                  expanded={expanded === row.id}
+                  onSelect={(on) =>
+                    setSelected((current) => {
+                      const next = new Set(current);
+                      if (on) next.add(row.id);
+                      else next.delete(row.id);
+                      return next;
+                    })
+                  }
+                  onToggle={() => setExpanded((current) => (current === row.id ? null : row.id))}
+                  onStep={(rpc) => void settle(row, rpc)}
+                >
+                  <OrderDetails
+                    row={row}
+                    busy={busyId === row.id}
+                    perms={perms}
+                    onHistory={() => setHistory(row)}
+                    onEdit={() => setEditing(row)}
+                    onInvoice={() => setInvoiceId(row.id)}
+                    onSettle={(rpc) => void settle(row, rpc)}
+                    onReopen={() => setReopening(row)}
+                    onCancel={() => setCancelling(row)}
+                    onExchange={() => {
+                      setNotice(null);
+                      setExchanging(row);
+                    }}
+                  />
+                </OrderLine>
+              ))}
+            </ul>
+          )}
 
           {hasMore ? (
-            <div className="flex justify-center">
+            <div className="flex justify-center pt-2">
               <Button variant="secondary" onClick={() => setLimit((n) => n + PAGE_SIZE)}>
                 {t('orders.more')}
               </Button>
@@ -553,37 +788,429 @@ export function Orders() {
           ) : null}
         </div>
       )}
+
+      {/* Several ticked: what can be done to all of them at once. On a phone it
+          sits just above the bottom menu, within reach of the thumb. */}
+      {selected.size > 0 ? (
+        <div
+          className="fixed inset-x-3 bottom-[calc(4.75rem+env(safe-area-inset-bottom,0px))] z-30 flex flex-wrap items-center gap-2 rounded-xl border border-duch-line bg-white p-2 shadow-lg sm:sticky sm:inset-x-auto sm:bottom-4"
+        >
+          <span className="tabular px-2 text-sm font-bold">
+            {t('orders.bulk.selected', { count: selected.size })}
+          </span>
+          <span className="tabular text-xs text-stone-500">
+            {formatEGP(selectedRows.reduce((sum, row) => sum + payable(row), 0), locale)}
+          </span>
+          <div className="ms-auto flex flex-wrap gap-2">
+            {eligible('mark_order_paid').length > 0 ? (
+              <Button className="min-h-10 px-3 text-xs" onClick={() => setBulk('mark_order_paid')}>
+                {t('orders.bulk.markPaid', { count: eligible('mark_order_paid').length })}
+              </Button>
+            ) : null}
+            {eligible('mark_courier_delivered').length > 0 ? (
+              <Button
+                variant="secondary"
+                className="min-h-10 px-3 text-xs"
+                onClick={() => setBulk('mark_courier_delivered')}
+              >
+                {t('orders.bulk.received', { count: eligible('mark_courier_delivered').length })}
+              </Button>
+            ) : null}
+            {eligible('mark_order_paid').length === 0 && eligible('mark_courier_delivered').length === 0 ? (
+              <span className="px-2 text-xs text-stone-500">{t('orders.bulk.none')}</span>
+            ) : null}
+            <button
+              type="button"
+              aria-label={t('orders.bulk.clear')}
+              onClick={() => setSelected(new Set())}
+              className="flex size-10 items-center justify-center rounded-lg text-stone-500 hover:bg-stone-100"
+            >
+              <X className="size-4" />
+            </button>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
 
-function FilterSelect({
-  value,
-  onChange,
-  allLabel,
-  options,
+// --- One order, as a line -----------------------------------------------------------
+
+function OrderLine({
+  row,
+  step,
+  busy,
+  selectable,
+  selected,
+  expanded,
+  onSelect,
+  onToggle,
+  onStep,
+  children,
 }: {
-  value: string;
-  onChange: (value: string) => void;
-  allLabel: string;
-  options: Array<[string, string]>;
+  row: OrderRow;
+  step: { rpc: SettleAction; label: string } | null;
+  busy: boolean;
+  selectable: boolean;
+  selected: boolean;
+  expanded: boolean;
+  onSelect: (on: boolean) => void;
+  onToggle: () => void;
+  onStep: (rpc: SettleAction) => void;
+  children: ReactNode;
 }) {
+  const { t, locale } = useLocale();
+  const where = whereNow(row, t);
+  const owesNothing = isClosed(row) && row.payment_status === 'pending';
+
   return (
-    <select
-      value={value}
-      onChange={(event) => onChange(event.target.value)}
-      className={cx(
-        'min-h-9 shrink-0 rounded-lg border px-2.5 text-sm font-semibold outline-none focus:ring-2 focus:ring-duch-ink/20',
-        value ? 'border-duch-ink bg-duch-ink text-white' : 'border-duch-line bg-white text-stone-700',
-      )}
+    <li className={cx('border-b border-duch-line last:border-b-0', selected && 'bg-sky-50/60')}>
+      <div
+        role="button"
+        tabIndex={0}
+        aria-expanded={expanded}
+        onClick={onToggle}
+        onKeyDown={(event) => {
+          if (event.target !== event.currentTarget) return;
+          if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            onToggle();
+          }
+        }}
+        className="flex cursor-pointer items-center gap-3 px-3 py-3 hover:bg-stone-50"
+      >
+        {selectable ? (
+          <input
+            type="checkbox"
+            className="size-5 shrink-0 accent-duch-ink"
+            checked={selected}
+            aria-label={t('orders.bulk.selectOne', { orderNumber: row.order_number })}
+            onClick={(event) => event.stopPropagation()}
+            onChange={(event) => onSelect(event.target.checked)}
+          />
+        ) : null}
+
+        <div className="min-w-0 flex-1">
+          <div className="flex items-baseline gap-2">
+            <Code className="shrink-0 font-extrabold">{row.order_number}</Code>
+            <span className="truncate text-sm">
+              <bdi>{row.customer_name ?? t('queue.walkIn')}</bdi>
+            </span>
+          </div>
+          <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-stone-600">
+            <StatusPill tone={where.tone}>{where.label}</StatusPill>
+            {row.stage !== 'cancelled' ? <span>{sinceLabel(row.stage_since, t)}</span> : null}
+            {owesNothing ? null : row.payment_status === 'paid' ? (
+              <span className="font-semibold text-emerald-700">{t('paymentStatus.paid')}</span>
+            ) : row.payment_status === 'pending' ? (
+              <span className="font-semibold text-amber-700">{t('paymentStatus.pending')}</span>
+            ) : (
+              <span>{t(`paymentStatus.${row.payment_status}`)}</span>
+            )}
+            {row.exchange_for_order_number ? (
+              <span className="font-semibold text-sky-800">{t('exchange.badge')}</span>
+            ) : null}
+            {row.shopify_pending ? <span className="text-amber-700">{t('orders.shopifyPending')}</span> : null}
+          </div>
+        </div>
+
+        <div className="flex shrink-0 flex-col items-end gap-1">
+          <span className="tabular text-sm font-extrabold">{formatEGP(payable(row), locale)}</span>
+          {step ? (
+            <Button
+              className="min-h-9 px-3 text-xs"
+              disabled={busy}
+              onClick={(event) => {
+                event.stopPropagation();
+                onStep(step.rpc);
+              }}
+            >
+              {busy ? t('app.loading') : step.label}
+            </Button>
+          ) : null}
+        </div>
+
+        <ChevronDown
+          className={cx('size-4 shrink-0 text-stone-400 transition-transform', expanded && 'rotate-180')}
+          aria-hidden="true"
+        />
+      </div>
+
+      {expanded ? <div className="border-t border-duch-line bg-stone-50/50 px-3 pb-4 pt-3">{children}</div> : null}
+    </li>
+  );
+}
+
+// --- Filters ----------------------------------------------------------------------------
+
+interface Chip {
+  key: string;
+  label: string;
+  clear: Partial<Filters>;
+}
+
+function activeFilterChips(filters: Filters, t: (k: string, v?: Record<string, unknown>) => string): Chip[] {
+  const chips: Chip[] = [];
+  if (filters.channel) {
+    chips.push({ key: 'channel', label: t(`channel.${filters.channel}`), clear: { channel: '' } });
+  }
+  if (filters.method) {
+    chips.push({ key: 'method', label: t(`payment.${filters.method}`), clear: { method: '' } });
+  }
+  if (filters.paid) {
+    chips.push({
+      key: 'paid',
+      label: filters.paid === 'paid' ? t('paymentStatus.paid') : t('paymentStatus.pending'),
+      clear: { paid: '' },
+    });
+  }
+  if (filters.delivery) {
+    chips.push({ key: 'delivery', label: t(`orders.courier.${filters.delivery}`), clear: { delivery: '' } });
+  }
+  if (filters.governorate) {
+    chips.push({ key: 'governorate', label: filters.governorate, clear: { governorate: '' } });
+  }
+  if (filters.period === 'range' && (filters.from || filters.to)) {
+    chips.push({
+      key: 'period',
+      label: t('orders.filter.rangeChip', { from: filters.from || '…', to: filters.to || '…' }),
+      clear: { period: '', from: '', to: '' },
+    });
+  } else if (filters.period && filters.period !== 'range') {
+    const label = { today: 'reports.preset.today', '7': 'reports.preset.week', '30': 'reports.preset.month' }[
+      filters.period
+    ];
+    chips.push({ key: 'period', label: t(label), clear: { period: '' } });
+  }
+  if (filters.exchange) chips.push({ key: 'exchange', label: t('orders.filter.exchange'), clear: { exchange: false } });
+  if (filters.hasNote) chips.push({ key: 'hasNote', label: t('orders.filter.hasNote'), clear: { hasNote: false } });
+  return chips;
+}
+
+function FilterSheet({
+  filters,
+  sort,
+  governorates,
+  onChange,
+  onSort,
+  onClose,
+}: {
+  filters: Filters;
+  sort: SortKey;
+  governorates: string[];
+  onChange: (filters: Filters) => void;
+  onSort: (sort: SortKey) => void;
+  onClose: () => void;
+}) {
+  const { t } = useLocale();
+  const set = (patch: Partial<Filters>) => onChange({ ...filters, ...patch });
+
+  const pick = (
+    label: string,
+    value: string,
+    allLabel: string,
+    options: Array<[string, string]>,
+    onPick: (value: string) => void,
+  ) => (
+    <Field label={label}>
+      <Select value={value} onChange={(event) => onPick(event.target.value)}>
+        <option value="">{allLabel}</option>
+        {options.map(([optionValue, optionLabel]) => (
+          <option key={optionValue} value={optionValue}>
+            {optionLabel}
+          </option>
+        ))}
+      </Select>
+    </Field>
+  );
+
+  return (
+    <Modal open title={t('orders.filters')} onClose={onClose}>
+      <div className="space-y-4">
+        <div className="grid gap-3 sm:grid-cols-2">
+          {pick(
+            t('orders.filter.label.channel'),
+            filters.channel,
+            t('orders.filter.channelAll'),
+            ['store', 'online', 'dm'].map((value) => [value, t(`channel.${value}`)]),
+            (channel) => set({ channel }),
+          )}
+          {pick(
+            t('orders.filter.label.method'),
+            filters.method,
+            t('orders.filter.methodAll'),
+            PAYMENT_METHODS.map((value) => [value, t(`payment.${value}`)]),
+            (method) => set({ method }),
+          )}
+          {pick(
+            t('orders.filter.label.paid'),
+            filters.paid,
+            t('orders.filter.paidAll'),
+            [
+              ['paid', t('paymentStatus.paid')],
+              ['unpaid', t('paymentStatus.pending')],
+            ],
+            (paid) => set({ paid: paid as Filters['paid'] }),
+          )}
+          {pick(
+            t('orders.filter.label.delivery'),
+            filters.delivery,
+            t('orders.filter.deliveryAll'),
+            [
+              ['accurate', t('orders.courier.accurate')],
+              ['own', t('orders.courier.own')],
+            ],
+            (delivery) => set({ delivery: delivery as Filters['delivery'] }),
+          )}
+          {pick(
+            t('orders.filter.label.governorate'),
+            filters.governorate,
+            t('orders.filter.governorateAll'),
+            governorates.map((name) => [name, name]),
+            (governorate) => set({ governorate }),
+          )}
+          {pick(
+            t('orders.filter.label.period'),
+            filters.period,
+            t('orders.filter.periodAll'),
+            [
+              ['today', t('reports.preset.today')],
+              ['7', t('reports.preset.week')],
+              ['30', t('reports.preset.month')],
+              ['range', t('orders.filter.range')],
+            ],
+            (period) => set({ period: period as Filters['period'], ...(period === 'range' ? {} : { from: '', to: '' }) }),
+          )}
+        </div>
+
+        {filters.period === 'range' ? (
+          <div className="grid grid-cols-2 gap-3">
+            <Field label={t('orders.filter.from')}>
+              <Input type="date" value={filters.from} onChange={(event) => set({ from: event.target.value })} />
+            </Field>
+            <Field label={t('orders.filter.to')}>
+              <Input type="date" value={filters.to} onChange={(event) => set({ to: event.target.value })} />
+            </Field>
+          </div>
+        ) : null}
+
+        <div className="space-y-2">
+          <label className="flex min-h-11 items-center gap-3 rounded-lg border border-duch-line px-3 text-sm font-semibold">
+            <input
+              type="checkbox"
+              className="size-5 accent-duch-ink"
+              checked={filters.exchange}
+              onChange={(event) => set({ exchange: event.target.checked })}
+            />
+            {t('orders.filter.exchange')}
+          </label>
+          <label className="flex min-h-11 items-center gap-3 rounded-lg border border-duch-line px-3 text-sm font-semibold">
+            <input
+              type="checkbox"
+              className="size-5 accent-duch-ink"
+              checked={filters.hasNote}
+              onChange={(event) => set({ hasNote: event.target.checked })}
+            />
+            {t('orders.filter.hasNote')}
+          </label>
+        </div>
+
+        <Field label={t('orders.sortLabel')}>
+          <Select value={sort} onChange={(event) => onSort(event.target.value as SortKey)}>
+            {SORTS.map((key) => (
+              <option key={key} value={key}>
+                {t(`orders.sort.${key}`)}
+              </option>
+            ))}
+          </Select>
+        </Field>
+
+        <div className="flex justify-between gap-2">
+          <Button variant="ghost" onClick={() => onChange(NO_FILTERS)}>
+            {t('orders.filter.clear')}
+          </Button>
+          <Button onClick={onClose}>{t('orders.filter.done')}</Button>
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
+// --- Several at once ------------------------------------------------------------------
+
+/**
+ * Marks the ticked orders paid, or received, one after another - each through
+ * the same database function a single tap uses, so the same rules apply.
+ * Says first how many and how much, and afterwards which, if any, were
+ * refused and why.
+ */
+function BulkDialog({
+  action,
+  rows,
+  skipped,
+  onClose,
+  onDone,
+}: {
+  action: BulkAction;
+  rows: OrderRow[];
+  skipped: number;
+  onClose: () => void;
+  onDone: (message: string) => void;
+}) {
+  const { t, locale } = useLocale();
+  const [done, setDone] = useState<number | null>(null);
+  const total = rows.reduce((sum, row) => sum + payable(row), 0);
+
+  async function run() {
+    const failures: string[] = [];
+    let ok = 0;
+    for (let index = 0; index < rows.length; index += 1) {
+      const row = rows[index]!;
+      setDone(index);
+      const { error } = await supabase.rpc(action, { p_order_id: row.id });
+      if (error) failures.push(`${row.order_number}: ${arabicError(error)}`);
+      else ok += 1;
+    }
+    const message = t(action === 'mark_order_paid' ? 'orders.bulk.donePaid' : 'orders.bulk.doneReceived', {
+      count: ok,
+    });
+    onDone(
+      failures.length > 0
+        ? `${message} ${t('orders.bulk.failed', { count: failures.length, list: failures.join(' · ') })}`
+        : message,
+    );
+  }
+
+  return (
+    <Modal
+      open
+      title={t(action === 'mark_order_paid' ? 'orders.bulk.confirmPaidTitle' : 'orders.bulk.confirmReceivedTitle', {
+        count: rows.length,
+      })}
+      onClose={done === null ? onClose : () => undefined}
     >
-      <option value="">{allLabel}</option>
-      {options.map(([optionValue, label]) => (
-        <option key={optionValue} value={optionValue}>
-          {label}
-        </option>
-      ))}
-    </select>
+      <div className="space-y-3">
+        <p className="tabular flex flex-wrap gap-x-2 gap-y-1 rounded-lg bg-stone-50 px-3 py-2 text-xs">
+          {rows.map((row) => (
+            <Code key={row.id}>{row.order_number}</Code>
+          ))}
+        </p>
+        {action === 'mark_order_paid' ? (
+          <p className="tabular text-base font-extrabold">{t('orders.bulk.total', { amount: formatEGP(total, locale) })}</p>
+        ) : null}
+        {skipped > 0 ? <p className="text-xs text-stone-500">{t('orders.bulk.skipped', { count: skipped })}</p> : null}
+        <div className="flex justify-end gap-2">
+          <Button variant="secondary" onClick={onClose} disabled={done !== null}>
+            {t('orders.keepOrder')}
+          </Button>
+          <Button onClick={() => void run()} disabled={done !== null}>
+            {done !== null
+              ? t('orders.bulk.progress', { done: done + 1, count: rows.length })
+              : t('orders.bulk.confirm')}
+          </Button>
+        </div>
+      </div>
+    </Modal>
   );
 }
 
@@ -631,15 +1258,11 @@ function whereNow(
   }
 }
 
-function OrderCard({
+/** An order opened from its line: everything about it, and every step it offers. */
+function OrderDetails({
   row,
   busy,
-  maySettle,
-  mayEdit,
-  mayDeliver,
-  mayCancel,
-  mayExchange,
-  isOwner,
+  perms,
   onHistory,
   onEdit,
   onInvoice,
@@ -650,12 +1273,7 @@ function OrderCard({
 }: {
   row: OrderRow;
   busy: boolean;
-  maySettle: boolean;
-  mayEdit: boolean;
-  mayDeliver: boolean;
-  mayCancel: boolean;
-  mayExchange: boolean;
-  isOwner: boolean;
+  perms: Permissions;
   onHistory: () => void;
   onEdit: () => void;
   onInvoice: () => void;
@@ -666,71 +1284,37 @@ function OrderCard({
 }) {
   const { t, locale } = useLocale();
   const totals = calculateInvoiceTotals(row);
-  const cancelled = row.cancelled_at !== null;
+  const { cancelled, deliverable, courierDelivered, settleable } = stepsFor(row, perms);
   // Cancelled, or the goods came back: nothing is owed on it.
   const closed = isClosed(row);
-  const where = whereNow(row, t);
-
-  // Out with one of our own drivers: "cash received" records it delivered and
-  // paid in one step, so it replaces mark paid there.
-  const deliverable =
-    maySettle && !cancelled && row.courier === 'own' && row.shipment_status === 'out_for_delivery';
-  // With a courier and the customer has it: delivered, while the courier
-  // still holds the cash. The payment is left for their statement.
-  const courierDelivered =
-    mayDeliver && !cancelled && row.stage === 'on_the_road' && row.courier !== null && row.courier !== 'own';
-  // Every unpaid order but card, which is paid at the till - the owner's
-  // decision, cash on delivery included.
-  const settleable =
-    maySettle && !closed && !deliverable && row.payment_status === 'pending' && row.payment_method !== 'card';
 
   return (
-    <Card className="space-y-3">
-      {/* Number, where it is now, and what it comes to. */}
-      <div className="flex flex-wrap items-start gap-x-3 gap-y-1">
-        <div className="min-w-0 flex-1 space-y-1">
-          <div className="flex flex-wrap items-center gap-2">
-            <Code className="text-lg font-extrabold">{row.order_number}</Code>
-            <Badge>{t(`channel.${row.channel}`)}</Badge>
-            <span className="text-xs text-stone-500">{formatDateTime(row.created_at, locale)}</span>
-          </div>
-          <div className="flex flex-wrap items-center gap-2 text-xs text-stone-600">
-            <StatusPill tone={where.tone}>{where.label}</StatusPill>
-            {row.stage !== 'cancelled' ? <span>{sinceLabel(row.stage_since, t)}</span> : null}
-            {row.shopify_pending ? (
-              <span className="text-amber-700">{t('orders.shopifyPending')}</span>
-            ) : null}
-          </div>
-          {row.exchange_for_order_number ? (
-            <p className="text-xs font-semibold text-sky-800">
-              {t('exchange.forOrder', { orderNumber: row.exchange_for_order_number })}
-            </p>
-          ) : null}
-          {row.exchanged_in ? (
-            <p className="text-xs text-sky-800">{t('exchange.exchangedIn', { orderNumbers: row.exchanged_in })}</p>
-          ) : null}
-        </div>
-
-        <div className="text-end">
-          <p className="tabular text-lg font-extrabold">{formatEGP(totals.payable_egp, locale)}</p>
-          <div className="mt-0.5 flex flex-wrap justify-end gap-1.5">
-            {closed && row.payment_status === 'pending' ? (
-              <StatusPill tone="closed">{t('orders.nothingOwed')}</StatusPill>
-            ) : (
-              <StatusPill tone={row.payment_status === 'paid' ? 'done' : 'wait'}>
-                {t(`paymentStatus.${row.payment_status}`)}
-              </StatusPill>
-            )}
-            {row.payment_method ? (
-              <span className="text-xs text-stone-500">{t(`payment.${row.payment_method}`)}</span>
-            ) : null}
-          </div>
-        </div>
+    <div className="space-y-3">
+      {/* Where it came from, when, and how it is paid. */}
+      <div className="flex flex-wrap items-center gap-2 text-xs text-stone-600">
+        <Badge>{t(`channel.${row.channel}`)}</Badge>
+        <span>{formatDateTime(row.created_at, locale)}</span>
+        {closed && row.payment_status === 'pending' ? (
+          <StatusPill tone="closed">{t('orders.nothingOwed')}</StatusPill>
+        ) : (
+          <StatusPill tone={row.payment_status === 'paid' ? 'done' : 'wait'}>
+            {t(`paymentStatus.${row.payment_status}`)}
+          </StatusPill>
+        )}
+        {row.payment_method ? <span>{t(`payment.${row.payment_method}`)}</span> : null}
       </div>
+      {row.exchange_for_order_number ? (
+        <p className="text-xs font-semibold text-sky-800">
+          {t('exchange.forOrder', { orderNumber: row.exchange_for_order_number })}
+        </p>
+      ) : null}
+      {row.exchanged_in ? (
+        <p className="text-xs text-sky-800">{t('exchange.exchangedIn', { orderNumbers: row.exchanged_in })}</p>
+      ) : null}
 
       <div className="grid gap-3 sm:grid-cols-2">
         {/* Who and where. */}
-        <div className="space-y-0.5 rounded-lg bg-stone-50 px-3 py-2 text-sm">
+        <div className="space-y-0.5 rounded-lg bg-white px-3 py-2 text-sm ring-1 ring-duch-line">
           <p className="font-bold">
             <bdi>{row.customer_name ?? t('queue.walkIn')}</bdi>
           </p>
@@ -748,7 +1332,7 @@ function OrderCard({
 
         {/* The parcel. The shipment number is the one people read off a
             label, so it is the biggest thing here. */}
-        <div className="space-y-0.5 rounded-lg bg-stone-50 px-3 py-2 text-sm">
+        <div className="space-y-0.5 rounded-lg bg-white px-3 py-2 text-sm ring-1 ring-duch-line">
           {row.tracking_number ? (
             <>
               <p className="text-xs text-stone-500">
@@ -772,7 +1356,7 @@ function OrderCard({
       </div>
 
       {/* What they took. */}
-      <ul className="divide-y divide-duch-line rounded-lg border border-duch-line text-sm">
+      <ul className="divide-y divide-duch-line rounded-lg bg-white text-sm ring-1 ring-duch-line">
         {row.items.map((item, index) => (
           <li key={`${item.sku}:${index}`} className="flex items-center gap-3 px-3 py-2">
             <span className="min-w-0 flex-1">
@@ -819,7 +1403,7 @@ function OrderCard({
             <span className="flex-1 font-bold">
               {t('exchange.owedBack', { amount: formatEGP(Number(row.exchange_refund_egp), locale) })}
             </span>
-            {maySettle ? (
+            {perms.maySettle ? (
               <Button
                 variant="secondary"
                 className="min-h-9 px-3 text-xs"
@@ -840,14 +1424,14 @@ function OrderCard({
         </p>
       ) : null}
 
-      <div className="flex flex-wrap gap-2 border-t border-duch-line pt-3">
+      <div className="flex flex-wrap gap-2 pt-1">
         <Button variant="secondary" className="min-h-9 px-3 text-xs" onClick={onHistory}>
           {t('orders.history.open')}
         </Button>
         {/* Editing is offered even on a locked order: the customer's name and
             the note are still correctable, and the editor says which parts
             are fixed. */}
-        {mayEdit && !cancelled ? (
+        {perms.mayEdit && !cancelled ? (
           <Button variant="secondary" className="min-h-9 px-3 text-xs" onClick={onEdit}>
             {t('orders.edit')}
           </Button>
@@ -856,15 +1440,15 @@ function OrderCard({
           {t('sale.printInvoice')}
         </Button>
 
-        {/* Only before it leaves: after that the goods come back through
-            returns, not by changing a status. */}
-        {mayExchange && !cancelled && row.stage === 'delivered' ? (
+        {perms.mayExchange && !cancelled && row.stage === 'delivered' ? (
           <Button variant="secondary" className="min-h-9 px-3 text-xs" onClick={onExchange}>
             {t('exchange.button')}
           </Button>
         ) : null}
 
-        {mayCancel && !cancelled && row.stage === 'to_ship' ? (
+        {/* Only before it leaves: after that the goods come back through
+            returns, not by changing a status. */}
+        {perms.mayCancel && !cancelled && row.stage === 'to_ship' ? (
           <Button variant="secondary" className="min-h-9 px-3 text-xs text-red-700" onClick={onCancel}>
             {t('orders.cancel')}
           </Button>
@@ -873,7 +1457,7 @@ function OrderCard({
         {/* Owner only - the database refuses anyone else. For a payment
             recorded by mistake, which the ordinary editor cannot touch once
             the order is paid. */}
-        {isOwner && !cancelled && row.payment_status === 'paid' ? (
+        {perms.isOwner && !cancelled && row.payment_status === 'paid' ? (
           <Button variant="secondary" className="min-h-9 px-3 text-xs" onClick={onReopen}>
             {t('orders.reopenPayment')}
           </Button>
@@ -906,7 +1490,7 @@ function OrderCard({
           </Button>
         ) : null}
       </div>
-    </Card>
+    </div>
   );
 }
 
