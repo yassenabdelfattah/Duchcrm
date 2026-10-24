@@ -222,7 +222,15 @@
     "ship": "Ship",
     "shipmentNumberNeeded": "Enter or scan the courier's shipment number first.",
     "shipmentNumberTaken": "That shipment number is already on another parcel. Check the label.",
-    "new": "New"
+    "new": "New",
+    "awaitingPickup": "Waiting for the courier",
+    "collected": "Courier collected",
+    "collectedAll": "Courier collected all ({{count}})",
+    "collectedAllTitle": "Courier collected {{count}} parcels",
+    "collectedAllHelp": "From now they are with the courier. If one was left behind, scan each label the courier takes instead.",
+    "collectedConfirm": "Confirm",
+    "collectedDone": "Done: {{count}} parcels are with the courier now.",
+    "collectedOne": "{{code}} collected ({{orders}})."
   },
   "fulfillment": {
     "awaiting_confirmation": "To call",
@@ -461,7 +469,8 @@
       "withDriver": "With {{name}}",
       "late": "Late with {{courier}}",
       "withCourier": "With {{courier}}",
-      "delivered": "Delivered"
+      "delivered": "Delivered",
+      "awaitingPickup": "Waiting for {{courier}} to collect"
     },
     "shipmentWith": "Shipment · {{courier}}",
     "noShipment": "Not shipped yet",
@@ -556,7 +565,8 @@
       "donePaid": "{{count}} orders marked paid.",
       "doneReceived": "{{count}} orders marked received.",
       "failed": "{{count}} could not be: {{list}}"
-    }
+    },
+    "cancelPickup": "Shipment {{tracking}} is booked with the courier: ask them to cancel the pickup."
   },
   "reports": {
     "title": "Reports and log",
@@ -814,7 +824,8 @@
     "outNotBack": "Pieces out, not back",
     "overdueCount": "{{count}} past their return date",
     "lowStock": "Sizes running low",
-    "syncIssues": "Sync issues"
+    "syncIssues": "Sync issues",
+    "awaitingPickup": "Parcels waiting for the courier"
   },
   "install": {
     "title": "Install the app",

@@ -222,7 +222,15 @@
     "ship": "شحن",
     "shipmentNumberNeeded": "اكتب أو امسح رقم شحنة المندوب أولاً.",
     "shipmentNumberTaken": "رقم الشحنة هذا مستخدم على طرد آخر. راجع الملصق.",
-    "new": "جديد"
+    "new": "جديد",
+    "awaitingPickup": "في انتظار المندوب",
+    "collected": "المندوب استلم",
+    "collectedAll": "المندوب استلم الكل ({{count}})",
+    "collectedAllTitle": "المندوب استلم {{count}} طرد",
+    "collectedAllHelp": "من الآن هي مع شركة الشحن. طرد تركه المندوب: لا تضغط هنا، امسح ملصق كل طرد يستلمه بدلاً من ذلك.",
+    "collectedConfirm": "تأكيد",
+    "collectedDone": "تم: {{count}} طرد مع شركة الشحن الآن.",
+    "collectedOne": "تم استلام {{code}} ({{orders}})."
   },
   "fulfillment": {
     "awaiting_confirmation": "للاتصال",
@@ -461,7 +469,8 @@
       "withDriver": "مع {{name}}",
       "late": "متأخر مع {{courier}}",
       "withCourier": "مع {{courier}}",
-      "delivered": "تم التسليم"
+      "delivered": "تم التسليم",
+      "awaitingPickup": "في انتظار مندوب {{courier}}"
     },
     "shipmentWith": "رقم الشحنة · {{courier}}",
     "noShipment": "لم يُشحن بعد",
@@ -556,7 +565,8 @@
       "donePaid": "تم تسجيل {{count}} طلب كمدفوع.",
       "doneReceived": "تم تسجيل استلام {{count}} طلب.",
       "failed": "تعذّر {{count}}: {{list}}"
-    }
+    },
+    "cancelPickup": "الشحنة {{tracking}} محجوزة مع شركة الشحن: اطلب منهم إلغاء طلب الاستلام."
   },
   "reports": {
     "title": "التقارير والسجل",
@@ -814,7 +824,8 @@
     "outNotBack": "قطع خارج المخزون ولم ترجع",
     "overdueCount": "{{count}} متأخرة عن موعد الرجوع",
     "lowStock": "مقاسات قاربت على النفاد",
-    "syncIssues": "مشاكل المزامنة"
+    "syncIssues": "مشاكل المزامنة",
+    "awaitingPickup": "طرود في انتظار المندوب"
   },
   "install": {
     "title": "تثبيت التطبيق",

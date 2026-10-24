@@ -33,7 +33,7 @@ import type { StaffIdentity } from '../providers/authProvider';
 /** Late with the courier: the same line as the tracker on the Orders screen. */
 const COURIER_LATE_DAYS = 7;
 
-const TO_SHIP = ['awaiting_confirmation', 'confirmed', 'ready_to_pack', 'packed', 'awaiting_pickup'];
+const TO_SHIP = ['awaiting_confirmation', 'confirmed', 'ready_to_pack', 'packed'];
 
 interface Todo {
   key: string;
@@ -102,7 +102,11 @@ export function Dashboard() {
 
       const [toShip, late, drivers, owed, outs, low, sync, orders, feed] = await Promise.all([
         seesOrders
-          ? supabase.from('v_packing_queue').select('created_at').in('fulfillment_status', TO_SHIP).limit(500)
+          ? supabase
+              .from('v_packing_queue')
+              .select('created_at, fulfillment_status')
+              .in('fulfillment_status', [...TO_SHIP, 'awaiting_pickup'])
+              .limit(500)
           : none,
         seesOrders
           ? supabase
@@ -157,7 +161,9 @@ export function Dashboard() {
       const list: Todo[] = [];
 
       if (seesOrders) {
-        const rows = (toShip.data ?? []) as Array<{ created_at: string }>;
+        const queued = (toShip.data ?? []) as Array<{ created_at: string; fulfillment_status: string }>;
+        const rows = queued.filter((row) => row.fulfillment_status !== 'awaiting_pickup');
+        const booked = queued.length - rows.length;
         const seen = Date.parse(readSeenAt());
         const fresh = rows.filter((row) => Date.parse(row.created_at) > seen).length;
         list.push({
@@ -168,6 +174,16 @@ export function Dashboard() {
           detail: fresh > 0 ? t('home.newSince', { count: fresh }) : null,
           to: '/queue',
           tone: fresh > 0 ? 'back' : 'wait',
+        });
+
+        list.push({
+          key: 'awaitingPickup',
+          icon: PackageCheck,
+          count: booked,
+          label: t('home.awaitingPickup'),
+          detail: null,
+          to: '/queue',
+          tone: 'wait',
         });
 
         list.push({

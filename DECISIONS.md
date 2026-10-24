@@ -202,6 +202,18 @@ there to log, and is the in-app way to cancel a DM order, but nothing waits
 on it. The shipment number is still required - that rule is the one that
 lets a missing parcel be chased.
 
+**The number books the courier; collecting is the handover (2026-10-24).**
+The shipment number comes when the pickup is booked with Accurate, and the
+parcel waits in the shop until the courier collects it. One-step shipping
+had made the number the handover, so #1462 - cancelled by its customer in
+that gap - could not be cancelled, and its piece stayed out of stock. Now
+"ship" leaves the order waiting for the courier (`awaiting_pickup`), and
+`mark_picked_up` is the handover: one tap for every waiting parcel, or each
+label scanned as it leaves. Until then an order can be cancelled - here, or
+in Shopify, which the CRM follows - and its booked shipment is called off.
+After, it comes back through returns as before. Shipping is still one tap; the
+second is once a day, for the whole pile.
+
 Before this, both were recorded as counter sales. An order sitting in a box
 in the back room claimed it had been handed to a customer, and money nobody
 had counted claimed it had arrived.

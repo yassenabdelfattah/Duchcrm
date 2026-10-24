@@ -22,6 +22,7 @@ import {
 import { Invoice } from '../components/Invoice';
 import { PackingSlip, type SlipOrder } from '../components/PackingSlip';
 import { ScanButton } from '../components/ScanButton';
+import { CancelOrderDialog } from '../components/CancelOrderDialog';
 
 type FulfillmentStatus =
   | 'awaiting_confirmation'
@@ -62,6 +63,8 @@ interface QueueRow {
   /** A replacement: what it was exchanged for, and the old piece to collect. */
   exchange_for_order_number: string | null;
   exchange_collect_items: string | null;
+  /** Set on a website order. */
+  shopify_order_id: number | null;
   courier: string | null;
   driver_name: string | null;
   handed_over_at: string | null;
@@ -76,7 +79,6 @@ const TO_SHIP: readonly FulfillmentStatus[] = [
   'confirmed',
   'ready_to_pack',
   'packed',
-  'awaiting_pickup',
 ];
 
 export function PackingQueue() {
@@ -89,12 +91,16 @@ export function PackingQueue() {
   // Recording cash as received is settling money, so it follows who may
   // settle a paying-later order - not who packs.
   const maySettle = can(identity?.permissions, 'orders.settle');
+  const mayCancel = can(identity?.permissions, 'orders.cancel');
   const [rows, setRows] = useState<QueueRow[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   // Errors belong on the card they are about: with a long list, a message at
   // the top of the page is off screen from the button that caused it.
   const [cardErrors, setCardErrors] = useState<Record<string, string>>({});
   const [tracking, setTracking] = useState<Record<string, string>>({});
+  const [cancelling, setCancelling] = useState<QueueRow | null>(null);
+  const [collectingAll, setCollectingAll] = useState(false);
+  const [notice, setNotice] = useState<string | null>(null);
   const [calling, setCalling] = useState<QueueRow | null>(null);
   const [sendingOut, setSendingOut] = useState<QueueRow | null>(null);
   const [slip, setSlip] = useState<SlipOrder | null>(null);
@@ -152,6 +158,12 @@ export function PackingQueue() {
     () => (rows ?? []).filter((row) => TO_SHIP.includes(row.fulfillment_status)),
     [rows],
   );
+  // Booked with the courier and still here: their number is on the parcel,
+  // and the courier has not collected it yet.
+  const awaitingPickup = useMemo(
+    () => (rows ?? []).filter((row) => row.fulfillment_status === 'awaiting_pickup'),
+    [rows],
+  );
   // The view only returns out_for_delivery for our own drivers, so this is
   // cash still to be handed in - never a parcel with Accurate.
   const withOurDriver = useMemo(
@@ -204,6 +216,35 @@ export function PackingQueue() {
     }
   }
 
+  // The courier took every waiting parcel. Only the ones on screen, so a parcel
+  // booked a moment ago in another tab is not swept up with them.
+  async function collectAll() {
+    setCollectingAll(false);
+    setError(null);
+    const { data, error: rpcError } = await supabase.rpc('mark_picked_up', {
+      p_order_ids: awaitingPickup.map((row) => row.order_id),
+    });
+    if (rpcError) {
+      setError(arabicError(rpcError));
+      return;
+    }
+    setNotice(t('queue.collectedDone', { count: (data as { count?: number })?.count ?? 0 }));
+    await load();
+  }
+
+  // One label scanned as it goes into the courier's bag.
+  async function collectScanned(code: string) {
+    setError(null);
+    const { data, error: rpcError } = await supabase.rpc('mark_picked_up', { p_tracking: code });
+    if (rpcError) {
+      setError(arabicError(rpcError));
+      return;
+    }
+    const numbers = ((data as { order_numbers?: string[] })?.order_numbers ?? []).join('، ');
+    setNotice(t('queue.collectedOne', { code, orders: numbers }));
+    await load();
+  }
+
   if (slip) return <PackingSlip order={slip} onClose={() => setSlip(null)} />;
   if (invoiceId) return <Invoice orderId={invoiceId} onClose={() => setInvoiceId(null)} />;
   if (!rows) return <Spinner label={t('app.loading')} />;
@@ -213,6 +254,7 @@ export function PackingQueue() {
 
   function renderCard(row: QueueRow) {
     const waiting = TO_SHIP.includes(row.fulfillment_status);
+    const booked = row.fulfillment_status === 'awaiting_pickup';
     const busy = busyId === row.order_id;
 
     return (
@@ -348,6 +390,40 @@ export function PackingQueue() {
                 </form>
               ) : null}
 
+              {/* Booked: the number on the parcel, waiting for the courier.
+                  Collected, or called off if the customer changed their mind. */}
+              {booked ? (
+                <div className="flex flex-wrap items-center gap-2 rounded-lg bg-stone-50 px-3 py-2">
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs text-stone-500">{t('queue.shipmentNumber')}</p>
+                    <p className="tabular text-base font-extrabold" dir="ltr">
+                      {row.tracking_number ?? '—'}
+                    </p>
+                  </div>
+                  {mayCancel ? (
+                    <Button
+                      variant="secondary"
+                      className="min-h-9 px-3 text-xs text-red-700"
+                      onClick={() => setCancelling(row)}
+                      disabled={busy}
+                    >
+                      {t('orders.cancel')}
+                    </Button>
+                  ) : null}
+                  {mayPack ? (
+                    <Button
+                      className="min-h-9 px-3 text-xs"
+                      disabled={busy}
+                      onClick={() =>
+                        void run(row, () => supabase.rpc('mark_picked_up', { p_order_ids: [row.order_id] }))
+                      }
+                    >
+                      {busy ? t('app.loading') : t('queue.collected')}
+                    </Button>
+                  ) : null}
+                </div>
+              ) : null}
+
               {cardErrors[row.order_id] ? <ErrorNote>{cardErrors[row.order_id]}</ErrorNote> : null}
 
               <div className="flex flex-wrap gap-2 border-t border-duch-line pt-3">
@@ -430,12 +506,40 @@ export function PackingQueue() {
       </div>
 
       {error ? <ErrorNote>{error}</ErrorNote> : null}
+      {notice ? (
+        <p className="rounded-lg bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-800">{notice}</p>
+      ) : null}
 
       {toShip.length === 0 ? (
         <EmptyState title={t('queue.empty')} />
       ) : (
         <div className="space-y-3">{toShip.map(renderCard)}</div>
       )}
+
+      {/* Booked and waiting for the courier. When they come: one tap for
+          all of them, or scan each label as it leaves, which also shows if
+          one is left behind. */}
+      {awaitingPickup.length > 0 ? (
+        <section className="space-y-3">
+          <div className="flex flex-wrap items-center gap-2 border-b border-duch-line pb-2">
+            <h2 className="flex items-center gap-2 text-sm font-extrabold">
+              {t('queue.awaitingPickup')}
+              <span className="tabular rounded-full bg-stone-100 px-2 py-0.5 text-xs font-semibold">
+                {awaitingPickup.length}
+              </span>
+            </h2>
+            {mayPack ? (
+              <div className="ms-auto flex items-center gap-2">
+                <ScanButton onScan={(code) => void collectScanned(code)} />
+                <Button className="min-h-11 px-3 text-xs" onClick={() => setCollectingAll(true)}>
+                  {t('queue.collectedAll', { count: awaitingPickup.length })}
+                </Button>
+              </div>
+            ) : null}
+          </div>
+          {awaitingPickup.map(renderCard)}
+        </section>
+      ) : null}
 
       {/* Out with our own driver, cash not handed in yet. Not a packing step -
           it is here so the money in a driver's pocket is not forgotten. */}
@@ -449,6 +553,41 @@ export function PackingQueue() {
           </h2>
           {withOurDriver.map(renderCard)}
         </section>
+      ) : null}
+
+      {cancelling ? (
+        <CancelOrderDialog
+          order={{
+            id: cancelling.order_id,
+            order_number: cancelling.order_number,
+            shopify_order_id: cancelling.shopify_order_id,
+            tracking_number: cancelling.tracking_number,
+          }}
+          onClose={() => setCancelling(null)}
+          onDone={() => {
+            setCancelling(null);
+            void load();
+          }}
+        />
+      ) : null}
+
+      {collectingAll ? (
+        <Modal open title={t('queue.collectedAllTitle', { count: awaitingPickup.length })} onClose={() => setCollectingAll(false)}>
+          <div className="space-y-3">
+            <p className="tabular flex flex-wrap gap-x-3 gap-y-1 rounded-lg bg-stone-50 px-3 py-2 text-xs" dir="ltr">
+              {awaitingPickup.map((row) => (
+                <span key={row.order_id}>{row.tracking_number ?? row.order_number}</span>
+              ))}
+            </p>
+            <p className="text-xs text-stone-500">{t('queue.collectedAllHelp')}</p>
+            <div className="flex justify-end gap-2">
+              <Button variant="secondary" onClick={() => setCollectingAll(false)}>
+                {t('orders.keepOrder')}
+              </Button>
+              <Button onClick={() => void collectAll()}>{t('queue.collectedConfirm')}</Button>
+            </div>
+          </div>
+        </Modal>
       ) : null}
 
       <CallDialog
