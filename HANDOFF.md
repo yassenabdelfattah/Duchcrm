@@ -25,8 +25,8 @@ most of the design.
 
 **Built and tested:** Phases 1, 2 and 3 complete, plus the staff screen.
 
-- 49 migrations, 25 pgTAP suites, **474 database assertions**
-- **91 TypeScript assertions** (webhook HMAC, money arithmetic, invoice
+- 50 migrations, 25 pgTAP suites, **478 database assertions**
+- **92 TypeScript assertions** (webhook HMAC, money arithmetic, invoice
   totals, Shopify token exchange, Cairo dates, sizes, Arabic errors, the
   Shopify order-edit plan)
 - 13 screens, 5 Edge Functions, 1 Cloudflare Worker
@@ -430,6 +430,17 @@ Shopify commits a unit by itself, so the variants on both sides are pushed
 after the edit lands (`queue_inventory_push`), whatever happened in between.
 The shipping fee is changed in a second edit committed only if every step
 worked - half a swap would leave no shipping charge, or two.
+
+**A returned order is closed in Shopify by hand, often by cancelling it.**
+The CRM does not touch the Shopify order when a parcel comes back - only
+edits and cancels before shipping go to Shopify. Cancelling a refused or
+returned order in Shopify sends orders/cancelled, which used to reach
+`cancel_order` and put the pieces back a second time (the check-in already
+had). Since 20261024090000, a Shopify cancellation of an order refused, on its
+way back or back only writes `shopify_closed_after_return` to its history, and
+`cancel_order` refuses such an order from any path. If Shopify's "restock"
+was ticked when cancelling, Shopify's own count goes up; the nightly check
+shows it, and "The CRM is right" puts it back.
 
 **Tidying old orders in Shopify used to import them.** `orders/updated`
 for an unknown order creates it - but not one placed before

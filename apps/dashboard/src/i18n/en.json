@@ -509,7 +509,8 @@
       "paymentCorrected": "Payment status corrected: a Shopify edit had been recorded as a refund",
       "shopifyItemsNotShipping": "Items updated in Shopify, but it refused the new shipping fee - change that in Shopify by hand",
       "exchange": "Exchanged - replacement order {{orderNumber}}",
-      "exchangeRefunded": "Difference paid back: {{amount}} EGP"
+      "exchangeRefunded": "Difference paid back: {{amount}} EGP",
+      "shopifyClosedAfterReturn": "Closed in Shopify after it came back - stock unchanged"
     },
     "step": {
       "sold": "Sold",

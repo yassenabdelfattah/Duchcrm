@@ -509,7 +509,8 @@
       "paymentCorrected": "صُحّحت حالة الدفع: تعديل على شوبيفاي سُجّل كاسترداد بالخطأ",
       "shopifyItemsNotShipping": "تم تحديث الأصناف على شوبيفاي، لكنه رفض تغيير مصاريف الشحن — عدّلها على شوبيفاي يدوياً",
       "exchange": "استبدال - الطلب البديل {{orderNumber}}",
-      "exchangeRefunded": "تم ردّ الفرق للعميل: {{amount}} ج.م."
+      "exchangeRefunded": "تم ردّ الفرق للعميل: {{amount}} ج.م.",
+      "shopifyClosedAfterReturn": "أُغلق على شوبيفاي بعد رجوعه - لم يتغير المخزون"
     },
     "step": {
       "sold": "تم البيع",

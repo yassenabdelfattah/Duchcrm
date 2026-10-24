@@ -21,6 +21,7 @@ type Rule = [RegExp, (match: RegExpExecArray) => string];
 // come before the general ones that would also match them.
 const RULES: Rule[] = [
   // --- Orders: closed, paid, cancelled -------------------------------------
+  [/^Order (\S+) is coming back or already back/, (m) => `الطلب ${m[1]} في طريق العودة أو رجع بالفعل، ويعود مخزونه عند استلامه في المرتجعات.`],
   [/^Order (\S+) has not been delivered, so there is nothing to exchange yet/, (m) => `الطلب ${m[1]} لم يُسلَّم بعد، فلا يوجد ما يُستبدل. عدّل الطلب بدلاً من ذلك.`],
   [/^An exchange is for a size, a change of mind, a fault or a wrong item/, () => 'اختر سبب الاستبدال.'],
   [/^Choose the piece coming back/, () => 'اختر القطعة المرتجعة.'],

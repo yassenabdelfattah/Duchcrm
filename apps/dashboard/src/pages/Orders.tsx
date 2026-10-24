@@ -1608,6 +1608,8 @@ function describeEvent(event: OrderEvent, t: (k: string, p?: Record<string, unkn
       return t('orders.history.paymentCorrected');
     case 'exchange':
       return t('orders.history.exchange', { orderNumber: String(event.details?.replacement_order_number ?? '') });
+    case 'shopify_closed_after_return':
+      return t('orders.history.shopifyClosedAfterReturn');
     case 'exchange_refunded':
       return t('orders.history.exchangeRefunded', { amount: String(event.details?.amount_egp ?? '') });
     case 'edited':

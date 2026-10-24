@@ -32,6 +32,12 @@ describe('arabicError', () => {
     ).toBe('الطلب D2610-00006 لم يُسلَّم بعد، فلا يوجد ما يُستبدل. عدّل الطلب بدلاً من ذلك.');
   });
 
+  it('says a returned order gets its stock back at the check-in, not by cancelling', () => {
+    expect(
+      arabicError({ code: '23514', message: 'Order #1418 is coming back or already back. Its stock returns when it is checked in.' }),
+    ).toBe('الطلب #1418 في طريق العودة أو رجع بالفعل، ويعود مخزونه عند استلامه في المرتجعات.');
+  });
+
   it('turns any permission refusal into one sentence', () => {
     expect(arabicError({ code: '42501', message: 'You may not ship orders' })).toBe('ليس لديك صلاحية لهذا الإجراء.');
     expect(arabicError({ code: '42501', message: 'something new' })).toBe('ليس لديك صلاحية لهذا الإجراء.');

@@ -8,7 +8,7 @@
 -- ---------------------------------------------------------------------------
 
 begin;
-select plan(45);
+select plan(49);
 
 -- --- Fixtures --------------------------------------------------------------
 
@@ -471,6 +471,44 @@ select is(
   (select count(*)::integer from public.orders where shopify_order_id = 6999),
   0,
   '...so it takes nothing out of stock');
+
+-- --- A returned order closed in Shopify ------------------------------------------
+
+-- Refused, back on the shelf through the check-in, then cancelled in Shopify
+-- to close it there (2026-10-24). The pieces must not come back twice.
+select public.ingest_shopify_order(
+  pg_temp.web_order(6007, '2026-10-15T10:00:00+03:00', jsonb_build_array(pg_temp.line(88801, 'SYNC-A', 1, 1))),
+  'd4d4d4d4-0000-0000-0000-000000000001'
+);
+update public.orders set fulfillment_status = 'returned' where shopify_order_id = 6007;
+select public.record_stock_movements(
+  'd4d4d4d4-0000-0000-0000-000000000001', 'return',
+  '[{"variant_id":"d4d4d4d4-0000-0000-0000-00000000000a","quantity_delta":1}]'::jsonb,
+  'return', 'test-return-6007', null, 'test-return-6007'
+);
+create temporary table a_before on commit drop as select pg_temp.stock('SYNC-A') as n;
+
+select public.cancel_shopify_order(6007, 'other');
+
+select is(pg_temp.stock('SYNC-A'), (select n from a_before),
+  'Cancelling a returned order in Shopify puts nothing back: the check-in already did');
+
+select is(
+  (select fulfillment_status::text from public.orders where shopify_order_id = 6007),
+  'returned',
+  '...and it stays returned');
+
+select is(
+  (select count(*)::integer from public.order_events e join public.orders o on o.id = e.order_id
+    where o.shopify_order_id = 6007 and e.event_type = 'shopify_closed_after_return'),
+  1,
+  '...with the closing in Shopify in its history');
+
+select throws_ok(
+  $$ select public.cancel_order((select id from public.orders where shopify_order_id = 6007), null) $$,
+  '23514',
+  'Order #6007 is coming back or already back. Its stock returns when it is checked in.',
+  'A returned order cannot be cancelled from anywhere: its stock comes back at the check-in');
 
 select * from finish();
 rollback;
