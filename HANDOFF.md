@@ -25,7 +25,7 @@ most of the design.
 
 **Built and tested:** Phases 1, 2 and 3 complete, plus the staff screen.
 
-- 51 migrations, 25 pgTAP suites, **480 database assertions**
+- 52 migrations, 25 pgTAP suites, **484 database assertions**
 - **92 TypeScript assertions** (webhook HMAC, money arithmetic, invoice
   totals, Shopify token exchange, Cairo dates, sizes, Arabic errors, the
   Shopify order-edit plan)
@@ -443,6 +443,10 @@ was ticked when cancelling, Shopify's own count goes up; the nightly check
 shows it, and "The CRM is right" puts it back. The orders/updated that comes
 with a Shopify cancellation (every line at zero) is ignored too
 (20261024100000) - it used to be flagged as "changed after shipping".
+Since 20261024110000 the CRM does the closing itself: checking in a refused
+website order (a `failed_delivery` return, unpaid) queues a Shopify cancel -
+no restock, no email - so nobody has to cancel it by hand. Returns after
+delivery, exchanges and orders paid online are still the owner's call.
 
 **Tidying old orders in Shopify used to import them.** `orders/updated`
 for an unknown order creates it - but not one placed before

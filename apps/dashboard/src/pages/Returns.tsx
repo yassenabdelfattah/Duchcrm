@@ -3,6 +3,7 @@ import { can, formatDate } from '@duch/shared';
 import { useGetIdentity } from '@refinedev/core';
 import { supabase } from '../lib/supabase';
 import { arabicError } from '../lib/errors';
+import { sendOrderToShopify } from '../lib/shopifySync';
 import type { StaffIdentity } from '../providers/authProvider';
 import { useLocale } from '../i18n';
 import { useBarcodeScanner } from '../hooks/useBarcodeScanner';
@@ -785,6 +786,11 @@ function CheckInDialog({
       setError(arabicError(receiveError));
       return;
     }
+
+    // A refused website order is now queued to be closed in Shopify; this
+    // sends it now rather than within the minute. Not awaited - the next
+    // parcel in the pile should not wait on Shopify.
+    void sendOrderToShopify(target.order.id);
 
     onDone({
       orderNumber: target.order.order_number,

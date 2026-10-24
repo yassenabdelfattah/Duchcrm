@@ -552,6 +552,13 @@ given back with a correcting movement each, their history kept (order_events
 is append-only, and deleting it was refused), and `archived_at` keeps them
 out of every list.
 
+**A refused website order closes itself in Shopify (2026-10-24).** The owner
+closed them by hand, cancelling the Shopify order once the parcel was back.
+Checking the parcel in on Returns now queues that cancel - no restock in
+Shopify (the check-in put the pieces back, and the CRM sends its numbers), no
+email. Only refusals and only unpaid: a return after delivery, an exchange or
+an order paid online involve money decided in Shopify, and stay manual.
+
 **What the app may do changed.** It now holds `write_order_edits` and
 `write_orders`, which `docs/shopify-app-setup.md` used to say not to grant.
 The reason that advice gave - a token that cannot do something cannot do it

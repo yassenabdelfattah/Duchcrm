@@ -501,7 +501,11 @@ async function cancelInShopify(target: Target): Promise<Outcome> {
   const userErrors = body.data?.orderCancel?.orderCancelUserErrors ?? [];
   // Cancelled already - in Shopify by hand, or by an earlier run whose answer
   // was lost - is the result we wanted.
-  const already = userErrors.length > 0 && userErrors.every((e) => /already.*cancel|cancel.*already/i.test(`${e.code ?? ''} ${e.message}`));
+  // Shopify no longer has it - deleted by hand while tidying up - is closed
+  // as well: there is nothing left there to cancel.
+  const already =
+    userErrors.length > 0 &&
+    userErrors.every((e) => /already.*cancel|cancel.*already|NOT_FOUND|does not exist/i.test(`${e.code ?? ''} ${e.message}`));
   const problem = already ? null : problems(body, userErrors);
   if (problem) throw new Error(`orderCancel: ${problem}`);
 

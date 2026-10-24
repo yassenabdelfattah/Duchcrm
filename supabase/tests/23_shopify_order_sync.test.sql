@@ -8,7 +8,7 @@
 -- ---------------------------------------------------------------------------
 
 begin;
-select plan(51);
+select plan(55);
 
 -- --- Fixtures --------------------------------------------------------------
 
@@ -76,6 +76,8 @@ as $$
     'line_items', p_items
   );
 $$;
+
+create temporary table t2 (k text primary key, id uuid) on commit drop;
 
 -- Order #6001: one A, one B.
 select public.ingest_shopify_order(
@@ -524,6 +526,67 @@ select is(
     where type = 'order_changed_in_shopify' and details ->> 'order_number' = '#6007'),
   0,
   '...so it raises no "changed after shipping" alarm');
+
+-- --- A refused website order checked in closes itself in Shopify ------------
+
+create or replace function pg_temp.refused(p_id bigint, p_track text) returns uuid language plpgsql as $$
+declare v_id uuid;
+begin
+  perform public.ingest_shopify_order(
+    pg_temp.web_order(p_id, '2026-10-20T10:00:00+03:00', jsonb_build_array(pg_temp.line(88802, 'SYNC-B', 1, 1))),
+    'd4d4d4d4-0000-0000-0000-000000000001');
+  select id into v_id from public.orders where shopify_order_id = p_id;
+  perform public.ship_order(v_id, p_track);
+  perform public.record_delivery_failure(v_id, 'refused_after_inspection', null);
+  return v_id;
+end;
+$$;
+
+create or replace function pg_temp.check_in(p_order uuid) returns void language sql as $$
+  select public.receive_return(r.id,
+    (select jsonb_agg(jsonb_build_object('return_line_id', rl.id, 'quantity_resellable', rl.quantity_expected, 'quantity_damaged', 0))
+       from public.return_lines rl where rl.return_id = r.id))
+    from public.returns r where r.order_id = p_order;
+$$;
+
+insert into t2 select 'refused', pg_temp.refused(6010, 'SYNC-REFUSED-1');
+select pg_temp.check_in((select id from t2 where k = 'refused'));
+
+select is(
+  (select action from public.shopify_order_outbox where order_id = (select id from t2 where k = 'refused')),
+  'cancel',
+  'Checking in a refused website order queues its cancellation in Shopify');
+
+-- Paid online: the refund is the owner's to decide in Shopify.
+insert into t2 select 'paid', pg_temp.refused(6011, 'SYNC-REFUSED-2');
+update public.orders set payment_status = 'paid', payment_method = 'card' where id = (select id from t2 where k = 'paid');
+select pg_temp.check_in((select id from t2 where k = 'paid'));
+
+select is(
+  (select count(*)::integer from public.shopify_order_outbox where order_id = (select id from t2 where k = 'paid')),
+  0,
+  'An order paid online is not cancelled in Shopify by a check-in');
+
+-- Returned after delivery: also left to the owner.
+select public.ingest_shopify_order(
+  pg_temp.web_order(6012, '2026-10-20T10:00:00+03:00', jsonb_build_array(pg_temp.line(88802, 'SYNC-B', 1, 1))),
+  'd4d4d4d4-0000-0000-0000-000000000001');
+update public.orders set fulfillment_status = 'delivered' where shopify_order_id = 6012;
+select public.start_post_delivery_return((select id from public.orders where shopify_order_id = 6012), 'wrong_size', null);
+select pg_temp.check_in((select id from public.orders where shopify_order_id = 6012));
+
+select is(
+  (select count(*)::integer from public.shopify_order_outbox q join public.orders o on o.id = q.order_id
+    where o.shopify_order_id = 6012),
+  0,
+  'A return after delivery is not cancelled in Shopify by its check-in');
+
+-- An Instagram order refused has no Shopify copy.
+select is(
+  (select count(*)::integer from public.shopify_order_outbox q join public.orders o on o.id = q.order_id
+    where o.shopify_order_id is null),
+  0,
+  'Orders that are not from the website queue nothing');
 
 select * from finish();
 rollback;
