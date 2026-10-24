@@ -402,7 +402,11 @@
     "addToStatement": "Add to statement",
     "clearChoice": "Choose another parcel",
     "showAdjustment": "Charge or credit on the statement",
-    "previewPrepaid": "Paid online: they collected nothing. Choose Delivered and enter what they took for shipping as the fee."
+    "previewPrepaid": "Paid online: they collected nothing. Choose Delivered and enter what they took for shipping as the fee.",
+    "totalDebits": "Total deductions",
+    "shippingOf": "Shipping",
+    "customerDiscounts": "Discounts to customers",
+    "productsTotal": "Total products"
   },
   "settlementOutcome": {
     "delivered": "Delivered and collected",

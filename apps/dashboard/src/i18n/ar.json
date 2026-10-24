@@ -402,7 +402,11 @@
     "addToStatement": "إضافة للكشف",
     "clearChoice": "اختيار شحنة أخرى",
     "showAdjustment": "خصم أو إضافة على الكشف",
-    "previewPrepaid": "مدفوع أونلاين: لم يحصّلوا شيئاً. اختر «تم التسليم» واكتب في «خصموا» ما أخذوه للشحن."
+    "previewPrepaid": "مدفوع أونلاين: لم يحصّلوا شيئاً. اختر «تم التسليم» واكتب في «خصموا» ما أخذوه للشحن.",
+    "totalDebits": "اجمالي الخصومات",
+    "shippingOf": "شحن",
+    "customerDiscounts": "خصم للعملاء",
+    "productsTotal": "اجمالي المنتجات"
   },
   "settlementOutcome": {
     "delivered": "تم التسليم والتحصيل",

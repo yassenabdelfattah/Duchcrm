@@ -1,6 +1,7 @@
 import { useMemo, useRef, useState } from 'react';
 import { formatDate, formatEGP } from '@duch/shared';
 import { useLocale } from '../i18n';
+import { accountantMessage } from '../lib/accountantMessage';
 import { Button, Card, EmptyState } from './ui';
 
 export interface StatementLine {
@@ -56,10 +57,6 @@ export interface StatementHeader {
  * Offered both ways because both get used: a copyable block for the message
  * that actually gets sent, and a printable sheet to go with the cash.
  */
-/** Money without the currency and the .00: easier to read in a chat message. */
-const PLAIN_NUMBER = new Intl.NumberFormat('en-EG', { maximumFractionDigits: 2 });
-const RULE = '--------------------';
-
 export function AccountantSummary({
   header,
   lines,
@@ -78,26 +75,10 @@ export function AccountantSummary({
   // Every charge, including the shipping on a delivery paid online.
   const deductions = lines.filter((l) => l.outcome !== 'delivered' || Number(l.fee_egp) > 0);
 
-  // What he writes into his ledger and nothing else: each product, how many,
-  // what they came to, and a rule under it. The reference, the totals and the
-  // courier's deductions made the message hard to read (the owner,
-  // 2026-10-26); they are on the sheet below and the printout.
-  const message = useMemo(() => {
-    const byProduct = new Map<string, { quantity: number; total: number }>();
-    for (const p of products) {
-      const row = byProduct.get(p.title) ?? { quantity: 0, total: 0 };
-      row.quantity += Number(p.quantity);
-      row.total += Number(p.total_egp);
-      byProduct.set(p.title, row);
-    }
-
-    const out: string[] = [];
-    for (const [title, row] of byProduct) {
-      out.push(`${title} * ${row.quantity} = ${PLAIN_NUMBER.format(row.total)}`);
-      out.push(RULE);
-    }
-    return out.join('\n');
-  }, [products]);
+  const message = useMemo(
+    () => accountantMessage(products, lines, t, breakdown ? Number(breakdown.goods_egp) : undefined),
+    [products, lines, t, breakdown],
+  );
 
   /**
    * Copying has to work from a phone on the shop wifi.
