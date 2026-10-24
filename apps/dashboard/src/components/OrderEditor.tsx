@@ -44,6 +44,22 @@ interface LineRow {
   variant_title: string | null;
   quantity: number;
   unit_price_egp: number;
+  /** Off each piece, as sold. It stays with the piece when the quantity changes. */
+  discount_per_unit: number;
+}
+
+/** What a line comes to: the database rounds it the same way. */
+function lineTotal(line: LineRow) {
+  const cents = (value: number) => Math.round(value * 100) / 100;
+  return cents(Number(line.unit_price_egp) * line.quantity) - cents(line.discount_per_unit * line.quantity);
+}
+
+/** Variants and quantities only - all that a change to the box is. */
+function boxKey(rows: LineRow[]) {
+  return rows
+    .map((line) => `${line.variant_id ?? line.sku}:${line.quantity}`)
+    .sort()
+    .join('|');
 }
 
 interface SearchRow {
@@ -76,6 +92,9 @@ export function OrderEditor({
   const [phone, setPhone] = useState(order.customers?.phone ?? '');
 
   const [lines, setLines] = useState<LineRow[] | null>(null);
+  // The box as it was sold. A variant already on the order keeps its price in
+  // the database, and so here too, even taken off and put back.
+  const [sold, setSold] = useState<LineRow[] | null>(null);
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<SearchRow[]>([]);
   const [saving, setSaving] = useState(false);
@@ -90,10 +109,19 @@ export function OrderEditor({
   useEffect(() => {
     supabase
       .from('order_line_items')
-      .select('variant_id, sku, title, variant_title, quantity, unit_price_egp')
+      .select('variant_id, sku, title, variant_title, quantity, unit_price_egp, discount_egp')
       .eq('order_id', order.id)
       .order('created_at')
-      .then(({ data }) => setLines((data ?? []) as LineRow[]));
+      .then(({ data }) => {
+        const rows = ((data ?? []) as (Omit<LineRow, 'discount_per_unit'> & { discount_egp: number })[]).map(
+          ({ discount_egp, ...line }) => ({
+            ...line,
+            discount_per_unit: line.quantity > 0 ? Number(discount_egp) / line.quantity : 0,
+          }),
+        );
+        setLines(rows);
+        setSold(rows);
+      });
   }, [order.id]);
 
   const runSearch = useCallback(async (term: string) => {
@@ -119,12 +147,13 @@ export function OrderEditor({
 
   const subtotal = useMemo(
     () =>
-      (lines ?? []).reduce(
-        (sum, line) => sum + Number(line.unit_price_egp) * line.quantity,
-        0,
-      ),
+      (lines ?? []).reduce((sum, line) => sum + lineTotal(line), 0),
     [lines],
   );
+
+  // Saving the phone number or a note must not rewrite the items: that is a
+  // stock correction, a line in the history and an edit sent to Shopify.
+  const itemsChanged = lines !== null && sold !== null && boxKey(lines) !== boxKey(sold);
 
   const preview = useMemo(
     () =>
@@ -155,6 +184,8 @@ export function OrderEditor({
           line.variant_id === row.variant_id ? { ...line, quantity: line.quantity + 1 } : line,
         );
       }
+      const wasSold = (sold ?? []).find((line) => line.variant_id === row.variant_id);
+      if (wasSold) return [...(current ?? []), { ...wasSold, quantity: 1 }];
       return [
         ...(current ?? []),
         {
@@ -164,6 +195,7 @@ export function OrderEditor({
           variant_title: [row.size, row.color].filter(Boolean).join(' / ') || null,
           quantity: 1,
           unit_price_egp: Number(row.price_egp),
+          discount_per_unit: 0,
         },
       ];
     });
@@ -196,7 +228,7 @@ export function OrderEditor({
         if (customerError) throw customerError;
       }
 
-      if (!moneyLocked) {
+      if (!moneyLocked && itemsChanged) {
         const { error: itemsError } = await supabase.rpc('update_order_items', {
           p_order_id: order.id,
           p_items: (lines ?? []).map((line) => ({
@@ -334,7 +366,7 @@ export function OrderEditor({
                     </span>
 
                     <span className="tabular w-24 text-end text-sm font-semibold">
-                      {formatEGP(Number(line.unit_price_egp) * line.quantity, locale)}
+                      {formatEGP(lineTotal(line), locale)}
                     </span>
                   </li>
                 ))}

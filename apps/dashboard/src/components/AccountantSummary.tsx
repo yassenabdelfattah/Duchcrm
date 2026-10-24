@@ -15,6 +15,9 @@ export interface StatementLine {
   customer_name: string | null;
   governorate: string | null;
   items: string | null;
+  order_id: string | null;
+  /** Where what Accurate wrote and what the CRM knows disagree; null when they agree. */
+  mismatch: 'not_back' | 'crm_delivered' | 'crm_returned' | 'crm_not_delivered' | null;
 }
 
 export interface ProductRow {
@@ -53,6 +56,10 @@ export interface StatementHeader {
  * Offered both ways because both get used: a copyable block for the message
  * that actually gets sent, and a printable sheet to go with the cash.
  */
+/** Money without the currency and the .00: easier to read in a chat message. */
+const PLAIN_NUMBER = new Intl.NumberFormat('en-EG', { maximumFractionDigits: 2 });
+const RULE = '--------------------';
+
 export function AccountantSummary({
   header,
   lines,
@@ -68,56 +75,29 @@ export function AccountantSummary({
   const [status, setStatus] = useState<'idle' | 'copied' | 'selected'>('idle');
   const messageBox = useRef<HTMLTextAreaElement>(null);
 
-  const deductions = lines.filter((l) => l.outcome !== 'delivered');
+  // Every charge, including the shipping on a delivery paid online.
+  const deductions = lines.filter((l) => l.outcome !== 'delivered' || Number(l.fee_egp) > 0);
 
+  // What he writes into his ledger and nothing else: each product, how many,
+  // what they came to, and a rule under it. The reference, the totals and the
+  // courier's deductions made the message hard to read (the owner,
+  // 2026-10-26); they are on the sheet below and the printout.
   const message = useMemo(() => {
-    if (!breakdown) return '';
+    const byProduct = new Map<string, { quantity: number; total: number }>();
+    for (const p of products) {
+      const row = byProduct.get(p.title) ?? { quantity: 0, total: 0 };
+      row.quantity += Number(p.quantity);
+      row.total += Number(p.total_egp);
+      byProduct.set(p.title, row);
+    }
+
     const out: string[] = [];
-
-    out.push(`${t('settlements.title')} — ${header.reference ?? ''}`.trim());
-    if (header.received_at) out.push(formatDate(header.received_at, locale));
-    out.push('');
-
-    if (products.length) {
-      out.push(`${t('settlements.products')}:`);
-      for (const p of products) {
-        out.push(
-          `${p.title} — ${p.quantity} × ${formatEGP(Number(p.unit_price_egp), locale)} = ${formatEGP(Number(p.total_egp), locale)}`,
-        );
-      }
-      out.push('');
+    for (const [title, row] of byProduct) {
+      out.push(`${title} * ${row.quantity} = ${PLAIN_NUMBER.format(row.total)}`);
+      out.push(RULE);
     }
-
-    // No shipping line. The customer paid it at the door and Accurate kept
-    // it, so it never reaches the transfer he is reconciling - printing it
-    // here only gives him a number he has to be told to ignore.
-    out.push(`${t('settlements.goodsTotal')}: ${formatEGP(Number(breakdown.goods_egp), locale)}`);
-    if (Number(breakdown.collection_difference_egp) !== 0) {
-      out.push(
-        `${t('settlements.collectionDifference')}: ${formatEGP(Number(breakdown.collection_difference_egp), locale)}`,
-      );
-    }
-    if (Number(breakdown.fees_egp) !== 0) {
-      out.push(
-        `${t('settlements.courierCharges')}: −${formatEGP(Number(breakdown.fees_egp), locale)}`,
-      );
-    }
-
-    if (deductions.length) {
-      out.push('');
-      out.push(`${t('settlements.debits')}:`);
-      for (const line of deductions) {
-        const who = [line.order_number, line.customer_name].filter(Boolean).join(' · ');
-        out.push(
-          `${who} · ${t(`settlementOutcome.${line.outcome}`)} — ${formatEGP(Number(line.fee_egp), locale)}`,
-        );
-      }
-    }
-
-    out.push('');
-    out.push(`${t('settlements.netLine')}: ${formatEGP(Number(breakdown.net_egp), locale)}`);
     return out.join('\n');
-  }, [breakdown, deductions, header, locale, products, t]);
+  }, [products]);
 
   /**
    * Copying has to work from a phone on the shop wifi.
@@ -168,6 +148,13 @@ export function AccountantSummary({
 
   return (
     <Card className="space-y-4">
+      {/* The page heading does not print; the sheet that goes with the cash
+          still has to say which statement it is. */}
+      <p className="hidden text-sm font-bold print:block">
+        {[header.reference, header.received_at ? formatDate(header.received_at, locale) : null]
+          .filter(Boolean)
+          .join(' · ')}
+      </p>
       <div className="no-print flex flex-wrap items-center gap-2">
         <h2 className="text-sm font-bold">{t('settlements.forAccountant')}</h2>
         <div className="ms-auto flex gap-2">

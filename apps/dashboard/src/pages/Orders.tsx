@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { ChevronDown, SlidersHorizontal, X } from 'lucide-react';
 import {
   PAYMENT_METHODS,
@@ -331,6 +331,7 @@ export function Orders() {
   const initial = useMemo(() => {
     const saved = readSavedView();
     const linked = params.get('tab') as TabKey | null;
+    if (params.get('q')) return { ...saved, filters: NO_FILTERS };
     return linked && TABS.includes(linked) ? { ...saved, tab: linked, filters: NO_FILTERS } : saved;
     // Read once, on arrival.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -338,7 +339,10 @@ export function Orders() {
   const [tab, setTab] = useState<TabKey>(initial.tab);
   const [filters, setFilters] = useState<Filters>(initial.filters);
   const [sort, setSort] = useState<SortKey>(initial.sort);
-  const [search, setSearch] = useState('');
+  // A link to one order (?q=#1413, from a statement) searches for it and
+  // opens it.
+  const [search, setSearch] = useState(() => params.get('q') ?? '');
+  const openLinked = useRef(Boolean(params.get('q')));
   const [limit, setLimit] = useState(PAGE_SIZE);
 
   const [rows, setRows] = useState<OrderRow[] | null>(null);
@@ -412,6 +416,9 @@ export function Orders() {
     const list = (data ?? []) as OrderRow[];
     setHasMore(list.length > limit);
     setRows(list.slice(0, limit));
+    const [only] = list;
+    if (openLinked.current && only && list.length === 1) setExpanded(only.id);
+    openLinked.current = false;
   }, [tab, filters, sort, term, limit]);
 
   useEffect(() => {

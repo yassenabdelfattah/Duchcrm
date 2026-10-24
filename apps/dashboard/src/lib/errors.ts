@@ -152,6 +152,7 @@ const BY_HINT: Record<string, string> = {
   order_on_settlement: 'الطلب مسجّل في كشف شركة الشحن وتمت محاسبته.',
   order_returned: 'الطلب مرتجع ومغلق.',
   duplicate_settlement_line: 'هذا الطلب موجود بالفعل في هذا الكشف.',
+  settlement_already_open: 'الكشف مفتوح للتعديل بالفعل.',
 };
 
 const BY_CODE: Record<string, string> = {

@@ -384,7 +384,25 @@
     "note": "Note on this statement",
     "noteHint": "Optional",
     "noteSaved": "Note saved.",
-    "adjustmentIncomplete": "Give it a description and an amount that is not zero."
+    "adjustmentIncomplete": "Give it a description and an amount that is not zero.",
+    "needsLook": "Needs a look",
+    "needsLookHelp": "Parcels the courier's statement says one thing about and the CRM another. Open the order and correct whichever is wrong.",
+    "checksCount": "{{count}} to check",
+    "reopen": "Reopen statement",
+    "reopenTitle": "Reopen this statement?",
+    "reopenHelp": "Its lines can then be corrected or removed. Orders it marked paid stay paid unless their line is removed or changed to a return. It closes again only when it balances.",
+    "reopenConfirm": "Reopen",
+    "reopened_toast": "The statement is open for corrections.",
+    "editLine": "Edit line",
+    "editLineTitle": "Edit {{tracking}}",
+    "searchLabel": "Search by shipment number, order number or customer",
+    "searchHint": "Or scan the label.",
+    "waitingSuggestions": "Not on a statement yet ({{count}})",
+    "useCode": "Add the code {{code}} as it is",
+    "addToStatement": "Add to statement",
+    "clearChoice": "Choose another parcel",
+    "showAdjustment": "Charge or credit on the statement",
+    "previewPrepaid": "Paid online: they collected nothing. Choose Delivered and enter what they took for shipping as the fee."
   },
   "settlementOutcome": {
     "delivered": "Delivered and collected",
@@ -392,6 +410,12 @@
     "returned_no_response": "No response",
     "returned_other": "Returned",
     "adjustment": "Adjustment"
+  },
+  "settlementMismatch": {
+    "not_back": "Returned on the statement, not checked in on Returns yet",
+    "crm_delivered": "Returned on the statement, delivered in the CRM",
+    "crm_returned": "Delivered on the statement, returned in the CRM",
+    "crm_not_delivered": "Delivered on the statement, still with the courier in the CRM"
   },
   "channel": {
     "store": "Shop",

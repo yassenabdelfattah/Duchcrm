@@ -23,10 +23,12 @@ export function Button({
   variant = 'primary',
   className,
   children,
+  ref,
   ...rest
-}: ButtonHTMLAttributes<HTMLButtonElement> & { variant?: ButtonVariant }) {
+}: ButtonHTMLAttributes<HTMLButtonElement> & { variant?: ButtonVariant; ref?: Ref<HTMLButtonElement> }) {
   return (
     <button
+      ref={ref}
       type="button"
       className={cx(
         // min-h-11 keeps every control at a comfortable thumb target on the
