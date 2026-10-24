@@ -25,7 +25,7 @@ most of the design.
 
 **Built and tested:** Phases 1, 2 and 3 complete, plus the staff screen.
 
-- 50 migrations, 25 pgTAP suites, **478 database assertions**
+- 51 migrations, 25 pgTAP suites, **480 database assertions**
 - **92 TypeScript assertions** (webhook HMAC, money arithmetic, invoice
   totals, Shopify token exchange, Cairo dates, sizes, Arabic errors, the
   Shopify order-edit plan)
@@ -440,7 +440,9 @@ had). Since 20261024090000, a Shopify cancellation of an order refused, on its
 way back or back only writes `shopify_closed_after_return` to its history, and
 `cancel_order` refuses such an order from any path. If Shopify's "restock"
 was ticked when cancelling, Shopify's own count goes up; the nightly check
-shows it, and "The CRM is right" puts it back.
+shows it, and "The CRM is right" puts it back. The orders/updated that comes
+with a Shopify cancellation (every line at zero) is ignored too
+(20261024100000) - it used to be flagged as "changed after shipping".
 
 **Tidying old orders in Shopify used to import them.** `orders/updated`
 for an unknown order creates it - but not one placed before

@@ -8,7 +8,7 @@
 -- ---------------------------------------------------------------------------
 
 begin;
-select plan(49);
+select plan(51);
 
 -- --- Fixtures --------------------------------------------------------------
 
@@ -509,6 +509,21 @@ select throws_ok(
   '23514',
   'Order #6007 is coming back or already back. Its stock returns when it is checked in.',
   'A returned order cannot be cancelled from anywhere: its stock comes back at the check-in');
+
+-- The orders/updated that comes with that cancellation: every line at zero.
+select is(
+  public.sync_shopify_order_lines(
+    pg_temp.web_order(6007, '2026-10-24T14:40:00+03:00', jsonb_build_array(pg_temp.line(88801, 'SYNC-A', 1, 0)))
+    || '{"cancelled_at": "2026-10-24T14:40:00+03:00"}'::jsonb
+  ) ->> 'result',
+  'cancelled_in_shopify',
+  'A cancelled Shopify order''s update is the cancellation, not an edit');
+
+select is(
+  (select count(*)::integer from public.sync_issues
+    where type = 'order_changed_in_shopify' and details ->> 'order_number' = '#6007'),
+  0,
+  '...so it raises no "changed after shipping" alarm');
 
 select * from finish();
 rollback;
