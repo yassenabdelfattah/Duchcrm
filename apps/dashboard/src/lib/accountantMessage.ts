@@ -7,9 +7,10 @@
  * 2026-10-26).
  *
  * It has to add up on paper: products less deductions is the transfer. Where
- * the two would not meet - an order discount, a parcel collected for a little
- * more or less than its goods - the gap is written as its own line rather
- * than left for him to find.
+ * the two would not meet - an order discount, Accurate charging more or less
+ * for shipping than the customer paid, a parcel collected for a little more
+ * or less than it should have been - the gap is written as its own line
+ * rather than left for him to find.
  */
 
 export interface MessageProduct {
@@ -26,6 +27,8 @@ export interface MessageLine {
   fee_egp: number;
   net_egp: number;
   note: string | null;
+  /** Shipping the customer paid at the door, inside what was collected; null on older lines. */
+  customer_shipping_egp?: number | null;
 }
 
 /** Money without the currency and the .00: easier to read in a chat message. */
@@ -76,7 +79,13 @@ export function accountantMessage(
   // What the courier took off: a return's fee, the shipping on a parcel paid
   // online, a charge on the whole statement. A credit on the statement is a
   // deduction with a minus.
+  //
+  // Not the shipping on a delivery the customer paid shipping for at the
+  // door: that was collected with the goods and charged straight back, and
+  // all it leaves is whatever Accurate charged above or below it - one line
+  // for the whole statement.
   const charges: { label: string; amount: number }[] = [];
+  let shippingDifference = 0;
   for (const line of lines) {
     const parcel = line.order_number ?? line.tracking_number ?? '';
     if (line.outcome === 'adjustment') {
@@ -84,10 +93,15 @@ export function accountantMessage(
         label: line.note ?? t('settlementOutcome.adjustment'),
         amount: Number(line.fee_egp) - Number(line.collected_egp),
       });
+    } else if (line.outcome === 'delivered' && Number(line.customer_shipping_egp) > 0) {
+      shippingDifference += Number(line.fee_egp) - Number(line.customer_shipping_egp);
     } else if (Number(line.fee_egp) > 0) {
       const what = line.outcome === 'delivered' ? t('settlements.shippingOf') : t(`settlementOutcome.${line.outcome}`);
       charges.push({ label: `${what} ${parcel}`.trim(), amount: Number(line.fee_egp) });
     }
+  }
+  if (cents(shippingDifference) !== 0) {
+    charges.push({ label: t('settlements.shippingGain'), amount: cents(shippingDifference) });
   }
 
   out.push(`${t('settlements.productsTotal')} = ${n(listed)}`);
@@ -99,7 +113,7 @@ export function accountantMessage(
   }
 
   // Whatever is left between the lines and the transfer: a parcel collected
-  // for a little more or less than its goods.
+  // for a little more or less than it should have been.
   const net = lines.reduce((sum, line) => sum + Number(line.net_egp), 0);
   const gap = cents(listed - charges.reduce((sum, charge) => sum + charge.amount, 0) - net);
   if (gap !== 0) charges.push({ label: t('settlements.collectionDifference'), amount: gap });

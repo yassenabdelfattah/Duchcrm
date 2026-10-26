@@ -106,6 +106,42 @@ describe('accountantMessage', () => {
     );
   });
 
+  it('sums what Accurate charged above or below the shipping customers paid into one line', () => {
+    // Entered as their statement reads: collected with the shipping, charged
+    // their fee. 90 paid and 95 charged; 150 paid and 140 charged.
+    const message = accountantMessage(
+      [
+        { title: 'Two-Strap Slipper', quantity: 1, total_egp: 500 },
+        { title: 'Brown Baseball Leather Jacket', quantity: 1, total_egp: 700 },
+      ],
+      [
+        line({ order_number: '#1401', collected_egp: 590, fee_egp: 95, customer_shipping_egp: 90 }),
+        line({ order_number: '#1411', collected_egp: 850, fee_egp: 140, customer_shipping_egp: 150 }),
+        line({ outcome: 'returned_other', order_number: '#1413', fee_egp: 15, customer_shipping_egp: 110 }),
+      ],
+      t,
+      1200,
+    );
+
+    expect(message).toBe(
+      [
+        'Two-Strap Slipper * 1 = 500',
+        '--------------------',
+        'Brown Baseball Leather Jacket * 1 = 700',
+        '--------------------',
+        'اجمالي المنتجات = 1,200',
+        '--------------------',
+        'خصومات',
+        'مرتجعة #1413 = 15',
+        'فرق الشحن = -5',
+        '--------------------',
+        'اجمالي الخصومات = 10',
+        '--------------------',
+        'صافي التحويل = 1,190',
+      ].join('\n'),
+    );
+  });
+
   it('names a code the CRM does not know by its code, and has no deductions block without deductions', () => {
     const message = accountantMessage([], [line({ tracking_number: 'N193892', collected_egp: 570 })], t);
 

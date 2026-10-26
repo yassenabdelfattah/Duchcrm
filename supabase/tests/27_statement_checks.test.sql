@@ -50,7 +50,7 @@ select public.add_settlement_line('a7a7a7a7-0000-0000-0000-0000000000f1', 'ACC-C
 select public.add_settlement_line('a7a7a7a7-0000-0000-0000-0000000000f1', 'ACC-CHECK-2', 'returned_other', null, 70);
 select public.add_settlement_line('a7a7a7a7-0000-0000-0000-0000000000f1', 'ACC-CHECK-3', 'returned_refused', null, 70);
 select public.add_settlement_line('a7a7a7a7-0000-0000-0000-0000000000f1', 'ACC-CHECK-4', 'delivered');
-select public.add_settlement_line('a7a7a7a7-0000-0000-0000-0000000000f1', 'ACC-CHECK-5', 'delivered', null, 0, 'checked by phone');
+select public.add_settlement_line('a7a7a7a7-0000-0000-0000-0000000000f1', 'ACC-CHECK-5', 'delivered', p_note => 'checked by phone');
 
 create temporary table line_of (n int, line_id uuid) on commit drop;
 insert into line_of
@@ -186,7 +186,7 @@ select is(
 -- --- Closing again ------------------------------------------------------------------
 
 select public.add_settlement_line('a7a7a7a7-0000-0000-0000-0000000000f1', 'ACC-CHECK-1', 'delivered');
-update public.courier_settlements set net_received_egp = 850.00
+update public.courier_settlements set net_received_egp = 780.00
  where id = 'a7a7a7a7-0000-0000-0000-0000000000f1';
 
 select is(

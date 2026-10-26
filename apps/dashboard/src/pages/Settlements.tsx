@@ -33,7 +33,12 @@ interface ParcelPreview {
   order_number?: string;
   customer_name?: string | null;
   goods_egp?: number;
+  /** What their statement should say they collected for it, delivered. */
   expected_egp?: number;
+  /** The shipping the customer paid at the door - 0 when paid online. */
+  door_shipping_egp?: number;
+  /** What their statement should say they charged: the shipping the customer was charged. */
+  fee_egp?: number;
   already_on?: string | null;
   fulfillment_status?: string;
   /** Paid before it left: the courier had nothing to collect. */
@@ -46,6 +51,18 @@ interface ParcelPreview {
     unit_price_egp: number;
     total_egp: number;
   }>;
+}
+
+/**
+ * What their statement should say for a parcel, filled into the boxes to be
+ * checked against the paper: a delivery collected the goods and the shipping
+ * and was charged the shipping; a return collected nothing, and its fee is
+ * whatever they wrote.
+ */
+function suggestedAmounts(outcome: string, parcel: ParcelPreview | null): { collected: string; fee: string } {
+  if (outcome !== 'delivered') return { collected: '0', fee: '' };
+  if (!parcel?.found) return { collected: '', fee: '' };
+  return { collected: String(Number(parcel.expected_egp ?? 0)), fee: String(Number(parcel.fee_egp ?? 0)) };
 }
 
 /**
@@ -573,11 +590,18 @@ function SettlementDetail({
         const found = (data ?? null) as ParcelPreview | null;
         setPreview(found);
         // Back with us already: most likely a return on their paper too.
-        if (found?.fulfillment_status === 'returned' || found?.fulfillment_status === 'return_in_transit') {
-          setOutcome('returned_other');
-        }
+        const next =
+          found?.fulfillment_status === 'returned' || found?.fulfillment_status === 'return_in_transit'
+            ? 'returned_other'
+            : 'delivered';
+        const amounts = suggestedAmounts(next, found);
+        setOutcome(next);
+        setCollected(amounts.collected);
+        setFee(amounts.fee);
+        // Only now, with the parcel on screen: focused any sooner, the Enter
+        // that chose it would also press Add, and it would go on unchecked.
+        addButton.current?.focus();
       });
-    addButton.current?.focus();
 
     return () => {
       cancelled = true;
@@ -618,7 +642,7 @@ function SettlementDetail({
         // Blank means "use what the order says", which is the whole point of
         // keying only the code for a normal delivered line.
         p_collected_egp: collected === '' ? null : Number(collected),
-        p_fee_egp: fee === '' ? 0 : Number(fee),
+        p_fee_egp: fee === '' ? null : Number(fee),
         p_note: lineNote.trim() || null,
       });
 
@@ -700,6 +724,10 @@ function SettlementDetail({
   const isDraft = header.status === 'draft';
   const difference = Number(header.difference_egp);
   const balanced = Math.abs(difference) <= 0.009;
+  // What customers paid for shipping at the door against what Accurate
+  // charged for it: made when positive, lost when negative.
+  const shippingGain =
+    Math.round(lines.reduce((sum, line) => sum + Number(line.shipping_gain_egp ?? 0), 0) * 100) / 100;
 
   return (
     <div className="space-y-4">
@@ -824,7 +852,12 @@ function SettlementDetail({
                   <button
                     key={value}
                     type="button"
-                    onClick={() => setOutcome(value)}
+                    onClick={() => {
+                      const amounts = suggestedAmounts(value, preview);
+                      setOutcome(value);
+                      setCollected(amounts.collected);
+                      setFee(amounts.fee);
+                    }}
                     className={cx(
                       'min-h-11 rounded-lg border px-3 text-xs font-semibold transition-colors',
                       outcome === value
@@ -1011,6 +1044,20 @@ function SettlementDetail({
                     )}
                   >
                     {formatEGP(Number(line.net_egp), locale)}
+                    {/* Charged something other than the customer paid for it. */}
+                    {line.shipping_gain_egp != null && Number(line.shipping_gain_egp) !== 0 ? (
+                      <span
+                        className={cx(
+                          'block text-xs font-semibold',
+                          Number(line.shipping_gain_egp) < 0 ? 'text-red-700' : 'text-emerald-700',
+                        )}
+                      >
+                        {t('settlements.shippingLine', {
+                          paid: formatEGP(Number(line.customer_shipping_egp), locale),
+                          charged: formatEGP(Number(line.fee_egp), locale),
+                        })}
+                      </span>
+                    ) : null}
                   </td>
                   {isDraft ? (
                     <td className="no-print whitespace-nowrap px-4 py-3 text-end">
@@ -1052,6 +1099,16 @@ function SettlementDetail({
             strong
           />
         </dl>
+
+        {/* Already inside their fees, so said in words rather than as one
+            more line to subtract. */}
+        {shippingGain !== 0 ? (
+          <p className={cx('text-xs font-semibold', shippingGain < 0 ? 'text-red-700' : 'text-emerald-700')}>
+            {t(shippingGain < 0 ? 'settlements.shippingLoss' : 'settlements.shippingProfit', {
+              amount: formatEGP(Math.abs(shippingGain), locale),
+            })}
+          </p>
+        ) : null}
 
         {isDraft ? (
           <div className="no-print flex flex-wrap items-end gap-3 border-t border-duch-line pt-3">
@@ -1351,9 +1408,19 @@ function ParcelCard({ preview }: { preview: ParcelPreview }) {
           <dt className="text-stone-500">{t('settlements.previewGoods')}</dt>
           <dd className="tabular">{formatEGP(Number(preview.goods_egp ?? 0), locale)}</dd>
         </div>
+        {Number(preview.door_shipping_egp ?? 0) > 0 ? (
+          <div className="flex justify-between">
+            <dt className="text-stone-500">{t('settlements.previewShipping')}</dt>
+            <dd className="tabular">{formatEGP(Number(preview.door_shipping_egp), locale)}</dd>
+          </div>
+        ) : null}
         <div className="flex justify-between text-sm font-bold">
           <dt>{t('settlements.previewExpects')}</dt>
           <dd className="tabular">{formatEGP(Number(preview.expected_egp ?? 0), locale)}</dd>
+        </div>
+        <div className="flex justify-between">
+          <dt className="text-stone-500">{t('settlements.previewFee')}</dt>
+          <dd className="tabular">{formatEGP(Number(preview.fee_egp ?? 0), locale)}</dd>
         </div>
       </dl>
     </div>

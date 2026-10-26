@@ -19,6 +19,10 @@ export interface StatementLine {
   order_id: string | null;
   /** Where what Accurate wrote and what the CRM knows disagree; null when they agree. */
   mismatch: 'not_back' | 'crm_delivered' | 'crm_returned' | 'crm_not_delivered' | null;
+  /** Shipping the customer paid at the door; null on lines entered before 2026-10-27. */
+  customer_shipping_egp: number | null;
+  /** That shipping less what Accurate charged for it, on a delivery. */
+  shipping_gain_egp: number | null;
 }
 
 export interface ProductRow {
@@ -34,6 +38,8 @@ export interface Breakdown {
   fees_egp: number;
   net_egp: number;
   collection_difference_egp: number;
+  /** The shipping customers paid at the door, inside what was collected. */
+  customer_shipping_egp: number;
 }
 
 export interface StatementHeader {
@@ -72,8 +78,11 @@ export function AccountantSummary({
   const [status, setStatus] = useState<'idle' | 'copied' | 'selected'>('idle');
   const messageBox = useRef<HTMLTextAreaElement>(null);
 
-  // Every charge, including the shipping on a delivery paid online.
-  const deductions = lines.filter((l) => l.outcome !== 'delivered' || Number(l.fee_egp) > 0);
+  // Every charge but the shipping on a delivery the customer paid shipping
+  // for at the door - that is in the shipping line above, not a deduction.
+  const deductions = lines.filter(
+    (l) => l.outcome !== 'delivered' || (Number(l.fee_egp) > 0 && !(Number(l.customer_shipping_egp) > 0)),
+  );
 
   const message = useMemo(
     () => accountantMessage(products, lines, t, breakdown ? Number(breakdown.goods_egp) : undefined),
@@ -186,6 +195,12 @@ export function AccountantSummary({
       {/* How those products become the figure that reached the bank. */}
       <dl className="space-y-1 border-t border-duch-line pt-3 text-sm">
         <Line label={t('settlements.goodsTotal')} value={formatEGP(Number(breakdown.goods_egp), locale)} />
+        {Number(breakdown.customer_shipping_egp) !== 0 ? (
+          <Line
+            label={t('settlements.shippingTotal')}
+            value={formatEGP(Number(breakdown.customer_shipping_egp), locale)}
+          />
+        ) : null}
         {Number(breakdown.collection_difference_egp) !== 0 ? (
           <Line
             label={t('settlements.collectionDifference')}

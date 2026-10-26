@@ -63,19 +63,18 @@ values ('b2b2b2b2-0000-0000-0000-0000000000f1', 'ACC-STMT-9001',
         current_date, current_date, 900.00);
 
 -- A delivered line needs only the courier's code: the CRM already knows what
--- that parcel was worth, so the collected amount fills itself in.
+-- that parcel was worth, so it fills itself in.
 --
--- It fills in the GOODS, not what the customer handed over. Accurate keeps
--- the shipping fee the customer pays at the door, so on a 1,000 tee with 70
--- shipping the customer pays 1,070, Accurate keeps the 70, and 1,000 reaches
--- the bank. The 70 was never Duch's money, and there is no courier fee to
--- deduct from a delivered parcel because the customer already paid it.
+-- As Accurate's statement reads (2026-10-27): on a 1,000 tee with 70 shipping
+-- they collected 1,070 at the door and charge 70 to carry it, and 1,000
+-- reaches the bank. Where they charge something other than what the customer
+-- paid, that fee is the one figure to correct.
 select is(
-  (select (public.add_settlement_line(
-     'b2b2b2b2-0000-0000-0000-0000000000f1', 'ACC-SETTLE-0001', 'delivered', null, 0
-   )).collected_egp),
-  1000.00::numeric,
-  'A delivered line pre-fills the goods value, not what the customer handed over'
+  (select row(collected_egp, fee_egp, net_egp)::text from public.add_settlement_line(
+     'b2b2b2b2-0000-0000-0000-0000000000f1', 'ACC-SETTLE-0001', 'delivered'
+   )),
+  row(1070.00::numeric(12, 2), 70.00::numeric(12, 2), 1000.00::numeric(12, 2))::text,
+  'A delivered line fills in what they collected and the shipping they charge, netting the goods'
 );
 
 select is(
@@ -241,7 +240,7 @@ values ('b2b2b2b2-0000-0000-0000-0000000000f2', 'ACC-STMT-9002', current_date, 5
 
 select is(
   (select (public.add_settlement_line(
-     'b2b2b2b2-0000-0000-0000-0000000000f2', 'ACC-SETTLE-0003', 'delivered', null, 0
+     'b2b2b2b2-0000-0000-0000-0000000000f2', 'ACC-SETTLE-0003', 'delivered'
    )).net_egp),
   500.00::numeric,
   'A delivered line brings in the goods value'
@@ -261,8 +260,8 @@ select is(
      (select id from public.settlement_lines where tracking_number = 'ACC-SETTLE-0003'),
      null, null, 100
    )).net_egp),
-  400.00::numeric,
-  'A mis-keyed fee can be corrected in place'
+  470.00::numeric,
+  'A fee they charged differently is corrected in place'
 );
 
 select is_empty(
@@ -292,9 +291,8 @@ select throws_ok(
 -- --- What the money was for -----------------------------------------------
 --
 -- The accountant records products and prices, not order numbers. The rollup
--- has to tie out: goods less what the courier charged equals the transfer.
--- Shipping is not in it at all - the customer paid it at the door and
--- Accurate kept it, so it never reaches the transfer being reconciled.
+-- has to tie out: goods and the shipping customers paid at the door, less
+-- what the courier charged, equals the transfer.
 
 select is(
   (select title from public.v_settlement_products
@@ -318,11 +316,11 @@ select is(
 );
 
 select is(
-  (select goods_egp - fees_egp from public.v_settlement_breakdown
+  (select goods_egp + customer_shipping_egp - fees_egp from public.v_settlement_breakdown
     where settlement_id = 'b2b2b2b2-0000-0000-0000-0000000000f1'),
   (select net_egp from public.v_settlement_breakdown
     where settlement_id = 'b2b2b2b2-0000-0000-0000-0000000000f1'),
-  'Goods less the courier charges equals the transfer'
+  'Goods and shipping less the courier charges equals the transfer'
 );
 
 select is(
