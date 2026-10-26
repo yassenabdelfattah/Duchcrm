@@ -4,6 +4,7 @@ import { useGetIdentity, useLogout } from '@refinedev/core';
 import {
   Boxes,
   ChartColumn,
+  History,
   House,
   LayoutGrid,
   LogOut,
@@ -50,13 +51,15 @@ const NAV_ITEMS: NavItem[] = [
   { to: '/', labelKey: 'nav.dashboard', permissions: null, icon: House },
   { to: '/returns', labelKey: 'nav.returns', permissions: ['returns.manage', 'orders.read'], icon: Undo2 },
   { to: '/reports', labelKey: 'nav.reports', permissions: ['reports.read'], icon: ChartColumn },
+  // Mostly stock movements, so whoever counts stock reads it too.
+  { to: '/log', labelKey: 'nav.log', permissions: ['reports.read', 'stock.adjust'], icon: History },
   { to: '/settlements', labelKey: 'nav.settlements', permissions: ['settlements.manage'], icon: Wallet },
   { to: '/sync', labelKey: 'nav.sync', permissions: ['sync.manage'], icon: RefreshCw },
   { to: '/staff', labelKey: 'nav.staff', permissions: ['staff.manage'], icon: Users },
 ];
 
 /** The desktop menu keeps the order people know: home first. */
-const DESKTOP_ORDER = ['/', '/sell', '/orders', '/queue', '/returns', '/stock', '/reports', '/settlements', '/sync', '/staff'];
+const DESKTOP_ORDER = ['/', '/sell', '/orders', '/queue', '/returns', '/stock', '/reports', '/log', '/settlements', '/sync', '/staff'];
 
 const BASE_TITLE = 'دش - نظام الإدارة';
 

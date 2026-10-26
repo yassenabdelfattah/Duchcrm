@@ -15,6 +15,7 @@ import { Orders } from './pages/Orders';
 import { PackingQueue } from './pages/PackingQueue';
 import { Pending } from './pages/Pending';
 import { Reports } from './pages/Reports';
+import { Log } from './pages/Log';
 import { Returns } from './pages/Returns';
 import { Settlements } from './pages/Settlements';
 import { Staff } from './pages/Staff';
@@ -116,6 +117,7 @@ function RefineApp() {
             {/* Products and stock are one page now; old links still land. */}
             <Route path="/products" element={<Navigate to="/stock" replace />} />
             <Route path="/reports" element={<Reports />} />
+            <Route path="/log" element={<Log />} />
             <Route path="/sync" element={<SyncIssues />} />
             <Route path="/staff" element={<Staff />} />
           </Route>

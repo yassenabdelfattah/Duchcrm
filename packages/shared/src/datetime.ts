@@ -42,6 +42,24 @@ export function formatDateTime(value: string | Date, locale: 'ar' | 'en' = 'en')
     .replace(DIRECTION_MARKS, '');
 }
 
+/** The time of day alone, for a list already grouped under its date. */
+export function formatTime(value: string | Date, locale: 'ar' | 'en' = 'en'): string {
+  const date = typeof value === 'string' ? new Date(value) : value;
+  if (Number.isNaN(date.getTime())) return '';
+  return formatter(locale, { timeStyle: 'short' }, 'time')
+    .format(date)
+    .replace(DIRECTION_MARKS, '');
+}
+
+/** A day as a heading: the weekday, the day and the month spelled out. */
+export function formatDay(value: string | Date, locale: 'ar' | 'en' = 'en'): string {
+  const date = typeof value === 'string' ? new Date(value) : value;
+  if (Number.isNaN(date.getTime())) return '';
+  return formatter(locale, { weekday: 'long', day: 'numeric', month: 'long' }, 'day')
+    .format(date)
+    .replace(DIRECTION_MARKS, '');
+}
+
 export function formatDate(value: string | Date, locale: 'ar' | 'en' = 'en'): string {
   const date = typeof value === 'string' ? new Date(value) : value;
   if (Number.isNaN(date.getTime())) return '';
