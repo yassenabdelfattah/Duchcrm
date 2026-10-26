@@ -28,7 +28,8 @@
     "more": "More",
     "newOrderSound": "New order sound",
     "on": "On",
-    "off": "Off"
+    "off": "Off",
+    "log": "Log"
   },
   "auth": {
     "signIn": "Sign in",
@@ -670,6 +671,295 @@
     "unsettledTotal": "Total owed",
     "unsettledAmount": "Amount"
   },
+  "analytics": {
+    "title": "Reports",
+    "empty": "Nothing in this period.",
+    "total": "Total",
+    "showAll": "Show all ({{count}})",
+    "showLess": "Show fewer",
+    "download": "Download Excel",
+    "noCompare": "Nothing to compare with",
+    "points": "{{count}} points",
+    "details": "Details",
+    "table": "The numbers",
+    "all": "All",
+    "yes": "Yes",
+    "from": "From",
+    "to": "To",
+    "comparedWith": "Compared with {{from}} – {{to}}",
+    "preset": {
+      "today": "Today",
+      "yesterday": "Yesterday",
+      "last7": "Last 7 days",
+      "last30": "Last 30 days",
+      "last90": "Last 90 days",
+      "thisMonth": "This month",
+      "lastMonth": "Last month"
+    },
+    "thisPeriod": "This period",
+    "previousPeriod": "Previous period",
+    "netOverTime": "Net sales over time",
+    "netHelp": "Ordered, less discounts, less what came back on the day it came back. Cancelled orders never count.",
+    "topProducts": "Best sellers",
+    "topAreas": "Top governorates",
+    "pieces": "{{count}} pcs",
+    "unknownArea": "Not recorded",
+    "refusedShort": "{{rate}} refused",
+    "parcelsNow": "{{count}} parcels now",
+    "ordersNow": "{{count}} orders",
+    "rightNow": "Right now",
+    "daysCount": "{{count}} days",
+    "kpi": {
+      "net": "Net sales",
+      "orders": "Orders",
+      "averageOrder": "Average order",
+      "units": "Pieces ordered",
+      "deliveryRate": "Delivery rate",
+      "refusalRate": "Refusal rate",
+      "withCourier": "With the courier",
+      "owed": "Delivered, not paid",
+      "refused": "Refused orders",
+      "salesLost": "Sales lost to refusals",
+      "refusalFees": "Return fees",
+      "parcels": "Parcels with the courier",
+      "pieces": "Pieces",
+      "late": "Late",
+      "oldest": "Oldest",
+      "returnsAwaiting": "Returns awaiting a statement",
+      "received": "Received from the courier",
+      "courierFees": "Courier fees",
+      "shippingDifference": "Shipping difference",
+      "onHand": "On hand",
+      "piecesOut": "Pieces out",
+      "overdue": "Overdue",
+      "newCustomers": "New customers",
+      "returningCustomers": "Returning customers",
+      "returningShare": "Returning share",
+      "returningValue": "Bought by returning customers",
+      "stockValue": "Stock value at cost",
+      "costed": "Pieces with a cost"
+    },
+    "group": {
+      "sales": "Sales",
+      "areas": "Areas & refusals",
+      "money": "Money & courier",
+      "stock": "Stock & customers"
+    },
+    "report": {
+      "sales": {
+        "title": "Sales over time",
+        "help": "Day by day: ordered, discounts, returns, net."
+      },
+      "products": {
+        "title": "Sales by product",
+        "help": "Best and worst sellers, and how much of each came back."
+      },
+      "sizes": {
+        "title": "Sizes & colours",
+        "help": "Which sizes and colours sell - what to make more of."
+      },
+      "channels": {
+        "title": "Channels & payment",
+        "help": "Website, shop, social media, and how they paid."
+      },
+      "governorates": {
+        "title": "Governorates",
+        "help": "Orders and refusal rate in each governorate."
+      },
+      "refusals": {
+        "title": "Refusals & returns",
+        "help": "Why things come back, what it costs, and who refuses."
+      },
+      "courier": {
+        "title": "With the courier now",
+        "help": "Every parcel out and not yet delivered or back."
+      },
+      "owed": {
+        "title": "Owed by the courier",
+        "help": "Delivered and not on a statement yet."
+      },
+      "statements": {
+        "title": "Courier statements",
+        "help": "What arrived, fees, and the shipping difference."
+      },
+      "stock": {
+        "title": "Stock health",
+        "help": "Sold out, running low, and sitting unsold."
+      },
+      "takenOut": {
+        "title": "Pieces taken out",
+        "help": "Photoshoots, gifts, the factory: who has them, since when."
+      },
+      "customers": {
+        "title": "Customers",
+        "help": "New and returning, and who buys most."
+      },
+      "valuation": {
+        "title": "Stock value",
+        "help": "Stock at cost."
+      }
+    },
+    "grain": {
+      "day": "Day",
+      "week": "Week",
+      "month": "Month"
+    },
+    "view": {
+      "product": "Product",
+      "variant": "Variant",
+      "size": "Size",
+      "color": "Colour"
+    },
+    "col": {
+      "orders": "Orders",
+      "units": "Pieces",
+      "gross": "Gross sales",
+      "discounts": "Discounts",
+      "returns": "Returns",
+      "net": "Net",
+      "unitsSold": "Sold",
+      "unitsBack": "Back",
+      "returnRate": "Return rate",
+      "ordered": "Ordered value",
+      "average": "Average order",
+      "delivered": "Delivered",
+      "refused": "Refused",
+      "refusalRate": "Refusal rate",
+      "open": "Open",
+      "channel": "Channel",
+      "payment": "Payment",
+      "governorate": "Governorate",
+      "reason": "Reason",
+      "pieces": "Pieces",
+      "value": "Value",
+      "customer": "Customer",
+      "prepay": "Prepays",
+      "order": "Order",
+      "tracking": "Shipment",
+      "status": "Status",
+      "days": "Days",
+      "goods": "Goods",
+      "statement": "Statement",
+      "date": "Date",
+      "collected": "Collected",
+      "fees": "Fees",
+      "received": "Received",
+      "product": "Product",
+      "onHand": "On hand",
+      "sold30": "Sold, 30 days",
+      "cover": "Lasts",
+      "state": "State",
+      "who": "Who has it",
+      "why": "Why",
+      "stillOut": "Still out",
+      "since": "Since",
+      "backBy": "Back by",
+      "cost": "Cost"
+    },
+    "mostSales": "Highest net sales",
+    "mostPieces": "Most pieces",
+    "byChannel": "By channel",
+    "byPayment": "By payment method",
+    "ordersByArea": "Orders by governorate",
+    "areaHelp": "Refusal rate of the orders that finished (delivered or refused).",
+    "unknownAreaNote": "{{count}} of {{total}} orders have no governorate recorded and are not counted here.",
+    "ofFinished": "of {{count}} finished orders",
+    "salesLostHint": "Value of the orders refused",
+    "refusalFeesHint": "From the courier's statements in the period",
+    "byReason": "By reason",
+    "returnType": {
+      "failed_delivery": "Refused",
+      "post_delivery": "Returned after delivery",
+      "exchange": "Exchange"
+    },
+    "whoRefuses": "Customers who refuse",
+    "whoRefusesHelp": "Across every order since the CRM started - to decide who should prepay.",
+    "lateHint": "Longer than usual",
+    "courierHelp": "Days since the courier collected it. Red has been out longer than usual.",
+    "returnsAwaitingHint": "Came back, their fee not on a statement yet",
+    "owedHelp": "Two weeks and still not on a statement: ask the courier about it.",
+    "statementsCount": "{{count}} statements",
+    "shippingDifferenceHint": "Shipping customers paid, less what the courier charged",
+    "noStatements": "No statements in this period.",
+    "stockState": {
+      "out": "Sold out",
+      "low": "Running low",
+      "slow": "Not selling",
+      "ok": "Fine"
+    },
+    "stockHint": {
+      "out": "None left, and it sold in the last 30 days",
+      "low": "Under two weeks left",
+      "slow": "In stock, none sold in 30 days"
+    },
+    "stockHelp": "At the pace of the last 30 days, after returns. Tap a code for its history.",
+    "takenOutHelp": "Everything taken out that has not come back.",
+    "nothingOut": "Nothing is out right now.",
+    "sinceCrm": "Since the CRM started - orders before it are not known.",
+    "topCustomers": "Top customers",
+    "noCosts": "No piece has a cost yet, so the value is zero. Enter costs on the Stock page to see stock value and profit."
+  },
+  "log": {
+    "title": "Log",
+    "help": "Every piece in or out of stock and every change to an order: when, who, and where the piece went or why.",
+    "search": "Search product, SKU, order number, customer or staff",
+    "filter": {
+      "all": "All",
+      "sales": "Sales",
+      "back": "Back on the shelf",
+      "out": "Taken out",
+      "counts": "Counts & fixes",
+      "received": "Received",
+      "orders": "Order changes"
+    },
+    "count": "{{count}} lines",
+    "more": "Show more",
+    "empty": "Nothing matches.",
+    "system": "System",
+    "with": "With {{name}}",
+    "what": {
+      "online_order": "Sold on the website",
+      "store_sale": "Sold",
+      "store_sale_store": "Sold in the shop",
+      "store_sale_dm": "Sold on social media",
+      "wholesale": "Sold wholesale",
+      "cancellation": "Back on the shelf · order cancelled",
+      "return": "Back on the shelf · return",
+      "return_manual": "Back on the shelf · by hand",
+      "return_shopify": "Back on the shelf · refunded in Shopify",
+      "stock_out": "Taken out · {{reason}}",
+      "stock_out_return": "Back from {{reason}}",
+      "order_edit": "Order items edited",
+      "shopify_order_edit": "Order edited in Shopify",
+      "sync_issue": "Count corrected from Shopify",
+      "stock_count": "Stock count",
+      "pre_crm_cleanup": "Pre-CRM order cleaned up",
+      "adjustment": "Adjusted by hand",
+      "initial_import": "Opening stock from Shopify",
+      "production_in": "Received",
+      "created": "New order",
+      "payment": "Payment: {{status}}",
+      "items_edited": "Items edited",
+      "edited": "Order edited",
+      "shopify_synced": "Edit sent to Shopify",
+      "shopify_closed_after_return": "Closed in Shopify after the return",
+      "payment_reopened": "Back to unpaid",
+      "payment_corrected": "Payment corrected",
+      "confirmation_call": "Confirmation call",
+      "exchange": "Exchange"
+    },
+    "note": {
+      "customer": "Customer asked",
+      "inventory": "Out of stock",
+      "fraud": "Fraud",
+      "declined": "Payment declined",
+      "other": "Other",
+      "before_crm": "Order from before the CRM",
+      "edited_in_shopify": "Edited in Shopify",
+      "cancelled_before_pickup": "Cancelled by the customer before the courier collected it",
+      "refund_no_money": "A Shopify edit recorded as a refund; no money moved"
+    }
+  },
   "custody": {
     "parcels": "Parcels with courier",
     "units": "Units outside",
@@ -840,7 +1130,8 @@
     "reports": "Reports",
     "settlements": "Settlements",
     "sync": "Sync",
-    "staff": "Staff"
+    "staff": "Staff",
+    "log": "Log"
   },
   "home": {
     "morning": "Good morning",
