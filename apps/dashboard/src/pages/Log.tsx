@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router';
+import { ReceiptText } from 'lucide-react';
 import { formatDay, formatTime } from '@duch/shared';
 import { supabase } from '../lib/supabase';
 import { arabicError } from '../lib/errors';
@@ -180,20 +181,24 @@ function LogLine({ row, onSearch }: { row: LogRow; onSearch: (value: string) => 
 
   return (
     <div className="flex items-start gap-3 px-4 py-3">
-      {/* The change in stock where there is one; a dot for a change to an order. */}
-      <span
-        className={cx(
-          'tabular mt-0.5 inline-flex min-w-11 shrink-0 justify-center rounded-lg px-2 py-1 text-sm font-extrabold',
-          delta === null
-            ? 'bg-stone-100 text-stone-400'
-            : delta < 0
-              ? 'bg-red-50 text-red-700'
-              : 'bg-emerald-50 text-emerald-700',
-        )}
-        dir="ltr"
-      >
-        {delta === null ? '•' : delta > 0 ? `+${delta}` : delta}
-      </span>
+      {/* The change in stock where there is one. A change to an order moves no
+          stock - its pieces are the separate line beside it - so it gets an
+          icon rather than anything that reads as a quantity of nought. */}
+      {delta === null ? (
+        <span className="mt-0.5 inline-flex min-w-11 shrink-0 justify-center rounded-lg bg-stone-100 px-2 py-1.5 text-stone-500">
+          <ReceiptText className="h-4 w-4" aria-hidden />
+        </span>
+      ) : (
+        <span
+          className={cx(
+            'tabular mt-0.5 inline-flex min-w-11 shrink-0 justify-center rounded-lg px-2 py-1 text-sm font-extrabold',
+            delta < 0 ? 'bg-red-50 text-red-700' : 'bg-emerald-50 text-emerald-700',
+          )}
+          dir="ltr"
+        >
+          {delta > 0 ? `+${delta}` : delta}
+        </span>
+      )}
 
       <div className="min-w-0 flex-1 space-y-0.5">
         <p className="text-sm font-semibold">{logTitle(row, t)}</p>
