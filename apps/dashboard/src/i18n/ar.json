@@ -568,6 +568,7 @@
     "pickedUpInStore": "استلم من المحل",
     "customerReceived": "استلمها العميل",
     "cancel": "إلغاء الطلب",
+    "return": "إرجاع",
     "cancelTitle": "إلغاء الطلب {{orderNumber}}",
     "cancelHelp": "ستعود القطع إلى المخزون.",
     "cancelShopify": "وسيُلغى الطلب على شوبيفاي أيضاً، دون إرسال بريد للعميل.",

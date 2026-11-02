@@ -568,6 +568,7 @@
     "pickedUpInStore": "Collected in the shop",
     "customerReceived": "Customer received it",
     "cancel": "Cancel order",
+    "return": "Return",
     "cancelTitle": "Cancel order {{orderNumber}}",
     "cancelHelp": "The items go back into stock.",
     "cancelShopify": "It is cancelled in Shopify too, without emailing the customer.",

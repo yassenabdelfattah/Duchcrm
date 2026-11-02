@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { can, formatDate } from '@duch/shared';
 import { useGetIdentity } from '@refinedev/core';
+import { useSearchParams } from 'react-router';
 import { supabase } from '../lib/supabase';
 import { arabicError } from '../lib/errors';
 import { sendOrderToShopify } from '../lib/shopifySync';
@@ -306,6 +307,17 @@ export function Returns() {
   useBarcodeScanner((scanned) => void find(scanned), {
     enabled: mayCheckIn && !lookup && !looking && !scanBoxFocused,
   });
+
+  // Sent here from an order's إرجاع button (?q=the order number): that order
+  // opens as if it had been typed in. Taken off the address once read, so a
+  // reload does not open it again.
+  const [params, setParams] = useSearchParams();
+  const linked = params.get('q');
+  useEffect(() => {
+    if (!linked || !mayCheckIn) return;
+    setParams({}, { replace: true });
+    void find(linked);
+  }, [linked, mayCheckIn, find, setParams]);
 
   return (
     <div className="space-y-4">

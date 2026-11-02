@@ -10,7 +10,7 @@ import {
   type PaymentMethod,
 } from '@duch/shared';
 import { useGetIdentity } from '@refinedev/core';
-import { useSearchParams } from 'react-router';
+import { useNavigate, useSearchParams } from 'react-router';
 import { supabase } from '../lib/supabase';
 import { arabicError } from '../lib/errors';
 import type { StaffIdentity } from '../providers/authProvider';
@@ -259,8 +259,16 @@ interface Permissions {
   mayDeliver: boolean;
   mayCancel: boolean;
   mayExchange: boolean;
+  mayReturn: boolean;
   isOwner: boolean;
 }
+
+/**
+ * Where an order can be taken back from: out with a courier or driver, on its
+ * way back, or already with the customer. Before it leaves it is cancelled
+ * instead. The same statuses the returns lookup accepts.
+ */
+const RETURNABLE = new Set(['in_transit', 'out_for_delivery', 'delivery_failed', 'return_in_transit', 'delivered']);
 
 /**
  * Which of the money and delivery steps an order offers this person. One
@@ -321,6 +329,7 @@ export function Orders() {
       can(identity?.permissions, 'orders.edit') &&
       can(identity?.permissions, 'returns.manage') &&
       can(identity?.permissions, 'sales.create'),
+    mayReturn: can(identity?.permissions, 'returns.manage'),
     isOwner: Boolean(identity?.is_owner),
   };
   const maySelect = perms.maySettle || perms.mayDeliver;
@@ -1294,6 +1303,7 @@ function OrderDetails({
   onExchange: () => void;
 }) {
   const { t, locale } = useLocale();
+  const navigate = useNavigate();
   const totals = calculateInvoiceTotals(row);
   const { cancelled, deliverable, courierDelivered, settleable } = stepsFor(row, perms);
   // Cancelled, or the goods came back: nothing is owed on it.
@@ -1454,6 +1464,19 @@ function OrderDetails({
         {perms.mayExchange && !cancelled && row.stage === 'delivered' ? (
           <Button variant="secondary" className="min-h-9 px-3 text-xs" onClick={onExchange}>
             {t('exchange.button')}
+          </Button>
+        ) : null}
+
+        {/* Opens the returns screen on this order: the reason, what came
+            back and in what state are asked there, the same as a scanned
+            parcel. */}
+        {perms.mayReturn && !cancelled && RETURNABLE.has(row.fulfillment_status) ? (
+          <Button
+            variant="secondary"
+            className="min-h-9 px-3 text-xs"
+            onClick={() => navigate(`/returns?q=${encodeURIComponent(row.order_number)}`)}
+          >
+            {t('orders.return')}
           </Button>
         ) : null}
 
