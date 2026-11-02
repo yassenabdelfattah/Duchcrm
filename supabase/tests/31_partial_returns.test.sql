@@ -9,7 +9,7 @@
 -- ---------------------------------------------------------------------------
 
 begin;
-select plan(34);
+select plan(39);
 
 -- --- Fixtures --------------------------------------------------------------
 
@@ -363,6 +363,63 @@ select is(
      from public.v_order_list where id = (select v from t where k = 'tab')),
   '(500.00,0.00)',
   'On a tab nothing is owed back: the customer simply owes 500 less'
+);
+
+-- --- #1497: kept in part, first checked in as short, then paid by the statement ---
+--
+-- A cash parcel; the customer kept the Bs and refused the A. It was checked in
+-- before "kept" existed: the A back, the Bs left as missing, the order
+-- returned. Accurate's statement then marked it paid for what was collected.
+-- Checked in again with the Bs kept, nothing is owed back - the customer paid
+-- only for the Bs - and the stock does not move again.
+
+insert into t values ('p1497', pg_temp.courier_order('part-1497-0001', 'PART-1497', 'in_transit'));
+insert into t values ('p1497_ret', (public.record_delivery_failure_by_tracking('PART-1497', 'wrong_size')).id);
+
+select public.receive_return(
+  (select v from t where k = 'p1497_ret'),
+  jsonb_build_array(
+    jsonb_build_object('return_line_id', pg_temp.rline((select v from t where k = 'p1497_ret'), 'PART-A'), 'quantity_resellable', 1),
+    jsonb_build_object('return_line_id', pg_temp.rline((select v from t where k = 'p1497_ret'), 'PART-B'), 'quantity_resellable', 0)));
+
+update public.orders set payment_status = 'paid' where id = (select v from t where k = 'p1497');
+
+create temporary table s1497 on commit drop as select pg_temp.stock('PART-A') as a, pg_temp.stock('PART-B') as b;
+
+select public.receive_return(
+  (select v from t where k = 'p1497_ret'),
+  jsonb_build_array(
+    jsonb_build_object('return_line_id', pg_temp.rline((select v from t where k = 'p1497_ret'), 'PART-A'), 'quantity_resellable', 1),
+    jsonb_build_object('return_line_id', pg_temp.rline((select v from t where k = 'p1497_ret'), 'PART-B'), 'quantity_kept', 2)));
+
+select is(
+  (select fulfillment_status::text from public.orders where id = (select v from t where k = 'p1497')),
+  'delivered',
+  'Checked in again with the Bs kept, the order is delivered of them'
+);
+
+select is(
+  (select status::text from public.returns where id = (select v from t where k = 'p1497_ret')),
+  'received',
+  'And the Bs are no longer missing'
+);
+
+select is(
+  (select refund_egp from public.returns where id = (select v from t where k = 'p1497_ret')),
+  0.00::numeric,
+  'Paid by the statement for what was kept, the refused A is not owed back'
+);
+
+select is(
+  public.settlement_goods((select id from public.shipments where tracking_number = 'PART-1497')),
+  600.00::numeric,
+  'The statement should have collected for the Bs alone'
+);
+
+select is(
+  (select row(pg_temp.stock('PART-A'), pg_temp.stock('PART-B'))::text),
+  (select row(a, b)::text from s1497),
+  'Checking it in again moved no stock'
 );
 
 select * from finish();

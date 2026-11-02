@@ -71,6 +71,8 @@ interface LookupLine {
   quantity_expected: number;
   /** Already taken off quantity_expected: what went out is the two together. */
   quantity_kept: number;
+  quantity_resellable: number;
+  quantity_damaged: number;
   unit_value_egp: number;
 }
 
@@ -668,7 +670,12 @@ function CheckInDialog({
     // needs repackaging. The packer only has to touch the numbers that are
     // wrong, which is the difference between a ten-second job and a two-minute
     // one across a pile of parcels.
+    //
+    // Except a parcel already checked in short: that starts from what was
+    // counted then, so confirming it again cannot put on the shelf a piece
+    // that never came back.
     if (lookup.state === 'ready_to_receive') {
+      const counted = lookup.return?.status === 'discrepancy';
       setCounts(
         lookup.lines.map((line) => ({
           return_line_id: line.return_line_id,
@@ -676,8 +683,8 @@ function CheckInDialog({
           sku: line.sku,
           label: [line.title, line.variant_title].filter(Boolean).join(' · '),
           expected: line.quantity_expected + Number(line.quantity_kept ?? 0),
-          resellable: line.quantity_expected,
-          damaged: 0,
+          resellable: counted ? Number(line.quantity_resellable ?? 0) : line.quantity_expected,
+          damaged: counted ? Number(line.quantity_damaged ?? 0) : 0,
           kept: Number(line.quantity_kept ?? 0),
           unitValue: Number(line.unit_value_egp ?? 0),
         })),
