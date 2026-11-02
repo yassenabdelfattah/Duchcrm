@@ -36,7 +36,14 @@ async function fetchIdentity(): Promise<StaffIdentity | null> {
     .eq('id', user.id)
     .maybeSingle();
 
-  if (error || !data) {
+  // Not read at all - no connection, or a session that expired while a phone
+  // sat with the app open. That is not "not approved": thrown, so the gate
+  // offers to try again, and the owner is not told his account needs
+  // approving - which is what happened, and what then stuck, because the
+  // answer was kept and shown again on the next sign-in (2026-11-02).
+  if (error) throw error;
+
+  if (!data) {
     // A signed-in user with no staff row: the signup trigger should prevent
     // this, but treating it as "pending approval" is the safe reading.
     return {
@@ -117,7 +124,11 @@ export const authProvider: AuthProvider = {
   getIdentity: fetchIdentity,
 
   async getPermissions() {
-    const identity = await fetchIdentity();
-    return identity?.permissions ?? null;
+    try {
+      const identity = await fetchIdentity();
+      return identity?.permissions ?? null;
+    } catch {
+      return null;
+    }
   },
 };

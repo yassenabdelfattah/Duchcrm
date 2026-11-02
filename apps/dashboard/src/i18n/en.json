@@ -39,7 +39,10 @@
     "invalid": "That email and password did not match.",
     "pendingTitle": "Your account is waiting for approval",
     "pendingBody": "An admin needs to activate your account and set your role before you can use the CRM.",
-    "noAccess": "You do not have access to this page."
+    "noAccess": "You do not have access to this page.",
+    "loadFailedTitle": "Could not load your account",
+    "loadFailedBody": "Usually a weak connection or an expired session. Try again; if it keeps happening, sign out and back in.",
+    "checkAgain": "Check again"
   },
   "sale": {
     "title": "New sale",

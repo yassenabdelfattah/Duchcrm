@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react';
-import { Authenticated, Refine, useGetIdentity } from '@refinedev/core';
+import { useEffect, useRef, useState } from 'react';
+import { Authenticated, Refine, useGetIdentity, useLogout } from '@refinedev/core';
 import routerProvider from '@refinedev/react-router';
 import { dataProvider } from '@refinedev/supabase';
 import { BrowserRouter, Navigate, Outlet, Route, Routes } from 'react-router';
@@ -8,7 +8,7 @@ import { authProvider, type StaffIdentity } from './providers/authProvider';
 import { accessControlProvider } from './providers/accessControlProvider';
 import { LocaleProvider, buildI18nProvider, useLocale } from './i18n';
 import { Layout } from './components/Layout';
-import { Spinner } from './components/ui';
+import { Button, Card, Spinner } from './components/ui';
 import { Dashboard } from './pages/Dashboard';
 import { Login } from './pages/Login';
 import { Orders } from './pages/Orders';
@@ -31,40 +31,56 @@ import { SyncIssues } from './pages/SyncIssues';
  * reads as a broken app rather than as "wait for your manager".
  */
 function ActiveStaffGate() {
-  const { data: identity, isLoading, refetch } = useGetIdentity<StaffIdentity>();
+  const { data: identity, isLoading, isError, refetch } = useGetIdentity<StaffIdentity>();
   const { t } = useLocale();
   const [retried, setRetried] = useState(false);
+  const approved = Boolean(identity?.is_active && identity.permissions);
+  // refetch is a new function on every render; an effect that depends on it
+  // re-runs every render, and while reads keep failing that is a request
+  // loop. Held in a ref, and the one extra read started only once.
+  const refetchRef = useRef(refetch);
+  refetchRef.current = refetch;
+  const started = useRef(false);
 
-  // Signing out leaves a null identity in the query cache, because there was
-  // no session to read one from. Signing back in does not clear it, so the
-  // first render after a successful login reads that stale null and sends the
-  // person to the holding screen - where they sit, being told their account
-  // needs approving, until they happen to reload the page.
+  // Anything short of "approved" is read once more before it is acted on.
   //
-  // <Authenticated> has already established that there is a session by the
-  // time this renders, so a null identity here cannot mean "not signed in".
-  // It can only be the answer from before. Fetch it again rather than acting
-  // on it - once, and waiting for it to settle, so a genuinely missing staff
-  // row still reaches the holding screen instead of spinning forever.
+  // Signing out leaves a null identity in the query cache, because there was
+  // no session to read one from; a read that failed leaves whatever came
+  // before it. Signing back in clears neither, so the first render after a
+  // successful login can be reading an answer from before - and send someone
+  // whose account is fine to the holding screen, to be told it needs
+  // approving. Fetched again, once, and waited for, so a genuinely inactive
+  // account still reaches the holding screen instead of spinning forever.
   useEffect(() => {
-    if (isLoading || identity != null || retried) return;
+    if (isLoading || approved || started.current) return;
+    started.current = true;
+    void refetchRef.current().finally(() => setRetried(true));
+  }, [isLoading, approved]);
 
-    let cancelled = false;
-    void refetch().finally(() => {
-      if (!cancelled) setRetried(true);
-    });
+  if (approved) return <Outlet />;
+  if (isLoading || !retried) return <Spinner label={t('app.loading')} />;
+  // Could not read the account at all: say so, rather than "not approved".
+  if (isError) return <CouldNotLoad onRetry={() => void refetch()} />;
+  return <Navigate to="/pending" replace />;
+}
 
-    return () => {
-      cancelled = true;
-    };
-  }, [isLoading, identity, retried, refetch]);
-
-  if (isLoading || (identity == null && !retried)) {
-    return <Spinner label={t('app.loading')} />;
-  }
-  if (!identity?.is_active || !identity.permissions) return <Navigate to="/pending" replace />;
-
-  return <Outlet />;
+function CouldNotLoad({ onRetry }: { onRetry: () => void }) {
+  const { t } = useLocale();
+  const { mutate: logout } = useLogout();
+  return (
+    <div className="flex min-h-dvh items-center justify-center p-4">
+      <Card className="max-w-sm space-y-3 text-center">
+        <h1 className="text-base font-bold">{t('auth.loadFailedTitle')}</h1>
+        <p className="text-sm text-stone-600">{t('auth.loadFailedBody')}</p>
+        <Button className="w-full" onClick={onRetry}>
+          {t('app.retry')}
+        </Button>
+        <Button variant="secondary" className="w-full" onClick={() => logout()}>
+          {t('app.signOut')}
+        </Button>
+      </Card>
+    </div>
+  );
 }
 
 function RefineApp() {
