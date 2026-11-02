@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { can, formatDate } from '@duch/shared';
+import { can, formatDate, formatEGP } from '@duch/shared';
 import { useGetIdentity } from '@refinedev/core';
 import { useSearchParams } from 'react-router';
 import { supabase } from '../lib/supabase';
@@ -64,10 +64,14 @@ interface DiscrepancyRow {
 
 interface LookupLine {
   return_line_id: string;
+  order_line_item_id: string | null;
   sku: string;
   title: string | null;
   variant_title: string | null;
   quantity_expected: number;
+  /** Already taken off quantity_expected: what went out is the two together. */
+  quantity_kept: number;
+  unit_value_egp: number;
 }
 
 interface OrderLine {
@@ -75,7 +79,9 @@ interface OrderLine {
   sku: string;
   title: string;
   variant_title: string | null;
+  /** Still with the customer - all of it until something has come back. */
   quantity: number;
+  unit_value_egp: number;
 }
 
 interface Lookup {
@@ -97,6 +103,8 @@ interface Lookup {
   return: { id: string; type?: string; reason: string | null; status: string } | null;
   /** Set when the parcel is an exchange's old piece. */
   exchange?: { original_order_number: string | null; replacement_order_number: string | null } | null;
+  /** What comes back was paid for, so it is owed back rather than taken off the bill. */
+  refunded?: boolean;
   lines: LookupLine[];
   order_lines: OrderLine[];
 }
@@ -617,11 +625,16 @@ function Tally({ label, value, tone }: { label: string; value: number; tone?: 'g
 
 interface LineCount {
   return_line_id: string;
+  order_line_item_id: string | null;
   sku: string;
   label: string;
+  /** What went out on this line, or is still with the customer. */
   expected: number;
   resellable: number;
   damaged: number;
+  /** Stayed with the customer: not coming back, and not missing. */
+  kept: number;
+  unitValue: number;
 }
 
 function CheckInDialog({
@@ -633,7 +646,7 @@ function CheckInDialog({
   onClose: () => void;
   onDone: (summary: { orderNumber: string; back: number; damaged: number; missing: number }) => void;
 }) {
-  const { t } = useLocale();
+  const { t, locale } = useLocale();
   const [reason, setReason] = useState<string>('refused_after_inspection');
   const [counts, setCounts] = useState<LineCount[]>([]);
   const [note, setNote] = useState('');
@@ -659,22 +672,28 @@ function CheckInDialog({
       setCounts(
         lookup.lines.map((line) => ({
           return_line_id: line.return_line_id,
+          order_line_item_id: line.order_line_item_id,
           sku: line.sku,
           label: [line.title, line.variant_title].filter(Boolean).join(' · '),
-          expected: line.quantity_expected,
+          expected: line.quantity_expected + Number(line.quantity_kept ?? 0),
           resellable: line.quantity_expected,
           damaged: 0,
+          kept: Number(line.quantity_kept ?? 0),
+          unitValue: Number(line.unit_value_egp ?? 0),
         })),
       );
     } else {
       setCounts(
         lookup.order_lines.map((line) => ({
           return_line_id: '',
+          order_line_item_id: line.order_line_item_id,
           sku: line.sku,
           label: [line.title, line.variant_title].filter(Boolean).join(' · '),
           expected: line.quantity,
           resellable: line.quantity,
           damaged: 0,
+          kept: 0,
+          unitValue: Number(line.unit_value_egp ?? 0),
         })),
       );
     }
@@ -683,24 +702,42 @@ function CheckInDialog({
   const totals = useMemo(() => {
     const back = counts.reduce((sum, c) => sum + c.resellable, 0);
     const damaged = counts.reduce((sum, c) => sum + c.damaged, 0);
+    const kept = counts.reduce((sum, c) => sum + c.kept, 0);
     const expected = counts.reduce((sum, c) => sum + c.expected, 0);
-    return { back, damaged, missing: expected - back - damaged };
+    // What is coming back, at what it sold for - the missing too, which the
+    // courier answers for rather than the customer.
+    const value = counts.reduce((sum, c) => sum + (c.expected - c.kept) * c.unitValue, 0);
+    return { back, damaged, kept, expected, value, missing: expected - back - damaged - kept };
   }, [counts]);
 
   if (!lookup) return null;
   const target = lookup;
+  // An exchange's old piece is the whole of the exchange: none of it stays.
+  const isExchange = Boolean(target.exchange) || target.return?.type === 'exchange';
+  const mayKeep = !isExchange;
+  const isPostDelivery = needsPostDeliveryReason || target.return?.type === 'post_delivery';
+  // Everything kept is a delivery, not a return - the database refuses it too.
+  const allKept = totals.expected > 0 && totals.kept === totals.expected;
 
-  function setCount(index: number, field: 'resellable' | 'damaged', value: number) {
+  function setCount(index: number, field: 'resellable' | 'damaged' | 'kept', value: number) {
     setCounts((current) =>
       current.map((line, i) => {
         if (i !== index) return line;
         const next = { ...line, [field]: Math.max(0, value) };
-        // Received can never exceed what was sent; the database enforces this
-        // too, but catching it here keeps the packer out of an error message.
-        if (next.resellable + next.damaged > next.expected) {
-          const other = field === 'resellable' ? next.damaged : next.resellable;
-          next[field] = Math.max(0, next.expected - other);
+        let over = next.resellable + next.damaged + next.kept - next.expected;
+        if (over <= 0) return next;
+        // A piece the customer kept is one fewer that came back: it comes off
+        // the good ones first, so marking it is one tap.
+        if (field === 'kept') {
+          const fromGood = Math.min(over, next.resellable);
+          next.resellable -= fromGood;
+          over -= fromGood;
+          next.damaged -= Math.min(over, next.damaged);
+          return next;
         }
+        // Counted can never exceed what was sent; the database enforces this
+        // too, but catching it here keeps the packer out of an error message.
+        next[field] = Math.max(0, next[field] - over);
         return next;
       }),
     );
@@ -712,6 +749,10 @@ function CheckInDialog({
 
     let returnId = target.return?.id ?? null;
     let lineIds = counts.map((c) => c.return_line_id);
+    // A return just created: each count goes to the line for the same order
+    // line - by that, not by position, which nothing guarantees.
+    const matchLines = (fresh: Lookup) =>
+      counts.map((c) => fresh.lines.find((l) => l.order_line_item_id === c.order_line_item_id)?.return_line_id ?? '');
 
     // Neither the failure nor the counter return was recorded yet, so record
     // it now. This creates the return with a line per item, which is what
@@ -751,7 +792,7 @@ function CheckInDialog({
         return;
       }
 
-      lineIds = (fresh as Lookup).lines.map((l) => l.return_line_id);
+      lineIds = matchLines(fresh as Lookup);
     } else if (needsPostDeliveryReason) {
       const { data, error: startError } = await supabase.rpc('start_post_delivery_return', {
         p_order_id: target.order.id,
@@ -778,7 +819,7 @@ function CheckInDialog({
         return;
       }
 
-      lineIds = (fresh as Lookup).lines.map((l) => l.return_line_id);
+      lineIds = matchLines(fresh as Lookup);
     }
 
     const { error: receiveError } = await supabase.rpc('receive_return', {
@@ -787,6 +828,7 @@ function CheckInDialog({
         return_line_id: lineIds[i],
         quantity_resellable: c.resellable,
         quantity_damaged: c.damaged,
+        quantity_kept: c.kept,
         condition_note: c.damaged > 0 ? note || null : null,
       })),
       p_note: note || null,
@@ -893,16 +935,43 @@ function CheckInDialog({
                   onChange={(v) => setCount(index, 'damaged', v)}
                   tone="warn"
                 />
+                {mayKeep ? (
+                  <Counter
+                    label={t('returns.kept')}
+                    value={line.kept}
+                    max={line.expected}
+                    onChange={(v) => setCount(index, 'kept', v)}
+                  />
+                ) : null}
               </div>
             </li>
           ))}
         </ul>
 
-        <p className="text-xs text-stone-500">{t('returns.resellableHelp')}</p>
+        <p className="text-xs text-stone-500">
+          {t('returns.resellableHelp')} {mayKeep ? t('returns.keptHelp') : null}
+        </p>
 
         {totals.missing > 0 ? (
           <p className="rounded-lg bg-red-50 px-3 py-2 text-sm font-semibold text-red-700">
             {t('returns.shortWarning', { count: totals.missing })}
+          </p>
+        ) : null}
+
+        {/* The money, shown before it is confirmed. Paid for: owed back to
+            the customer. Not paid for: off what they owe - only when some of
+            it stayed with them, since a parcel refused whole owes nothing. */}
+        {allKept ? (
+          <p className="rounded-lg bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-900">
+            {t('returns.allKept')}
+          </p>
+        ) : mayKeep && target.refunded && totals.value > 0 ? (
+          <p className="rounded-lg bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-900">
+            {t('returns.refundOwed', { amount: formatEGP(totals.value, locale) })}
+          </p>
+        ) : mayKeep && !target.refunded && totals.value > 0 && (totals.kept > 0 || isPostDelivery) ? (
+          <p className="rounded-lg bg-sky-50 px-3 py-2 text-sm text-sky-900">
+            {t('returns.offBill', { amount: formatEGP(totals.value, locale) })}
           </p>
         ) : null}
 
@@ -913,7 +982,7 @@ function CheckInDialog({
         {error ? <ErrorNote>{error}</ErrorNote> : null}
 
         <div className="flex gap-2 pt-1">
-          <Button className="flex-1" onClick={submit} disabled={busy}>
+          <Button className="flex-1" onClick={submit} disabled={busy || allKept}>
             {busy ? t('returns.confirming') : t('returns.confirm')}
           </Button>
           <Button variant="secondary" onClick={onClose}>

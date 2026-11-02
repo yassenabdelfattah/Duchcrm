@@ -127,7 +127,7 @@ export function Dashboard() {
         seesOrders
           ? supabase
               .from('v_order_list')
-              .select('total_egp, shipping_egp')
+              .select('total_egp, shipping_egp, returned_off_egp')
               .eq('stage', 'delivered')
               .eq('payment_status', 'pending')
               .limit(2000)
@@ -196,8 +196,12 @@ export function Dashboard() {
           tone: 'back',
         });
 
-        const owedRows = (owed.data ?? []) as Array<{ total_egp: number; shipping_egp: number }>;
-        const owedSum = owedRows.reduce((sum, row) => sum + Number(row.total_egp) + Number(row.shipping_egp), 0);
+        const owedRows = (owed.data ?? []) as Array<{ total_egp: number; shipping_egp: number; returned_off_egp: number }>;
+        // Less pieces that came back unpaid for: refused at the door, or off a tab.
+        const owedSum = owedRows.reduce(
+          (sum, row) => sum + Number(row.total_egp) + Number(row.shipping_egp) - Number(row.returned_off_egp ?? 0),
+          0,
+        );
         list.push({
           key: 'owed',
           icon: Banknote,

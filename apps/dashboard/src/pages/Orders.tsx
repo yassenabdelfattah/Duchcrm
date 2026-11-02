@@ -57,6 +57,8 @@ interface OrderItem {
   quantity: number;
   unit_price_egp: number;
   total_egp: number;
+  /** Pieces of it back from the customer, checked in. */
+  returned?: number;
 }
 
 interface OrderRow {
@@ -103,9 +105,19 @@ interface OrderRow {
   /** Nothing left to do on it: it lives in the archive. */
   is_closed: boolean;
   customer_governorate: string | null;
+  /** Pieces back the customer had not paid for: off what the order owes. */
+  returned_off_egp: number;
+  /** Paid for and sent back: owed to the customer until paid back. */
+  return_refund_owed_egp: number;
+  return_refunded_egp: number;
 }
 
-type SettleAction = 'mark_order_paid' | 'complete_own_delivery' | 'mark_courier_delivered' | 'mark_exchange_refunded';
+type SettleAction =
+  | 'mark_order_paid'
+  | 'complete_own_delivery'
+  | 'mark_courier_delivered'
+  | 'mark_exchange_refunded'
+  | 'mark_return_refunded';
 
 const PAGE_SIZE = 50;
 
@@ -289,7 +301,8 @@ function stepsFor(row: OrderRow, p: Permissions) {
   const settleable =
     p.maySettle && !isClosed(row) && !deliverable && row.payment_status === 'pending' && row.payment_method !== 'card';
   const refundOwed = p.maySettle && Number(row.exchange_refund_egp) > 0 && !row.exchange_refunded_at;
-  return { cancelled, deliverable, courierDelivered, settleable, refundOwed };
+  const returnRefundOwed = p.maySettle && Number(row.return_refund_owed_egp) > 0;
+  return { cancelled, deliverable, courierDelivered, settleable, refundOwed, returnRefundOwed };
 }
 
 /** The one step shown on the line itself: what this order is waiting for. */
@@ -308,11 +321,16 @@ function nextStep(
   if (steps.courierDelivered) return { rpc: 'mark_courier_delivered', label: t('orders.customerReceived') };
   if (steps.settleable && row.stage === 'delivered') return { rpc: 'mark_order_paid', label: t('orders.markPaid') };
   if (steps.refundOwed) return { rpc: 'mark_exchange_refunded', label: t('exchange.markRefunded') };
+  if (steps.returnRefundOwed) return { rpc: 'mark_return_refunded', label: t('exchange.markRefunded') };
   return null;
 }
 
-/** What the customer pays: goods after discount, plus shipping. */
-const payable = (row: OrderRow) => Number(row.total_egp) + Number(row.shipping_egp);
+/**
+ * What the customer pays: goods after discount, plus shipping, less any pieces
+ * that came back unpaid for - refused at the door, or returned off a tab.
+ */
+const payable = (row: Pick<OrderRow, 'total_egp' | 'shipping_egp' | 'returned_off_egp'>) =>
+  Number(row.total_egp) + Number(row.shipping_egp) - Number(row.returned_off_egp ?? 0);
 
 type BulkAction = 'mark_order_paid' | 'mark_courier_delivered';
 
@@ -447,13 +465,15 @@ export function Orders() {
           ({ count }: { count: number | null }) => [key, count ?? 0] as const,
         ),
       ),
-      applyTab(supabase.from('v_order_list').select('total_egp, shipping_egp'), 'owed').limit(2000),
+      applyTab(supabase.from('v_order_list').select('total_egp, shipping_egp, returned_off_egp'), 'owed').limit(2000),
     ]).then((results) => {
       if (cancelled) return;
-      const owed = results.pop() as { data: Array<{ total_egp: number; shipping_egp: number }> | null };
+      const owed = results.pop() as {
+        data: Array<{ total_egp: number; shipping_egp: number; returned_off_egp: number }> | null;
+      };
       setCounts(Object.fromEntries(results as Array<readonly [TabKey, number]>));
       setOwedTotal(
-        (owed.data ?? []).reduce((sum, row) => sum + Number(row.total_egp) + Number(row.shipping_egp), 0),
+        (owed.data ?? []).reduce((sum, row) => sum + payable(row), 0),
       );
     });
 
@@ -1390,6 +1410,9 @@ function OrderDetails({
                 <Code>{item.sku}</Code>
               </span>
             </span>
+            {Number(item.returned) > 0 ? (
+              <StatusPill tone="back">{t('orders.returnedQty', { count: Number(item.returned) })}</StatusPill>
+            ) : null}
             <span className="tabular whitespace-nowrap text-stone-600">
               {item.quantity} × {formatEGP(Number(item.unit_price_egp), locale)}
             </span>
@@ -1408,8 +1431,13 @@ function OrderDetails({
           <span>
             {t('sale.shipping')} {totals.shipping_egp > 0 ? formatEGP(totals.shipping_egp, locale) : '—'}
           </span>
+          {Number(row.returned_off_egp) > 0 ? (
+            <span>
+              {t('orders.returnedOff')} −{formatEGP(Number(row.returned_off_egp), locale)}
+            </span>
+          ) : null}
           <span className="font-bold text-duch-ink">
-            {t('sale.total')} {formatEGP(totals.payable_egp, locale)}
+            {t('sale.total')} {formatEGP(payable(row), locale)}
           </span>
         </li>
       </ul>
@@ -1436,6 +1464,29 @@ function OrderDetails({
             ) : null}
           </div>
         )
+      ) : null}
+
+      {/* Pieces sent back that the customer had paid for. */}
+      {Number(row.return_refund_owed_egp) > 0 ? (
+        <div className="flex flex-wrap items-center gap-2 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900">
+          <span className="flex-1 font-bold">
+            {t('orders.returnRefundOwed', { amount: formatEGP(Number(row.return_refund_owed_egp), locale) })}
+          </span>
+          {perms.maySettle ? (
+            <Button
+              variant="secondary"
+              className="min-h-9 px-3 text-xs"
+              disabled={busy}
+              onClick={() => onSettle('mark_return_refunded')}
+            >
+              {t('exchange.markRefunded')}
+            </Button>
+          ) : null}
+        </div>
+      ) : Number(row.return_refunded_egp) > 0 ? (
+        <p className="text-xs text-stone-500">
+          {t('orders.returnRefunded', { amount: formatEGP(Number(row.return_refunded_egp), locale) })}
+        </p>
       ) : null}
 
       {row.note ? (
@@ -1584,6 +1635,8 @@ function describeEvent(event: OrderEvent, t: (k: string, p?: Record<string, unkn
       return t('orders.history.shopifyClosedAfterReturn');
     case 'exchange_refunded':
       return t('orders.history.exchangeRefunded', { amount: String(event.details?.amount_egp ?? '') });
+    case 'return_refunded':
+      return t('orders.history.returnRefunded', { amount: String(event.details?.amount_egp ?? '') });
     case 'edited':
       return t('orders.history.edited');
     default:

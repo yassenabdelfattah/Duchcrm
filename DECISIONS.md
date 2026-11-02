@@ -621,3 +621,32 @@ back for it.
 
 **Shopify is not told.** The website order is what the customer bought; the
 replacement is the CRM's own order. Stock pushes keep Shopify's counts right.
+
+---
+
+## 14. Part of an order comes back
+
+Built 2026-11-02 on the owner's rules: a return can be one piece of an order,
+whether the customer keeps some at the door and the courier brings the rest
+back, or brings one back after delivery; and money the customer had paid for
+what came back is owed back to them until someone records paying it.
+
+At check-in each line has a third count beside good and damaged: what stayed
+with the customer (`return_lines.quantity_kept`). It comes off what is
+expected back, so a kept piece is never counted missing. Only when every
+piece of the order has come back, an exchanged piece counting as still sold,
+is the order returned; otherwise it stays delivered - a refusal at the door
+that kept something is a delivery of what was kept.
+
+**The money follows who paid.** What came back is valued at what it sold for
+(its share of the order discount off, no shipping) in `returns.value_egp`.
+If the customer had paid for it - the order paid, or a cash parcel the
+courier collected at the door - it is owed back, `refund_egp`, shown on the
+order until `mark_return_refunded`. If not - refused at the door, or off a
+tab - it comes off what the order owes instead: the owed figures, the Orders
+total and what the courier statement expects (`settlement_goods`) all take
+it off. Only the whole of a refusal cancels the order in Shopify.
+
+Once any piece is back the order's money and items are closed, as a returned
+order's are: editing the basket would move stock the return already put back.
+Returns checked in before this keep no value and owe nothing.
