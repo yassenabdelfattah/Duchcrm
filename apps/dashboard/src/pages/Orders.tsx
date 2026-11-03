@@ -34,6 +34,7 @@ import { Invoice } from '../components/Invoice';
 import { OrderEditor } from '../components/OrderEditor';
 import { ExchangeDialog } from '../components/ExchangeDialog';
 import { CancelOrderDialog } from '../components/CancelOrderDialog';
+import { CustomerSignals, type CustomerSignalsData } from '../components/CustomerSignals';
 
 /**
  * Every order, findable, and each one a line until it is needed.
@@ -677,8 +678,8 @@ export function Orders() {
             total_egp: editing.total_egp,
             note: editing.note,
             cancelled_at: editing.cancelled_at,
-            customer_id: editing.customer_id,
-            customers: { full_name: editing.customer_name, phone: editing.customer_phone },
+            ship_name: editing.customer_name,
+            ship_phone: editing.customer_phone,
             shopify_order_id: editing.shopify_order_id,
           }}
           onClose={() => setEditing(null)}
@@ -1329,6 +1330,20 @@ function OrderDetails({
   // Cancelled, or the goods came back: nothing is owed on it.
   const closed = isClosed(row);
 
+  // The person's record and the number's other names. Read for the order
+  // that is open, not for every row of the list.
+  const [signals, setSignals] = useState<CustomerSignalsData | null>(null);
+  useEffect(() => {
+    let current = true;
+    setSignals(null);
+    supabase.rpc('order_customer_signals', { p_order_id: row.id }).then(({ data }) => {
+      if (current) setSignals((data as CustomerSignalsData | null) ?? null);
+    });
+    return () => {
+      current = false;
+    };
+  }, [row.id]);
+
   return (
     <div className="space-y-3">
       {/* Where it came from, when, and how it is paid. */}
@@ -1395,6 +1410,8 @@ function OrderDetails({
           )}
         </div>
       </div>
+
+      <CustomerSignals signals={signals} />
 
       {/* What they took. */}
       <ul className="divide-y divide-duch-line rounded-lg bg-white text-sm ring-1 ring-duch-line">
@@ -1639,6 +1656,8 @@ function describeEvent(event: OrderEvent, t: (k: string, p?: Record<string, unkn
       return t('orders.history.returnRefunded', { amount: String(event.details?.amount_egp ?? '') });
     case 'edited':
       return t('orders.history.edited');
+    case 'ship_to_edited':
+      return t('orders.history.shipToEdited');
     default:
       return event.event_type;
   }

@@ -606,6 +606,14 @@ function RefusalsReport({ data, range }: { data: ReportData; range: Range }) {
               render: (row) => `${Math.round(Number(row.refusal_pct ?? 0))}%`,
               numeric: true,
             },
+            // Took after the last refusal, on any of their numbers - the same
+            // reading as the badge on their orders.
+            {
+              key: 'tookAfter',
+              label: t('analytics.col.tookAfter'),
+              value: (row) => Number(row.received_since_refusal ?? 0),
+              numeric: true,
+            },
             {
               key: 'prepay',
               label: t('analytics.col.prepay'),

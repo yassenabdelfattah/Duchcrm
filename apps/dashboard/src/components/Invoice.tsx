@@ -45,6 +45,13 @@ interface InvoiceOrder {
   total_egp: number;
   /** Set on an exchange's replacement: its "discount" is the piece returned. */
   exchange_for_order_id: string | null;
+  /** Who it ships to: the order's own. */
+  ship_name: string | null;
+  ship_phone: string | null;
+  ship_address_line1: string | null;
+  ship_address_line2: string | null;
+  ship_city: string | null;
+  ship_governorate: string | null;
   customers: InvoiceCustomer | null;
 }
 
@@ -74,6 +81,7 @@ export function Invoice({ orderId, onClose }: { orderId: string; onClose: () => 
           .from('orders')
           .select(
             'order_number, created_at, subtotal_egp, discount_egp, shipping_egp, total_egp, exchange_for_order_id,' +
+              ' ship_name, ship_phone, ship_address_line1, ship_address_line2, ship_city, ship_governorate,' +
               ' customers ( full_name, phone, address_line1, address_line2, city, governorate )',
           )
           .eq('id', orderId)
@@ -124,7 +132,17 @@ export function Invoice({ orderId, onClose }: { orderId: string; onClose: () => 
   }
 
   const totals = calculateInvoiceTotals(order);
-  const customer = order.customers;
+  // The order's own name and address; the customer record fills in only what
+  // the order never had, as on every other screen.
+  const record = order.customers;
+  const customer: InvoiceCustomer = {
+    full_name: order.ship_name ?? record?.full_name ?? null,
+    phone: order.ship_phone ?? record?.phone ?? null,
+    address_line1: order.ship_address_line1 ?? record?.address_line1 ?? null,
+    address_line2: order.ship_address_line2 ?? record?.address_line2 ?? null,
+    city: order.ship_city ?? record?.city ?? null,
+    governorate: order.ship_governorate ?? record?.governorate ?? null,
+  };
   const customerAddress = [
     customer?.address_line1,
     customer?.address_line2,

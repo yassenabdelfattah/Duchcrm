@@ -205,7 +205,6 @@
     "holdUntilHelp": "سيختفي من القائمة حتى ذلك التاريخ.",
     "note": "ملاحظة",
     "trackingNumber": "رقم تتبع المندوب",
-    "priorRefusals": "رفض {{count}} مرة سابقاً",
     "requiresPrepayment": "يجب الدفع المقدم",
     "onHold": "مؤجل حتى {{date}}",
     "printSlip": "البوليصة",
@@ -235,6 +234,18 @@
     "collectedConfirm": "تأكيد",
     "collectedDone": "تم: {{count}} طرد مع شركة الشحن الآن.",
     "collectedOne": "تم استلام {{code}} ({{orders}})."
+  },
+  "signals": {
+    "refused": "رفض {{count}} مرة سابقاً",
+    "refusedThenReceived": "رفض {{refused}} مرة، ثم استلم {{received}} بعدها",
+    "received": "استلم {{count}} من قبل",
+    "otherNames": "الرقم مستخدم أيضاً باسم {{names}}",
+    "outcome": {
+      "refused": "رفض",
+      "received": "استلم"
+    },
+    "viaName": "(نفس الاسم برقم {{phone}})",
+    "onOrders": "{{name}} على {{orders}}"
   },
   "fulfillment": {
     "awaiting_confirmation": "للاتصال",
@@ -562,7 +573,8 @@
       "exchange": "استبدال - الطلب البديل {{orderNumber}}",
       "exchangeRefunded": "تم ردّ الفرق للعميل: {{amount}} ج.م.",
       "returnRefunded": "تم رد {{amount}} للعميل عن المرتجع",
-      "shopifyClosedAfterReturn": "أُغلق على شوبيفاي بعد رجوعه - لم يتغير المخزون"
+      "shopifyClosedAfterReturn": "أُغلق على شوبيفاي بعد رجوعه - لم يتغير المخزون",
+      "shipToEdited": "تم تعديل بيانات الشحن"
     },
     "step": {
       "sold": "تم البيع",
@@ -614,7 +626,13 @@
       "doneReceived": "تم تسجيل استلام {{count}} طلب.",
       "failed": "تعذّر {{count}}: {{list}}"
     },
-    "cancelPickup": "الشحنة {{tracking}} محجوزة مع شركة الشحن: اطلب منهم إلغاء طلب الاستلام."
+    "cancelPickup": "الشحنة {{tracking}} محجوزة مع شركة الشحن: اطلب منهم إلغاء طلب الاستلام.",
+    "shipTo": "الشحن إلى",
+    "shipToHelp": "التعديل هنا لهذا الطلب وحده، ولا يغيّر سجل العميل أو طلباته الأخرى.",
+    "shipAddress": "العنوان",
+    "shipAddress2": "تفاصيل إضافية",
+    "shipCity": "المنطقة",
+    "shipGovernorate": "المحافظة"
   },
   "reports": {
     "title": "التقارير والسجل",
@@ -839,6 +857,7 @@
       "delivered": "اتسلم",
       "refused": "اترفض",
       "refusalRate": "نسبة الرفض",
+      "tookAfter": "استلم بعدها",
       "open": "لسه",
       "channel": "المصدر",
       "payment": "الدفع",
@@ -962,7 +981,8 @@
       "confirmation_call": "مكالمة تأكيد",
       "exchange": "استبدال",
       "exchange_refunded": "رد فرق استبدال للعميل",
-      "return_refunded": "رد مبلغ مرتجع للعميل"
+      "return_refunded": "رد مبلغ مرتجع للعميل",
+      "ship_to_edited": "تعديل بيانات الشحن"
     },
     "note": {
       "customer": "بطلب العميل",

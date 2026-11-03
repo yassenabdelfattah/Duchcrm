@@ -75,6 +75,7 @@ export function logTitle(row: LogRow, t: T): string {
       case 'exchange':
       case 'exchange_refunded':
       case 'return_refunded':
+      case 'ship_to_edited':
         return t(`log.what.${row.event_type}`);
       default:
         return row.event_type ?? row.action;

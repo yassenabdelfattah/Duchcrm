@@ -67,6 +67,8 @@ export interface ReliabilityRow {
   orders_placed: number;
   refusals: number;
   refusal_pct: number | null;
+  /** Orders taken after the last refusal, on any of their numbers: a refusal made good. */
+  received_since_refusal: number;
   requires_prepayment: boolean;
 }
 
@@ -153,7 +155,7 @@ export function useReportData(range: Range) {
             fetchAll<ReliabilityRow>((a, b) =>
               supabase
                 .from('v_customer_reliability')
-                .select('customer_id, full_name, phone, orders_placed, refusals, refusal_pct, requires_prepayment')
+                .select('customer_id, full_name, phone, orders_placed, refusals, refusal_pct, received_since_refusal, requires_prepayment')
                 .gt('refusals', 0)
                 .order('refusals', { ascending: false })
                 .range(a, b),

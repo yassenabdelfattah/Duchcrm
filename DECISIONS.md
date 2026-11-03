@@ -650,3 +650,65 @@ it off. Only the whole of a refusal cancels the order in Shopify.
 Once any piece is back the order's money and items are closed, as a returned
 order's are: editing the basket would move stock the return already put back.
 Returns checked in before this keep no value and owe nothing.
+
+---
+
+## 15. An order ships to its own name and number
+
+Built 2026-11-02 after #1532 came in under the wrong name. One person had
+placed it with another customer's number, so it matched that customer's
+record. The same thing showed #1487 with its customer's old number while
+Shopify had the new one.
+
+Until now an order had no name, phone or address of its own. Every screen
+showed the customer record. An order now holds its ship-to (`orders.ship_*`).
+It comes from one of three places:
+
+- the shipping address Shopify sent;
+- the name and number typed at the till;
+- the customer record, for anything not given.
+
+The address is copied whole or not at all. A replacement order ships where
+the order it replaces went.
+
+The customer record stays the person and their history. The editor's name,
+phone and address now change that one order (`update_order_ship_to`, logged
+as `ship_to_edited`), never the record. Shopify's later versions replace the
+ship-to only when Shopify's own ship-to changed (`ship_from_shopify`). A
+correction typed here survives Shopify sending the old one again.
+
+Shopify still matches on its customer, then the phone. A different Shopify
+customer on a known number no longer fills that record's blanks. #1532 had
+written one person's email into another customer's record.
+
+**What is worth knowing before it ships** (`order_customer_signals`, on the
+packing queue and the opened order):
+
+- **A number with another name.** The name is matched in either script.
+  Vowels are dropped, so Mohamed, Mohmed and محمد are one name. A shorter name
+  counts as the same when its words appear in order inside the longer one.
+  Ahmed Mohamed and Mohamed Ahmed are two people.
+- **A refusal, with what came after it.** An order is the person's when it is
+  on the same customer record or went to the same number. It also counts when
+  it carries the same whole name, but only if that name was used with at most
+  two numbers. Each order says how it was tied.
+  - A refusal is shown amber when something was taken after it, red when not.
+  - The courier running out of time is not the customer's refusal. Neither is
+    a wrong or faulty piece we sent.
+  - A refusal at the door where the customer kept something counts as taken.
+  - #1442's customer refused it and then took W2610-00049 on a second
+    number, so their next order reads "refused once, then took one after".
+
+**The reports read the same.**
+- An area is where the parcel went: the order's governorate, not the customer
+  record's.
+- An order's outcome follows its status. A refusal that kept something
+  (#1497) and one piece back after delivery (#1463) are deliveries. The
+  pieces are in the returns report.
+- Every parcel that came back whole still counts in the refusal rate,
+  whoever's fault it was, because it cost a run either way.
+- "Customers who refuse" uses the badge's rule (`order_outcome`). Each
+  refusal is counted on the record it happened on, so one person is not
+  listed twice. "Took after" counts the person's later orders on any of their
+  numbers (`person_orders`).
+- New and returning customers are still counted per customer record.

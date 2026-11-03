@@ -31,8 +31,9 @@ interface EditableOrder {
   total_egp: number;
   note: string | null;
   cancelled_at: string | null;
-  customer_id: string | null;
-  customers: { full_name: string | null; phone: string | null } | null;
+  /** Who it ships to, as shown: what the form starts with while the rest loads. */
+  ship_name: string | null;
+  ship_phone: string | null;
   /** Set on a website order: the edit is sent on to Shopify after saving. */
   shopify_order_id?: number | null;
 }
@@ -53,6 +54,21 @@ function lineTotal(line: LineRow) {
   const cents = (value: number) => Math.round(value * 100) / 100;
   return cents(Number(line.unit_price_egp) * line.quantity) - cents(line.discount_per_unit * line.quantity);
 }
+
+/** Who and where an order ships - the order's own, not the customer record's. */
+interface ShipTo {
+  name: string;
+  phone: string;
+  address1: string;
+  address2: string;
+  city: string;
+  governorate: string;
+}
+
+const shipToKey = (value: ShipTo) =>
+  [value.name, value.phone, value.address1, value.address2, value.city, value.governorate]
+    .map((part) => part.trim())
+    .join('|');
 
 /** Variants and quantities only - all that a change to the box is. */
 function boxKey(rows: LineRow[]) {
@@ -88,8 +104,17 @@ export function OrderEditor({
   const [shipping, setShipping] = useState(String(Number(order.shipping_egp) || 0));
   const [discount, setDiscount] = useState(String(Number(order.discount_egp) || 0));
   const [note, setNote] = useState(order.note ?? '');
-  const [name, setName] = useState(order.customers?.full_name ?? '');
-  const [phone, setPhone] = useState(order.customers?.phone ?? '');
+  const [shipTo, setShipTo] = useState<ShipTo>({
+    name: order.ship_name ?? '',
+    phone: order.ship_phone ?? '',
+    address1: '',
+    address2: '',
+    city: '',
+    governorate: '',
+  });
+  // As saved, once loaded: the fields wait for it, so nothing typed is lost
+  // to the load landing late.
+  const [savedShipTo, setSavedShipTo] = useState<ShipTo | null>(null);
 
   const [lines, setLines] = useState<LineRow[] | null>(null);
   // The box as it was sold. A variant already on the order keeps its price in
@@ -123,6 +148,30 @@ export function OrderEditor({
         setSold(rows);
       });
   }, [order.id]);
+
+  useEffect(() => {
+    supabase
+      .from('orders')
+      .select('ship_name, ship_phone, ship_address_line1, ship_address_line2, ship_city, ship_governorate')
+      .eq('id', order.id)
+      .single()
+      .then(({ data }) => {
+        const row = (data ?? {}) as Record<string, string | null>;
+        const loaded: ShipTo = {
+          name: row.ship_name ?? '',
+          phone: row.ship_phone ?? '',
+          address1: row.ship_address_line1 ?? '',
+          address2: row.ship_address_line2 ?? '',
+          city: row.ship_city ?? '',
+          governorate: row.ship_governorate ?? '',
+        };
+        setShipTo(loaded);
+        setSavedShipTo(loaded);
+      });
+  }, [order.id]);
+
+  const setShipField = (field: keyof ShipTo) => (event: { target: { value: string } }) =>
+    setShipTo((current) => ({ ...current, [field]: event.target.value }));
 
   const runSearch = useCallback(async (term: string) => {
     if (term.trim().length < 2) {
@@ -208,24 +257,28 @@ export function OrderEditor({
     setError(null);
 
     try {
-      // The customer's own details are theirs, not the order's, so they are
-      // updated on the customer record - which is why they stay editable even
-      // when the order's money is locked.
-      const trimmedName = name.trim();
-      const normalisedPhone = normalizeEgyptianPhone(phone);
+      // Where it ships is this order's own: correcting it here leaves the
+      // customer record, and every other order they placed, as it was. Not
+      // money, so it stays editable once the money is locked.
+      const normalisedPhone = normalizeEgyptianPhone(shipTo.phone);
 
-      if (phone.trim() && !normalisedPhone) {
+      if (shipTo.phone.trim() && !normalisedPhone) {
         setError(t('orders.badPhone'));
         setSaving(false);
         return;
       }
 
-      if (order.customer_id) {
-        const { error: customerError } = await supabase
-          .from('customers')
-          .update({ full_name: trimmedName || null, phone: normalisedPhone })
-          .eq('id', order.customer_id);
-        if (customerError) throw customerError;
+      if (savedShipTo && shipToKey(shipTo) !== shipToKey(savedShipTo)) {
+        const { error: shipError } = await supabase.rpc('update_order_ship_to', {
+          p_order_id: order.id,
+          p_name: shipTo.name.trim() || null,
+          p_phone: normalisedPhone,
+          p_address_line1: shipTo.address1.trim() || null,
+          p_address_line2: shipTo.address2.trim() || null,
+          p_city: shipTo.city.trim() || null,
+          p_governorate: shipTo.governorate.trim() || null,
+        });
+        if (shipError) throw shipError;
       }
 
       if (!moneyLocked && itemsChanged) {
@@ -275,14 +328,40 @@ export function OrderEditor({
           </p>
         ) : null}
 
-        <div className="grid gap-3 sm:grid-cols-2">
-          <Field label={t('sale.customerName')}>
-            <Input value={name} onChange={(e) => setName(e.target.value)} />
+        <section className="space-y-3">
+          <div>
+            <h3 className="text-xs font-bold text-stone-500">{t('orders.shipTo')}</h3>
+            <p className="text-xs text-stone-500">{t('orders.shipToHelp')}</p>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Field label={t('sale.customerName')}>
+              <Input value={shipTo.name} onChange={setShipField('name')} disabled={!savedShipTo} />
+            </Field>
+            <Field label={t('sale.customerPhone')}>
+              <Input
+                value={shipTo.phone}
+                onChange={setShipField('phone')}
+                dir="ltr"
+                inputMode="tel"
+                disabled={!savedShipTo}
+              />
+            </Field>
+          </div>
+          <Field label={t('orders.shipAddress')}>
+            <Input value={shipTo.address1} onChange={setShipField('address1')} disabled={!savedShipTo} />
           </Field>
-          <Field label={t('sale.customerPhone')}>
-            <Input value={phone} onChange={(e) => setPhone(e.target.value)} dir="ltr" inputMode="tel" />
-          </Field>
-        </div>
+          <div className="grid gap-3 sm:grid-cols-3">
+            <Field label={t('orders.shipAddress2')}>
+              <Input value={shipTo.address2} onChange={setShipField('address2')} disabled={!savedShipTo} />
+            </Field>
+            <Field label={t('orders.shipCity')}>
+              <Input value={shipTo.city} onChange={setShipField('city')} disabled={!savedShipTo} />
+            </Field>
+            <Field label={t('orders.shipGovernorate')}>
+              <Input value={shipTo.governorate} onChange={setShipField('governorate')} disabled={!savedShipTo} />
+            </Field>
+          </div>
+        </section>
 
         {!moneyLocked ? (
           <div className="grid gap-3 sm:grid-cols-2">

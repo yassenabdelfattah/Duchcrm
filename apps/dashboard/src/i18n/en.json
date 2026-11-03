@@ -205,7 +205,6 @@
     "holdUntilHelp": "It drops out of this queue until that date.",
     "note": "Note",
     "trackingNumber": "Courier tracking code",
-    "priorRefusals": "Refused {{count}} before",
     "requiresPrepayment": "Prepayment required",
     "onHold": "On hold until {{date}}",
     "printSlip": "Slip",
@@ -235,6 +234,18 @@
     "collectedConfirm": "Confirm",
     "collectedDone": "Done: {{count}} parcels are with the courier now.",
     "collectedOne": "{{code}} collected ({{orders}})."
+  },
+  "signals": {
+    "refused": "Refused {{count}} before",
+    "refusedThenReceived": "Refused {{refused}}, then took {{received}} after",
+    "received": "Took {{count}} before",
+    "otherNames": "This number is also used as {{names}}",
+    "outcome": {
+      "refused": "refused",
+      "received": "took"
+    },
+    "viaName": "(same name, number {{phone}})",
+    "onOrders": "{{name}} on {{orders}}"
   },
   "fulfillment": {
     "awaiting_confirmation": "To call",
@@ -562,7 +573,8 @@
       "exchange": "Exchanged - replacement order {{orderNumber}}",
       "exchangeRefunded": "Difference paid back: {{amount}} EGP",
       "returnRefunded": "{{amount}} paid back to the customer for the return",
-      "shopifyClosedAfterReturn": "Closed in Shopify after it came back - stock unchanged"
+      "shopifyClosedAfterReturn": "Closed in Shopify after it came back - stock unchanged",
+      "shipToEdited": "Shipping details changed"
     },
     "step": {
       "sold": "Sold",
@@ -614,7 +626,13 @@
       "doneReceived": "{{count}} orders marked received.",
       "failed": "{{count}} could not be: {{list}}"
     },
-    "cancelPickup": "Shipment {{tracking}} is booked with the courier: ask them to cancel the pickup."
+    "cancelPickup": "Shipment {{tracking}} is booked with the courier: ask them to cancel the pickup.",
+    "shipTo": "Ships to",
+    "shipToHelp": "Changes this order only, not the customer record or their other orders.",
+    "shipAddress": "Address",
+    "shipAddress2": "More details",
+    "shipCity": "Area",
+    "shipGovernorate": "Governorate"
   },
   "reports": {
     "title": "Reports and log",
@@ -839,6 +857,7 @@
       "delivered": "Delivered",
       "refused": "Refused",
       "refusalRate": "Refusal rate",
+      "tookAfter": "Took after",
       "open": "Open",
       "channel": "Channel",
       "payment": "Payment",
@@ -962,7 +981,8 @@
       "confirmation_call": "Confirmation call",
       "exchange": "Exchange",
       "exchange_refunded": "Exchange difference paid back",
-      "return_refunded": "Return paid back to the customer"
+      "return_refunded": "Return paid back to the customer",
+      "ship_to_edited": "Shipping details changed"
     },
     "note": {
       "customer": "Customer asked",

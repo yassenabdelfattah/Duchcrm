@@ -23,6 +23,7 @@ import { Invoice } from '../components/Invoice';
 import { PackingSlip, type SlipOrder } from '../components/PackingSlip';
 import { ScanButton } from '../components/ScanButton';
 import { CancelOrderDialog } from '../components/CancelOrderDialog';
+import { CustomerSignals, type CustomerSignalsData } from '../components/CustomerSignals';
 
 type FulfillmentStatus =
   | 'awaiting_confirmation'
@@ -59,7 +60,8 @@ interface QueueRow {
   shipment_id: string | null;
   tracking_number: string | null;
   cod_amount_egp: number | null;
-  customer_prior_refusals: number;
+  /** The person's record and the number's other names. */
+  customer_signals: CustomerSignalsData | null;
   /** A replacement: what it was exchanged for, and the old piece to collect. */
   exchange_for_order_number: string | null;
   exchange_collect_items: string | null;
@@ -341,13 +343,9 @@ export function PackingQueue() {
               ) : null}
 
               {/* The things worth knowing before spending a courier run. */}
-              {row.customer_prior_refusals > 0 || row.requires_prepayment || row.confirmation_attempts > 0 ? (
+              <CustomerSignals signals={row.customer_signals} />
+              {row.requires_prepayment || row.confirmation_attempts > 0 ? (
                 <div className="flex flex-wrap gap-2">
-                  {row.customer_prior_refusals > 0 ? (
-                    <Badge tone="bad">
-                      {t('queue.priorRefusals', { count: row.customer_prior_refusals })}
-                    </Badge>
-                  ) : null}
                   {row.requires_prepayment ? (
                     <Badge tone="bad">{t('queue.requiresPrepayment')}</Badge>
                   ) : null}

@@ -355,6 +355,10 @@ export function StoreSale() {
         // Shipping is only offered for something being sent, so a shop sale
         // cannot carry a stale figure left in the box by the previous order.
         p_shipping_egp: channel === 'store' ? 0 : Number(shipping) || 0,
+        // The order keeps the name and number typed, even when the number
+        // found a customer record under another name.
+        p_ship_name: name || null,
+        p_ship_phone: phone,
       });
 
       if (rpcError) {
