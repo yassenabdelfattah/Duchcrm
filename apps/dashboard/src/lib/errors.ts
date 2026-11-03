@@ -58,6 +58,13 @@ const RULES: Rule[] = [
   [/^Only a packed order can be put back/, () => 'يمكن إرجاع الطلب المجهز فقط إلى التجهيز.'],
   [/^Order (\S+) has moved past confirmation/, (m) => `الطلب ${m[1]} تجاوز مرحلة التأكيد.`],
   [/^Order (\S+) is not with the courier/, (m) => `الطلب ${m[1]} ليس مع شركة الشحن.`],
+  // --- Taking back a delivery ---
+  [/^Order (\S+) is not delivered/, (m) => `الطلب ${m[1]} ليس مسجّلاً كمُسلَّم.`],
+  [/^Order (\S+) was never sent out/, (m) => `الطلب ${m[1]} بيع في المحل ولم يُشحن، فلا يوجد تسليم للتراجع عنه.`],
+  [/^Order (\S+) was paid on delivery: reopen its payment first/, (m) => `الطلب ${m[1]} سُجّل دفعه مع التسليم أو بعده. أعد فتح الدفع أولاً (للمالك)، ثم تراجع عن التسليم.`],
+  [/^Order (\S+) has pieces back from the customer$/, (m) => `الطلب ${m[1]} رجعت منه قطع من العميل، والمرتجع هو السجل الآن، فلا يمكن التراجع عن التسليم.`],
+  [/^The courier's statement says order (\S+) was delivered/, (m) => `كشف حساب المندوب يقول إن الطلب ${m[1]} سُلِّم، فلا يمكن التراجع عن التسليم. صحّح بنده في الكشف أولاً.`],
+  [/^Not allowed to change a delivery/, () => 'ليس لديك صلاحية تغيير التسليم.'],
   [/^Order (\S+) is not out with one of our own drivers/, (m) => `الطلب ${m[1]} ليس مع أحد مندوبينا.`],
   [/^Order (\S+) is already with the courier or delivered/, (m) => `الطلب ${m[1]} مع شركة الشحن أو تم تسليمه. سجّل مرتجعاً بدلاً من ذلك.`],
   [/^Say who is delivering it/, () => 'اكتب اسم من سيقوم بالتوصيل.'],

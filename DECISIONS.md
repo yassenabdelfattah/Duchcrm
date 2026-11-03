@@ -712,3 +712,28 @@ packing queue and the opened order):
   listed twice. "Took after" counts the person's later orders on any of their
   numbers (`person_orders`).
 - New and returning customers are still counted per customer record.
+
+---
+
+## 16. Taking back "delivered"
+
+Built 2026-11-04. #1472 was marked delivered while it was still with Accurate,
+and Accurate's statement has it coming back. Nothing could undo the click.
+
+`undo_delivered` puts the order and its shipment back where they were: with
+the courier, or out with our driver. The history records who did it and why
+(`delivery_undone`). The people who can mark a parcel delivered can take it
+back.
+
+It is for a click made by mistake, so it is refused once something was built
+on the delivery:
+
+- the order was paid with the delivery or after it ("cash received", or the
+  courier's cash marked paid). The owner reopens the payment first. A
+  payment made online before the parcel left does not block it;
+- a piece came back on it, or an exchange's old piece was collected against
+  it;
+- the courier's statement says the customer has it.
+
+A statement saying it came back, like #1472's, is not an obstacle. The
+statement then asks for the parcel to be checked in on Returns.

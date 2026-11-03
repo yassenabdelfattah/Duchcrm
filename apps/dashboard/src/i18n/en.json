@@ -574,7 +574,8 @@
       "exchangeRefunded": "Difference paid back: {{amount}} EGP",
       "returnRefunded": "{{amount}} paid back to the customer for the return",
       "shopifyClosedAfterReturn": "Closed in Shopify after it came back - stock unchanged",
-      "shipToEdited": "Shipping details changed"
+      "shipToEdited": "Shipping details changed",
+      "deliveryUndone": "Delivery undone"
     },
     "step": {
       "sold": "Sold",
@@ -632,7 +633,11 @@
     "shipAddress": "Address",
     "shipAddress2": "More details",
     "shipCity": "Area",
-    "shipGovernorate": "Governorate"
+    "shipGovernorate": "Governorate",
+    "undoDelivered": "Undo delivered",
+    "undoDeliveredTitle": "Undo delivery of {{orderNumber}}",
+    "undoDeliveredHelp": "For an order marked delivered by mistake. It goes back to the courier or our driver, as it was, and the order history records it under your name. If it really came back, check it in on Returns afterwards.",
+    "undoDeliveredReason": "Reason (optional)"
   },
   "reports": {
     "title": "Reports and log",
@@ -982,7 +987,8 @@
       "exchange": "Exchange",
       "exchange_refunded": "Exchange difference paid back",
       "return_refunded": "Return paid back to the customer",
-      "ship_to_edited": "Shipping details changed"
+      "ship_to_edited": "Shipping details changed",
+      "delivery_undone": "Delivery undone"
     },
     "note": {
       "customer": "Customer asked",

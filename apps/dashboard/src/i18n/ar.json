@@ -574,7 +574,8 @@
       "exchangeRefunded": "تم ردّ الفرق للعميل: {{amount}} ج.م.",
       "returnRefunded": "تم رد {{amount}} للعميل عن المرتجع",
       "shopifyClosedAfterReturn": "أُغلق على شوبيفاي بعد رجوعه - لم يتغير المخزون",
-      "shipToEdited": "تم تعديل بيانات الشحن"
+      "shipToEdited": "تم تعديل بيانات الشحن",
+      "deliveryUndone": "تم التراجع عن التسليم"
     },
     "step": {
       "sold": "تم البيع",
@@ -632,7 +633,11 @@
     "shipAddress": "العنوان",
     "shipAddress2": "تفاصيل إضافية",
     "shipCity": "المنطقة",
-    "shipGovernorate": "المحافظة"
+    "shipGovernorate": "المحافظة",
+    "undoDelivered": "تراجع عن التسليم",
+    "undoDeliveredTitle": "التراجع عن تسليم الطلب {{orderNumber}}",
+    "undoDeliveredHelp": "لطلب سُجّل كمُسلَّم بالخطأ. يرجع الطلب مع شركة الشحن أو مع مندوبنا كما كان، ويُحفظ ذلك في سجل الطلب باسمك. إن كان قد رجع فعلاً، استلمه بعدها من المرتجعات.",
+    "undoDeliveredReason": "السبب (اختياري)"
   },
   "reports": {
     "title": "التقارير والسجل",
@@ -982,7 +987,8 @@
       "exchange": "استبدال",
       "exchange_refunded": "رد فرق استبدال للعميل",
       "return_refunded": "رد مبلغ مرتجع للعميل",
-      "ship_to_edited": "تعديل بيانات الشحن"
+      "ship_to_edited": "تعديل بيانات الشحن",
+      "delivery_undone": "تراجع عن التسليم"
     },
     "note": {
       "customer": "بطلب العميل",
