@@ -23,6 +23,9 @@ export interface StatementLine {
   customer_shipping_egp: number | null;
   /** That shipping less what Accurate charged for it, on a delivery. */
   shipping_gain_egp: number | null;
+  /** On an exchange's replacement: what the returned piece paid of it, and its order. */
+  exchange_credit_egp: number | null;
+  exchange_for_order_number: string | null;
 }
 
 export interface ProductRow {

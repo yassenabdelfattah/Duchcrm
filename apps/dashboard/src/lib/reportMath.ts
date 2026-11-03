@@ -164,6 +164,38 @@ export function summarize(lines: SaleLine[], returns: ReturnLine[], orders: Repo
   };
 }
 
+// --- Orders still open -------------------------------------------------------------------------
+
+/**
+ * Orders placed in the range that have not reached the customer yet - being
+ * confirmed or packed, or with the courier. Every report counts them as sold
+ * the day they were ordered; this is how much of the range rests on them.
+ */
+export function openInRange(lines: SaleLine[], orders: ReportOrder[], range: Range) {
+  const open = orders.filter((order) => within(order.placed_on, range) && order.outcome === 'open');
+  const ids = new Set(open.map((order) => order.order_id));
+  return {
+    // An exchange's replacement is not a new order from anyone.
+    orders: open.filter((order) => !order.is_exchange).length,
+    net: sum(
+      lines.filter((line) => ids.has(line.order_id)),
+      (line) => line.net_egp,
+    ),
+  };
+}
+
+/** The same rows without the orders still open: only what reached the customer, or came back. */
+export function leaveOutOpen<D extends { lines: SaleLine[]; returns: ReturnLine[]; orders: ReportOrder[] }>(data: D): D {
+  const open = new Set(data.orders.filter((order) => order.outcome === 'open').map((order) => order.order_id));
+  if (open.size === 0) return data;
+  return {
+    ...data,
+    lines: data.lines.filter((line) => !open.has(line.order_id)),
+    returns: data.returns.filter((line) => !open.has(line.order_id)),
+    orders: data.orders.filter((order) => !open.has(order.order_id)),
+  };
+}
+
 /** The change from one period to the next, as a fraction; null when there is nothing to compare with. */
 export function change(current: number, previous: number): number | null {
   if (previous === 0) return current === 0 ? 0 : null;
@@ -501,11 +533,29 @@ const STATE_ORDER: Record<StockHealthRow['state'], number> = { out: 0, low: 1, s
 
 // --- Download ----------------------------------------------------------------------------------------
 
+type CsvRow = Array<string | number | null>;
+
+const csvCell = (value: string | number | null) => {
+  const text = value === null ? '' : String(value);
+  return /[",\n\r]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
+};
+
+const csvLines = (rows: CsvRow[]) => rows.map((row) => row.map(csvCell).join(','));
+
 /** A table as CSV, quoted where it must be, with a BOM so Excel reads the Arabic. */
-export function toCsv(header: string[], rows: Array<Array<string | number | null>>): string {
-  const cell = (value: string | number | null) => {
-    const text = value === null ? '' : String(value);
-    return /[",\n\r]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
-  };
-  return `﻿${[header, ...rows].map((row) => row.map(cell).join(',')).join('\r\n')}`;
+export function toCsv(header: string[], rows: CsvRow[]): string {
+  return `﻿${csvLines([header, ...rows]).join('\r\n')}`;
+}
+
+/**
+ * Several tables in one sheet, one under the other: what a report put
+ * together by hand downloads as. Each starts with its title and is set off
+ * by an empty line.
+ */
+export function toCsvSections(preface: CsvRow[], sections: Array<{ title: string; header: string[]; rows: CsvRow[] }>): string {
+  const blocks = [
+    csvLines(preface),
+    ...sections.map((section) => csvLines([[section.title], section.header, ...section.rows])),
+  ].filter((block) => block.length > 0);
+  return `﻿${blocks.map((block) => block.join('\r\n')).join('\r\n\r\n')}`;
 }

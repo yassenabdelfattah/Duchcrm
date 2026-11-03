@@ -737,3 +737,31 @@ on the delivery:
 
 A statement saying it came back, like #1472's, is not an obstacle. The
 statement then asks for the parcel to be checked in on Returns.
+
+---
+
+## 17. A report put together by hand
+
+Built 2026-11-04 on the owner's ask: one report for a date range, showing the
+parts they choose. They can be any of:
+- net sales;
+- each variant's net sales;
+- the top sellers;
+- the return rate;
+- products, sizes, colours;
+- sales day by day;
+- by channel or governorate.
+
+The report prints as one page and downloads as one spreadsheet. Its parts are
+the same tables as the reports they come from.
+
+**Open orders are counted by default** (the owner's choice), as in every other
+report: sold the day they were ordered, with anything that comes back taken
+off the day it comes back. One switch leaves them out, so the numbers cover
+only what reached the customer or came back. That is a firmer base for a
+return rate. Either way, the report says how many orders in the range are
+still open and how much they are worth.
+
+**Reports are kept by name** (`saved_reports`): the parts and the open-orders
+switch, never the dates. Everyone who can see the reports sees, changes and
+deletes the saved ones, because they are the shop's reports.

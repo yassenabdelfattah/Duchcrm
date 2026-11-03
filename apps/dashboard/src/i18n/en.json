@@ -426,6 +426,8 @@
     "totalDebits": "Total deductions",
     "shippingOf": "Shipping",
     "customerDiscounts": "Discounts to customers",
+    "exchangeOf": "Exchange",
+    "exchangePieceFrom": "piece returned from",
     "productsTotal": "Total products",
     "shippingGain": "Shipping difference",
     "shippingLine": "Customer paid {{paid}} shipping · charged {{charged}}",
@@ -777,12 +779,17 @@
       "costed": "Pieces with a cost"
     },
     "group": {
+      "mine": "My reports",
       "sales": "Sales",
       "areas": "Areas & refusals",
       "money": "Money & courier",
       "stock": "Stock & customers"
     },
     "report": {
+      "custom": {
+        "title": "Custom report",
+        "help": "Choose what it shows - net sales, variants, top sellers, return rate - and keep it by name."
+      },
       "sales": {
         "title": "Sales over time",
         "help": "Day by day: ordered, discounts, returns, net."
@@ -935,7 +942,47 @@
     "nothingOut": "Nothing is out right now.",
     "sinceCrm": "Since the CRM started - orders before it are not known.",
     "topCustomers": "Top customers",
-    "noCosts": "No piece has a cost yet, so the value is zero. Enter costs on the Stock page to see stock value and profit."
+    "noCosts": "No piece has a cost yet, so the value is zero. Enter costs on the Stock page to see stock value and profit.",
+    "custom": {
+      "saved": "Saved:",
+      "new": "+ New report",
+      "name": "Report name",
+      "namePlaceholder": "e.g. Monthly report",
+      "sections": "What the report shows",
+      "section": {
+        "summary": "Net sales",
+        "returnRate": "Return rate",
+        "top": "Top sellers",
+        "variants": "Variants and their net sales",
+        "products": "Products",
+        "sizes": "Sizes",
+        "colors": "Colours",
+        "days": "Sales day by day",
+        "channels": "By channel",
+        "governorates": "By governorate"
+      },
+      "includeOpen": "Count open orders",
+      "includeOpenHelp": "Orders placed in the range that have not reached the customer yet: being packed or with the courier. Left out, the numbers cover only what reached the customer or came back.",
+      "openNote": "{{count}} orders in the range have not reached the customer yet, {{value}} in sales.",
+      "openCounted": "Counted as sold the day they were ordered, as in every other report.",
+      "openLeftOut": "Not counted in these numbers.",
+      "noOpen": "No open orders in the range.",
+      "save": "Save",
+      "savedNotice": "Report saved.",
+      "delete": "Delete",
+      "confirmDelete": "Confirm delete",
+      "print": "Print / PDF",
+      "download": "Download Excel",
+      "nameRequired": "Give the report a name.",
+      "nameTaken": "A saved report already has this name.",
+      "pickOne": "Choose at least one part.",
+      "untitled": "Custom report",
+      "period": "{{from}} to {{to}}",
+      "piecesReturnRate": "Return rate of pieces",
+      "refusalRate": "Refusal rate of finished courier orders",
+      "item": "Item",
+      "value": "Value"
+    }
   },
   "log": {
     "title": "Log",

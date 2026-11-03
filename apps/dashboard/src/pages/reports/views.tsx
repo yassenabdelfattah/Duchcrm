@@ -21,21 +21,20 @@ import {
   stockHealth,
   summarize,
   type DayPoint,
-  type GroupRow,
-  type ItemRow,
   type Range,
   type StockHealthRow,
 } from '../../lib/reportMath';
 import { useLocale } from '../../i18n';
 import { BarList, TrendChart } from '../../components/charts';
 import { Card, cx } from '../../components/ui';
-import { DataTable, Panel, Segmented, StatTile, percent, wholeEGP, type Column } from './parts';
+import { DataTable, Panel, Segmented, StatTile, percent, wholeEGP } from './parts';
 import type { ReportData } from './useReportData';
-
-type T = (key: string, params?: Record<string, unknown>) => string;
+import { Line, dayColumns, groupColumns, itemColumns, type T } from './columns';
+import { CustomReport } from './CustomReport';
 
 /** The reports, by what they answer. */
 export const REPORT_GROUPS = [
+  { key: 'mine', reports: ['custom'] },
   { key: 'sales', reports: ['sales', 'products', 'sizes', 'channels'] },
   { key: 'areas', reports: ['governorates', 'refusals'] },
   { key: 'money', reports: ['courier', 'owed', 'statements'] },
@@ -238,6 +237,8 @@ function OpenLink({ onClick }: { onClick: () => void }) {
 
 export function ReportView({ report, data, range }: { report: ReportKey; data: ReportData; range: Range }) {
   switch (report) {
+    case 'custom':
+      return <CustomReport data={data} range={range} />;
     case 'sales':
       return <SalesReport data={data} range={range} />;
     case 'products':
@@ -274,33 +275,8 @@ function SalesReport({ data, range }: { data: ReportData; range: Range }) {
   const before = rollUp(byDay(data.lines, data.returns, data.orders, previousRange(range)), grain);
   const total = summarize(data.lines, data.returns, data.orders, range);
   const money = (value: number) => formatEGP(value, locale);
-  // Shown as money taken off, without a "-0.00" where nothing was.
   const less = (value: number) => (value === 0 ? money(0) : money(-value));
-
-  const columns: Column<DayPoint>[] = [
-    {
-      key: 'day',
-      label: t(`analytics.grain.${grain}`),
-      value: (row) => row.day,
-      render: (row) => (
-        <span className="tabular" dir="ltr">
-          {row.day.length === 7 ? row.day : formatDate(row.day, locale)}
-        </span>
-      ),
-    },
-    { key: 'orders', label: t('analytics.col.orders'), value: (row) => row.orders, numeric: true },
-    { key: 'units', label: t('analytics.col.units'), value: (row) => row.units, numeric: true },
-    { key: 'gross', label: t('analytics.col.gross'), value: (row) => row.gross, render: (row) => money(row.gross), numeric: true },
-    { key: 'discounts', label: t('analytics.col.discounts'), value: (row) => row.discounts, render: (row) => less(row.discounts), numeric: true },
-    { key: 'returns', label: t('analytics.col.returns'), value: (row) => row.returns, render: (row) => less(row.returns), numeric: true },
-    {
-      key: 'net',
-      label: t('analytics.col.net'),
-      value: (row) => row.net,
-      render: (row) => <span className="font-semibold">{money(row.net)}</span>,
-      numeric: true,
-    },
-  ];
+  const columns = dayColumns(t, locale, grain);
 
   return (
     <div className="space-y-4">
@@ -352,15 +328,6 @@ function SalesReport({ data, range }: { data: ReportData; range: Range }) {
   );
 }
 
-function Line({ label, value, strong }: { label: string; value: string; strong?: boolean }) {
-  return (
-    <div className={cx('flex items-baseline justify-between gap-3', strong && 'font-extrabold')}>
-      <dt className={strong ? '' : 'text-stone-500'}>{label}</dt>
-      <dd className="tabular">{value}</dd>
-    </div>
-  );
-}
-
 function ProductsReport({ data, range, initial }: { data: ReportData; range: Range; initial: 'product' | 'variant' | 'size' | 'color' }) {
   const { t, locale } = useLocale();
   const [view, setView] = useState(initial);
@@ -374,32 +341,7 @@ function ProductsReport({ data, range, initial }: { data: ReportData; range: Ran
           : byColor(data.lines, data.returns, range);
   const byUnits = view === 'size' || view === 'color';
 
-  const columns: Column<ItemRow>[] = [
-    {
-      key: 'label',
-      label: t(`analytics.view.${view}`),
-      value: (row) => [row.label, row.detail].filter(Boolean).join(' · '),
-      render: (row) => (
-        <span className="block min-w-40">
-          <bdi className="block font-semibold">{row.label}</bdi>
-          {row.detail || row.sku ? (
-            <span className="flex flex-wrap gap-x-2 text-xs text-stone-500">
-              {row.detail ? <bdi>{row.detail}</bdi> : null}
-              {row.sku ? (
-                <span className="tabular" dir="ltr">
-                  {row.sku}
-                </span>
-              ) : null}
-            </span>
-          ) : null}
-        </span>
-      ),
-    },
-    { key: 'units', label: t('analytics.col.unitsSold'), value: (row) => row.units, numeric: true },
-    { key: 'back', label: t('analytics.col.unitsBack'), value: (row) => row.unitsReturned, numeric: true },
-    { key: 'rate', label: t('analytics.col.returnRate'), value: (row) => row.returnRate, render: (row) => percent(row.returnRate), numeric: true },
-    { key: 'net', label: t('analytics.col.net'), value: (row) => row.net, render: (row) => formatEGP(row.net, locale), numeric: true },
-  ];
+  const columns = itemColumns(t, locale, view);
 
   return (
     <div className="space-y-4">
@@ -430,27 +372,6 @@ function ProductsReport({ data, range, initial }: { data: ReportData; range: Ran
       </Panel>
     </div>
   );
-}
-
-function groupColumns(t: T, locale: 'ar' | 'en', first: Column<GroupRow>): Column<GroupRow>[] {
-  return [
-    first,
-    { key: 'orders', label: t('analytics.col.orders'), value: (row) => row.orders, numeric: true },
-    { key: 'value', label: t('analytics.col.ordered'), value: (row) => row.value, render: (row) => formatEGP(row.value, locale), numeric: true },
-    { key: 'average', label: t('analytics.col.average'), value: (row) => row.averageOrder, render: (row) => formatEGP(row.averageOrder, locale), numeric: true },
-    { key: 'delivered', label: t('analytics.col.delivered'), value: (row) => row.delivered + row.returnedAfterDelivery, numeric: true },
-    { key: 'refused', label: t('analytics.col.refused'), value: (row) => row.refused, numeric: true },
-    {
-      key: 'refusalRate',
-      label: t('analytics.col.refusalRate'),
-      value: (row) => row.refusalRate,
-      render: (row) => (
-        <span className={cx((row.refusalRate ?? 0) >= 0.3 && 'font-bold text-red-700')}>{percent(row.refusalRate)}</span>
-      ),
-      numeric: true,
-    },
-    { key: 'open', label: t('analytics.col.open'), value: (row) => row.open, numeric: true },
-  ];
 }
 
 function ChannelsReport({ data, range }: { data: ReportData; range: Range }) {

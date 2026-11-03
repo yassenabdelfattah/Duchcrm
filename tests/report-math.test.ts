@@ -6,11 +6,14 @@ import {
   bySize,
   change,
   customers,
+  leaveOutOpen,
+  openInRange,
   previousRange,
   rollUp,
   stockHealth,
   summarize,
   toCsv,
+  toCsvSections,
   type ReportOrder,
   type ReturnLine,
   type SaleLine,
@@ -130,6 +133,32 @@ describe('summarize', () => {
   });
 });
 
+describe('orders still open', () => {
+  // A fourth order, still with the courier.
+  const withOpen = {
+    lines: [...lines, sale({ order_id: 'd', placed_on: '2026-10-25', net_egp: 1400, gross_egp: 1400 })],
+    returns,
+    orders: [...orders, order({ order_id: 'd', placed_on: '2026-10-25', net_egp: 1400, outcome: 'open' })],
+  };
+
+  it('says how much of the range rests on orders not yet with the customer', () => {
+    expect(openInRange(withOpen.lines, withOpen.orders, week)).toEqual({ orders: 1, net: 1400 });
+    expect(openInRange(withOpen.lines, withOpen.orders, { from: '2026-10-20', to: '2026-10-24' })).toEqual({ orders: 0, net: 0 });
+  });
+
+  it('counts them as sold, unless they are left out', () => {
+    expect(summarize(withOpen.lines, withOpen.returns, withOpen.orders, week).net).toBe(3400);
+    const firm = leaveOutOpen(withOpen);
+    expect(summarize(firm.lines, firm.returns, firm.orders, week).net).toBe(2000);
+    expect(summarize(firm.lines, firm.returns, firm.orders, week).orders).toBe(3);
+  });
+
+  it('leaves the rows alone when nothing is open', () => {
+    const data = { lines, returns, orders };
+    expect(leaveOutOpen(data)).toBe(data);
+  });
+});
+
 describe('change', () => {
   it('is a fraction of the previous period, and unknown from nothing', () => {
     expect(change(150, 100)).toBe(0.5);
@@ -229,5 +258,30 @@ describe('toCsv', () => {
     expect(toCsv(['المنتج', 'السعر'], [['Hoodie, black', 1000], ['Say "hi"', null]])).toBe(
       '﻿المنتج,السعر\r\n"Hoodie, black",1000\r\n"Say ""hi""",',
     );
+  });
+});
+
+describe('toCsvSections', () => {
+  it('puts the tables one under the other, each under its title, in one file for Excel', () => {
+    const csv = toCsvSections(
+      [['تقرير الشهر'], ['من', '2026-10-01', 'إلى', '2026-10-31']],
+      [
+        { title: 'صافي المبيعات', header: ['البند', 'القيمة'], rows: [['الصافي', 2000]] },
+        { title: 'الأصناف', header: ['الصنف', 'القطع'], rows: [['Hoodie, M', 3]] },
+      ],
+    );
+    expect(csv.startsWith('﻿')).toBe(true);
+    expect(csv.slice(1).split('\r\n')).toEqual([
+      'تقرير الشهر',
+      'من,2026-10-01,إلى,2026-10-31',
+      '',
+      'صافي المبيعات',
+      'البند,القيمة',
+      'الصافي,2000',
+      '',
+      'الأصناف',
+      'الصنف,القطع',
+      '"Hoodie, M",3',
+    ]);
   });
 });

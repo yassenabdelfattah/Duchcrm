@@ -106,6 +106,49 @@ describe('accountantMessage', () => {
     );
   });
 
+  it('names an exchange as one, not as a discount to customers (CSHP--030330)', () => {
+    // W2610-00044: a 700 jacket for #1407's faulty 550 hoodie. The customer
+    // paid the 150 difference and 110 shipping at the door; Accurate charged
+    // 110 for it. A second order took 50 off.
+    const message = accountantMessage(
+      [
+        { title: 'Black Baseball Leather Jacket', quantity: 1, total_egp: 700 },
+        { title: 'Leather Hoodie', quantity: 1, total_egp: 550 },
+      ],
+      [
+        line({
+          order_number: 'W2610-00044',
+          collected_egp: 260,
+          fee_egp: 110,
+          customer_shipping_egp: 110,
+          exchange_credit_egp: 550,
+          exchange_for_order_number: '#1407',
+        }),
+        line({ order_number: 'D2610-00039', collected_egp: 500 }),
+      ],
+      t,
+      650,
+    );
+
+    expect(message).toBe(
+      [
+        'Black Baseball Leather Jacket * 1 = 700',
+        '--------------------',
+        'Leather Hoodie * 1 = 550',
+        '--------------------',
+        'اجمالي المنتجات = 1,250',
+        '--------------------',
+        'خصومات',
+        'استبدال W2610-00044 (القطعة المرتجعة من #1407) = 550',
+        'خصم للعملاء = 50',
+        '--------------------',
+        'اجمالي الخصومات = 600',
+        '--------------------',
+        'صافي التحويل = 650',
+      ].join('\n'),
+    );
+  });
+
   it('sums what Accurate charged above or below the shipping customers paid into one line', () => {
     // Entered as their statement reads: collected with the shipping, charged
     // their fee. 90 paid and 95 charged; 150 paid and 140 charged.

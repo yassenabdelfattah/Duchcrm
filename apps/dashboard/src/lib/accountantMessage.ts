@@ -29,6 +29,9 @@ export interface MessageLine {
   note: string | null;
   /** Shipping the customer paid at the door, inside what was collected; null on older lines. */
   customer_shipping_egp?: number | null;
+  /** On an exchange's replacement: what the piece sent back paid of it, and the order it came from. */
+  exchange_credit_egp?: number | null;
+  exchange_for_order_number?: string | null;
 }
 
 /** Money without the currency and the .00: easier to read in a chat message. */
@@ -104,11 +107,25 @@ export function accountantMessage(
     charges.push({ label: t('settlements.shippingGain'), amount: cents(shippingDifference) });
   }
 
+  // An exchange's replacement is listed at its price, and the piece the
+  // customer sent back paid part of it. Its own line, so it does not read as a
+  // discount anyone was given - CSHP--030330's 550 was #1407's hoodie.
+  let exchangeCredits = 0;
+  for (const line of lines) {
+    const credit = Number(line.exchange_credit_egp ?? 0);
+    if (line.outcome !== 'delivered' || !(Number(line.collected_egp) > 0) || !(credit > 0)) continue;
+    charges.push({
+      label: `${t('settlements.exchangeOf')} ${line.order_number ?? ''} (${t('settlements.exchangePieceFrom')} ${line.exchange_for_order_number ?? ''})`,
+      amount: credit,
+    });
+    exchangeCredits += credit;
+  }
+
   out.push(`${t('settlements.productsTotal')} = ${n(listed)}`);
   out.push(RULE);
 
   if (goods !== undefined) {
-    const discounts = cents(productsTotal - Number(goods));
+    const discounts = cents(productsTotal - Number(goods) - exchangeCredits);
     if (discounts !== 0) charges.push({ label: t('settlements.customerDiscounts'), amount: discounts });
   }
 

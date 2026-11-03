@@ -92,8 +92,9 @@ export function Reports() {
         </h1>
       </div>
 
-      {/* One range for everything on the page, the common ones a tap away. */}
-      <Card className="space-y-3">
+      {/* One range for everything on the page, the common ones a tap away.
+          A printed report says its own range. */}
+      <Card className="no-print space-y-3">
         <div className="flex flex-wrap gap-1.5">
           {PRESETS.map((value) => (
             <button

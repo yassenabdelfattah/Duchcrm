@@ -206,7 +206,7 @@ export function DataTable<T>({
           ) : null}
         </table>
       </div>
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="no-print flex flex-wrap items-center gap-2">
         {limit && rows.length > limit ? (
           <Button variant="ghost" className="min-h-9 text-xs" onClick={() => setAll((open) => !open)}>
             {all ? t('analytics.showLess') : t('analytics.showAll', { count: rows.length })}
