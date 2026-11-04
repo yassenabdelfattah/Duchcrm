@@ -6,7 +6,7 @@ import { arabicError } from '../lib/errors';
 import { sendOrderToShopify } from '../lib/shopifySync';
 import { useLocale } from '../i18n';
 import type { StaffIdentity } from '../providers/authProvider';
-import { Badge, Button, Card, EmptyState, ErrorNote, Field, Input, Modal, Spinner } from '../components/ui';
+import { Badge, Button, Card, EmptyState, ErrorNote, Field, Input, ListSkeleton, Modal } from '../components/ui';
 
 interface SyncIssueRow {
   id: string;
@@ -311,7 +311,7 @@ export function SyncIssues() {
       {checkError ? <ErrorNote>{checkError}</ErrorNote> : null}
 
       {!issues ? (
-        <Spinner label={t('app.loading')} />
+        <ListSkeleton label={t('app.loading')} />
       ) : issues.length === 0 ? (
         <EmptyState title={t('sync.empty')} />
       ) : (

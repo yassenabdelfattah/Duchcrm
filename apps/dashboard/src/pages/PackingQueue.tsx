@@ -15,9 +15,10 @@ import {
   ErrorNote,
   Field,
   Input,
+  ListSkeleton,
   Modal,
-  Spinner,
   cx,
+  toast,
 } from '../components/ui';
 import { Invoice } from '../components/Invoice';
 import { PackingSlip, type SlipOrder } from '../components/PackingSlip';
@@ -102,7 +103,6 @@ export function PackingQueue() {
   const [tracking, setTracking] = useState<Record<string, string>>({});
   const [cancelling, setCancelling] = useState<QueueRow | null>(null);
   const [collectingAll, setCollectingAll] = useState(false);
-  const [notice, setNotice] = useState<string | null>(null);
   const [calling, setCalling] = useState<QueueRow | null>(null);
   const [sendingOut, setSendingOut] = useState<QueueRow | null>(null);
   const [slip, setSlip] = useState<SlipOrder | null>(null);
@@ -230,7 +230,7 @@ export function PackingQueue() {
       setError(arabicError(rpcError));
       return;
     }
-    setNotice(t('queue.collectedDone', { count: (data as { count?: number })?.count ?? 0 }));
+    toast(t('queue.collectedDone', { count: (data as { count?: number })?.count ?? 0 }));
     await load();
   }
 
@@ -243,13 +243,13 @@ export function PackingQueue() {
       return;
     }
     const numbers = ((data as { order_numbers?: string[] })?.order_numbers ?? []).join('، ');
-    setNotice(t('queue.collectedOne', { code, orders: numbers }));
+    toast(t('queue.collectedOne', { code, orders: numbers }));
     await load();
   }
 
   if (slip) return <PackingSlip order={slip} onClose={() => setSlip(null)} />;
   if (invoiceId) return <Invoice orderId={invoiceId} onClose={() => setInvoiceId(null)} />;
-  if (!rows) return <Spinner label={t('app.loading')} />;
+  if (!rows) return <ListSkeleton label={t('app.loading')} />;
 
   const isNew = (row: QueueRow) =>
     TO_SHIP.includes(row.fulfillment_status) && Date.parse(row.created_at) > seenBefore.current;
@@ -504,9 +504,6 @@ export function PackingQueue() {
       </div>
 
       {error ? <ErrorNote>{error}</ErrorNote> : null}
-      {notice ? (
-        <p className="rounded-lg bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-800">{notice}</p>
-      ) : null}
 
       {toShip.length === 0 ? (
         <EmptyState title={t('queue.empty')} />

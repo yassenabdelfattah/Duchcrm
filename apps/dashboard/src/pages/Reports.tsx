@@ -6,7 +6,7 @@ import { cairoDate, can, formatDate } from '@duch/shared';
 import { addDays, previousRange, type Range } from '../lib/reportMath';
 import { useLocale } from '../i18n';
 import type { StaffIdentity } from '../providers/authProvider';
-import { Card, ErrorNote, Input, Spinner, cx } from '../components/ui';
+import { Card, ErrorNote, Input, ListSkeleton, cx } from '../components/ui';
 import { useReportData } from './reports/useReportData';
 import { REPORT_GROUPS, ReportView, ReportsHome, type ReportKey } from './reports/views';
 
@@ -152,7 +152,7 @@ export function Reports() {
       {error ? <ErrorNote>{error}</ErrorNote> : null}
 
       {!data ? (
-        <Spinner label={t('app.loading')} />
+        <ListSkeleton label={t('app.loading')} />
       ) : (
         // A new range keeps the page as it was, faded, until the numbers arrive.
         <div className={cx('transition-opacity', loading && 'pointer-events-none opacity-50')}>

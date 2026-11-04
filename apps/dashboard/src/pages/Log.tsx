@@ -6,7 +6,7 @@ import { supabase } from '../lib/supabase';
 import { arabicError } from '../lib/errors';
 import { LOG_FILTERS, logNote, logTitle, type LogFilter, type LogRow } from '../lib/logText';
 import { useLocale } from '../i18n';
-import { Button, Card, EmptyState, ErrorNote, Input, Spinner, cx } from '../components/ui';
+import { Button, Card, EmptyState, ErrorNote, Input, ListSkeleton, cx } from '../components/ui';
 
 /**
  * Everything that happened, newest first: every piece that came in or went
@@ -139,7 +139,7 @@ export function Log() {
       {error ? <ErrorNote>{error}</ErrorNote> : null}
 
       {!rows ? (
-        <Spinner label={t('app.loading')} />
+        <ListSkeleton label={t('app.loading')} />
       ) : rows.length === 0 ? (
         <EmptyState title={t('log.empty')} />
       ) : (

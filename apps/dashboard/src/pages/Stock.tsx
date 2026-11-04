@@ -19,9 +19,10 @@ import {
   Field,
   Input,
   Modal,
+  ListSkeleton,
   Select,
-  Spinner,
   cx,
+  toast,
 } from '../components/ui';
 
 /**
@@ -97,7 +98,6 @@ export function Stock() {
   const [rows, setRows] = useState<VariantRow[] | null>(null);
   const [meta, setMeta] = useState<Map<string, ProductMeta>>(new Map());
   const [error, setError] = useState<string | null>(null);
-  const [message, setMessage] = useState<string | null>(null);
   const [reloadToken, setReloadToken] = useState(0);
   const [openOuts, setOpenOuts] = useState(0);
 
@@ -279,7 +279,6 @@ export function Stock() {
   async function importFromShopify() {
     setImporting(true);
     setError(null);
-    setMessage(null);
 
     const { data, error: invokeError } = await supabase.functions.invoke<{
       summary?: { products_written: number; variants_written: number };
@@ -304,7 +303,7 @@ export function Stock() {
       return;
     }
 
-    setMessage(
+    toast(
       t('products.imported', {
         products: data?.summary?.products_written ?? 0,
         variants: data?.summary?.variants_written ?? 0,
@@ -337,9 +336,6 @@ export function Stock() {
         </div>
       </div>
 
-      {message ? (
-        <p className="rounded-lg bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-800">{message}</p>
-      ) : null}
       {error ? <ErrorNote>{error}</ErrorNote> : null}
 
       <div className="flex gap-1.5">
@@ -413,7 +409,7 @@ export function Stock() {
           </div>
 
           {!rows ? (
-            <Spinner label={t('app.loading')} />
+            <ListSkeleton label={t('app.loading')} />
           ) : visible.length === 0 ? (
             <EmptyState title={t('stock.empty')} />
           ) : (
@@ -607,7 +603,7 @@ export function Stock() {
           onDone={(changed) => {
             setBulk(null);
             setSelected(new Set());
-            setMessage(t('inventory.saved', { count: changed }));
+            toast(t('inventory.saved', { count: changed }));
             reload();
           }}
         />

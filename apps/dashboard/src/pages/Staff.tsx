@@ -15,7 +15,7 @@ import {
   Input,
   Modal,
   Select,
-  Spinner,
+  ListSkeleton,
   cx,
 } from '../components/ui';
 
@@ -105,7 +105,7 @@ export function Staff() {
         {error ? <ErrorNote>{error}</ErrorNote> : null}
 
         {!rows ? (
-          <Spinner label={t('app.loading')} />
+          <ListSkeleton label={t('app.loading')} />
         ) : rows.length === 0 ? (
           <EmptyState title={t('staff.empty')} />
         ) : (

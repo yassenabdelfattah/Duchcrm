@@ -17,9 +17,11 @@ import {
   ErrorNote,
   Field,
   Input,
+  ListSkeleton,
   Modal,
   Spinner,
   cx,
+  toast,
 } from '../components/ui';
 
 const RETURN_REASONS = [
@@ -147,7 +149,6 @@ export function Returns() {
   const [lookup, setLookup] = useState<Lookup | null>(null);
   const [looking, setLooking] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [done, setDone] = useState<string | null>(null);
   // A running tally of the pile worked through so far. The point of the last
   // number is that somebody notices it.
   const [session, setSession] = useState<Session>({ parcels: 0, back: 0, damaged: 0, missing: 0 });
@@ -205,7 +206,6 @@ export function Returns() {
 
       setLooking(true);
       setError(null);
-      setDone(null);
 
       const { data, error: rpcError } = await supabase.rpc('lookup_return_by_tracking', {
         p_tracking: trimmed,
@@ -428,11 +428,6 @@ export function Returns() {
 
           {looking ? <Spinner /> : null}
           {error ? <ErrorNote>{error}</ErrorNote> : null}
-          {done ? (
-            <p className="rounded-lg bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-800">
-              {done}
-            </p>
-          ) : null}
 
           {session.parcels > 0 ? (
             <dl className="grid grid-cols-4 gap-2 border-t border-duch-line pt-3 text-center">
@@ -514,7 +509,7 @@ export function Returns() {
 
       {tab === 'inbound' ? (
         !inbound ? (
-          <Spinner label={t('app.loading')} />
+          <ListSkeleton label={t('app.loading')} />
         ) : inbound.length === 0 ? (
           <EmptyState title={t('returns.emptyInbound')} />
         ) : (
@@ -551,7 +546,7 @@ export function Returns() {
           </div>
         )
       ) : !short ? (
-        <Spinner label={t('app.loading')} />
+        <ListSkeleton label={t('app.loading')} />
       ) : short.length === 0 ? (
         <EmptyState title={t('returns.emptyDiscrepancies')} />
       ) : (
@@ -590,7 +585,7 @@ export function Returns() {
         onClose={() => setLookup(null)}
         onDone={(summary) => {
           setLookup(null);
-          setDone(t('returns.checkedIn', { orderNumber: summary.orderNumber }));
+          toast(t('returns.checkedIn', { orderNumber: summary.orderNumber }));
           setSession((s) => ({
             parcels: s.parcels + 1,
             back: s.back + summary.back,

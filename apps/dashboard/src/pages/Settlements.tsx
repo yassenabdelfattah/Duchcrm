@@ -17,6 +17,7 @@ import {
   Field,
   Input,
   Modal,
+  ListSkeleton,
   Spinner,
   cx,
   toast,
@@ -186,7 +187,7 @@ export function Settlements() {
     );
   }
 
-  if (!list) return <Spinner label={t('app.loading')} />;
+  if (!list) return <ListSkeleton label={t('app.loading')} />;
 
   return (
     <div className="space-y-4">

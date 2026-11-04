@@ -25,6 +25,7 @@ import {
   Input,
   Modal,
   Select,
+  ListSkeleton,
   Spinner,
   StatusPill,
   cx,
@@ -768,7 +769,7 @@ export function Orders() {
       ) : null}
 
       {!rows ? (
-        <Spinner label={t('app.loading')} />
+        <ListSkeleton label={t('app.loading')} />
       ) : (
         <div className="space-y-2">
           {/* The line above the list: what is shown, ticking all of it, and

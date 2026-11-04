@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { Inbox } from 'lucide-react';
 import type {
   ButtonHTMLAttributes,
   InputHTMLAttributes,
@@ -172,8 +173,35 @@ export function Spinner({ label }: { label?: string }) {
 export function EmptyState({ title, action }: { title: string; action?: ReactNode }) {
   return (
     <div className="rounded-xl border border-dashed border-duch-line p-10 text-center">
+      <Inbox className="mx-auto mb-3 size-8 text-stone-300" aria-hidden="true" />
       <p className="text-sm text-stone-500">{title}</p>
       {action ? <div className="mt-4 flex justify-center">{action}</div> : null}
+    </div>
+  );
+}
+
+/** A gray bar holding a line of text's place while it loads. */
+export function Skeleton({ className }: { className?: string }) {
+  return <div className={cx('animate-pulse rounded-md bg-stone-200/80', className)} aria-hidden="true" />;
+}
+
+/**
+ * Card-shaped rows holding a list's place, so the screen keeps its shape
+ * while it loads instead of collapsing to a spinner and jumping back.
+ */
+export function ListSkeleton({ rows = 6, label }: { rows?: number; label?: string }) {
+  return (
+    <div role="status" aria-label={label} className="space-y-3">
+      {Array.from({ length: rows }, (_, index) => (
+        <div key={index} className="rounded-xl border border-duch-line bg-white p-4">
+          <div className="flex items-center gap-3">
+            <Skeleton className="h-4 w-28" />
+            <Skeleton className="h-4 w-16" />
+            <Skeleton className="ms-auto h-6 w-20 rounded-full" />
+          </div>
+          <Skeleton className="mt-3 h-3 w-2/3" />
+        </div>
+      ))}
     </div>
   );
 }

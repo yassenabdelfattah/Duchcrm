@@ -23,16 +23,20 @@ person actually uses.
   Settlements uses it; errors stay inline (`ErrorNote`) because they must
   not vanish on their own.
 
-## Stage 2 - say "done" everywhere, load without jumping
+## Stage 2 - say "done" everywhere, load without jumping (done)
 
-- Adopt `toast()` after every successful action: sale recorded, order
-  shipped, return checked in, stock counted, sizes saved. Today some screens
-  say nothing and the only sign is the list refreshing.
-- Skeleton rows instead of the centered spinner on the list screens (orders,
-  stock, reports), so the page keeps its shape while it loads - the reports
-  hook already keeps old data for this reason; the lists should look the same.
-- `EmptyState` gets an icon and one next step ("no orders today - record a
-  sale"), instead of a bare sentence.
+- The short pure confirmations - return checked in, parcels collected,
+  sizes saved, catalogue imported, report saved - are toasts now; their
+  inline green notes are gone. The notes that carry an instruction (an
+  exchange's "hand back 150" and the bulk results on the orders screen)
+  deliberately stay inline: an amount to act on must not vanish on its own.
+- Skeleton rows (`ListSkeleton`) instead of the centered spinner on every
+  list screen - orders, queue, returns, stock, staff, log, settlements,
+  sync, reports - so the page keeps its shape while it loads. Spinners
+  remain only inside dialogs and next to a running search, where they are
+  right.
+- `EmptyState` carries a quiet icon. The "one next step" per screen is
+  still open - it needs new Arabic copy per screen, written with the owner.
 
 ## Stage 3 - the orders screen as a workbench
 

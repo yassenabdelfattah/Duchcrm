@@ -24,7 +24,7 @@ import {
 } from '../../lib/reportMath';
 import { useLocale } from '../../i18n';
 import { BarList } from '../../components/charts';
-import { Button, Card, ErrorNote, Input, cx } from '../../components/ui';
+import { Button, Card, ErrorNote, Input, cx, toast } from '../../components/ui';
 import { DataTable, Panel, percent } from './parts';
 import { Line, courierMoneyColumns, dayColumns, groupColumns, itemColumns, moneyInColumns } from './columns';
 import type { Column } from './parts';
@@ -81,7 +81,6 @@ export function CustomReport({ data, range }: { data: ReportData; range: Range }
   const [includeOpen, setIncludeOpen] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [notice, setNotice] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
 
   const loadSaved = useCallback(async () => {
@@ -116,7 +115,6 @@ export function CustomReport({ data, range }: { data: ReportData; range: Range }
 
   function openReport(id: string | null) {
     setError(null);
-    setNotice(null);
     setConfirmDelete(false);
     if (id === null) {
       setName('');
@@ -129,7 +127,6 @@ export function CustomReport({ data, range }: { data: ReportData; range: Range }
   }
 
   function toggle(section: Section) {
-    setNotice(null);
     setSections((chosen) =>
       chosen.includes(section) ? chosen.filter((value) => value !== section) : SECTIONS.filter((value) => value === section || chosen.includes(value)),
     );
@@ -159,7 +156,7 @@ export function CustomReport({ data, range }: { data: ReportData; range: Range }
       return;
     }
     await loadSaved();
-    setNotice(t('analytics.custom.savedNotice'));
+    toast(t('analytics.custom.savedNotice'));
     setParams({ r: 'custom', id: (result.data as { id: string }).id });
   }
 
@@ -331,10 +328,7 @@ export function CustomReport({ data, range }: { data: ReportData; range: Range }
           <span className="mb-1 block text-xs font-bold text-stone-500">{t('analytics.custom.name')}</span>
           <Input
             value={name}
-            onChange={(event) => {
-              setName(event.target.value);
-              setNotice(null);
-            }}
+            onChange={(event) => setName(event.target.value)}
             placeholder={t('analytics.custom.namePlaceholder')}
             maxLength={80}
           />
@@ -368,10 +362,7 @@ export function CustomReport({ data, range }: { data: ReportData; range: Range }
             type="checkbox"
             className="mt-0.5 h-4 w-4"
             checked={includeOpen}
-            onChange={(event) => {
-              setIncludeOpen(event.target.checked);
-              setNotice(null);
-            }}
+            onChange={(event) => setIncludeOpen(event.target.checked)}
           />
           <span>
             <span className="block font-semibold">{t('analytics.custom.includeOpen')}</span>
@@ -380,7 +371,6 @@ export function CustomReport({ data, range }: { data: ReportData; range: Range }
         </label>
 
         {error ? <ErrorNote>{error}</ErrorNote> : null}
-        {notice ? <p className="text-xs font-semibold text-emerald-700">{notice}</p> : null}
 
         <div className="flex flex-wrap items-center gap-2">
           <Button onClick={() => void save()} disabled={busy || !changed}>
