@@ -94,3 +94,27 @@ export function cairoDate(value: string | Date = new Date()): string {
 export function cairoDatePlusDays(days: number, from: Date = new Date()): string {
   return cairoDate(new Date(from.getTime() + days * 86_400_000));
 }
+
+const CAIRO_HOUR = new Intl.DateTimeFormat('en-GB', { timeZone: CAIRO, hour: '2-digit', hourCycle: 'h23' });
+
+/**
+ * Midnight in Cairo on the given Cairo day, as the ISO instant a
+ * `created_at` filter wants.
+ *
+ * Egypt runs UTC+2 in winter and UTC+3 under summer time, so midnight is
+ * 22:00Z or 21:00Z depending on the date. Both candidates are tried and the
+ * one that really reads as 00:00 on that day in Cairo wins - parsing
+ * `T00:00:00` in the viewer's own zone, as screens used to, is wrong on any
+ * device not set to Cairo time and around the clock changes.
+ */
+export function cairoStartOfDayISO(day: string = cairoDate()): string {
+  for (const offset of ['+02:00', '+03:00']) {
+    const candidate = new Date(`${day}T00:00:00${offset}`);
+    if (cairoDate(candidate) === day && CAIRO_HOUR.format(candidate) === '00') {
+      return candidate.toISOString();
+    }
+  }
+  // A clock change at midnight itself - not how Egypt schedules them, but
+  // total anyway: the winter reading.
+  return new Date(`${day}T00:00:00+02:00`).toISOString();
+}
