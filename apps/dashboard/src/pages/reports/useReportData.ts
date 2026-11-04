@@ -4,6 +4,7 @@ import { supabase } from '../../lib/supabase';
 import { arabicError } from '../../lib/errors';
 import {
   addDays,
+  leaveOutRefusals,
   previousRange,
   type CourierMoneyRow,
   type MoneyInRow,
@@ -83,9 +84,12 @@ export interface ReliabilityRow {
 }
 
 export interface ReportData {
+  /** Sales, returns and orders without what was refused at the door: it was never a sale. */
   lines: SaleLine[];
   returns: ReturnLine[];
   orders: ReportOrder[];
+  /** The refusals at the door themselves, for the refusals report. */
+  refusals: ReturnLine[];
   custody: CustodyRow[];
   overdue: Set<string>;
   owed: OwedRow[];
@@ -199,11 +203,15 @@ export function useReportData(range: Range) {
             });
         }
 
+        // A refusal at the door is neither a sale nor a return (the owner, 2026-11-04).
+        const sales = leaveOutRefusals({ lines, returns, orders });
+
         if (cancelled) return;
         setData({
-          lines,
-          returns,
-          orders,
+          lines: sales.lines,
+          returns: sales.returns,
+          orders: sales.orders,
+          refusals: sales.refusals,
           custody,
           overdue: new Set(exceptions.map((row) => row.shipment_id)),
           owed,

@@ -26,7 +26,7 @@ import { useLocale } from '../../i18n';
 import { BarList } from '../../components/charts';
 import { Button, Card, ErrorNote, Input, cx, toast } from '../../components/ui';
 import { DataTable, Panel, percent } from './parts';
-import { Line, courierMoneyColumns, dayColumns, groupColumns, itemColumns, moneyInColumns } from './columns';
+import { Line, courierMoneyColumns, dayColumns, groupColumns, itemColumns, moneyInColumns, piecesNote } from './columns';
 import type { Column } from './parts';
 import type { ReportData } from './useReportData';
 
@@ -230,10 +230,16 @@ export function CustomReport({ data, range }: { data: ReportData; range: Range }
     [t('analytics.custom.money.totalHeld'), money(held.total), held.total],
   ];
 
+  // Refused at the door: not sales, so not in the pieces sold or back above
+  // them, but still worth seeing beside them.
+  const refusedPieces = data.refusals
+    .filter((line) => line.returned_on >= range.from && line.returned_on <= range.to)
+    .reduce((count, line) => count + line.quantity, 0);
   const returnLines: Array<[string, string, number | string]> = [
     [t('analytics.col.unitsSold'), String(total.units), total.units],
     [t('analytics.col.unitsBack'), String(total.unitsReturned), total.unitsReturned],
     [t('analytics.custom.piecesReturnRate'), percent(piecesBackRate), percent(piecesBackRate)],
+    [t('analytics.custom.refusedPieces'), String(refusedPieces), refusedPieces],
     [t('analytics.custom.refusalRate'), percent(total.refusalRate), percent(total.refusalRate)],
   ];
 
@@ -483,7 +489,7 @@ export function CustomReport({ data, range }: { data: ReportData; range: Range }
                       </span>
                     ),
                     value: row.net,
-                    note: t('analytics.pieces', { count: row.units }),
+                    note: piecesNote(t, row),
                   }))}
                   format={(value) => formatEGP(value, locale)}
                   empty={t('analytics.empty')}

@@ -1027,9 +1027,12 @@
         },
         "noneIn": "لم يرد شيء في هذه الفترة.",
         "noneHeld": "لا شيء مع شركة الشحن الآن."
-      }
+      },
+      "refusedPieces": "قطع رُفضت عند الباب (ليست مبيعات)"
     },
-    "statementsCountDrafts": "{{count}} كشف مراجَع · {{drafts}} مسودة غير محسوبة"
+    "statementsCountDrafts": "{{count}} كشف مراجَع · {{drafts}} مسودة غير محسوبة",
+    "piecesKept": "{{count}} قطعة · رجع {{back}}",
+    "backCount": "رجع {{count}}"
   },
   "log": {
     "title": "السجل",

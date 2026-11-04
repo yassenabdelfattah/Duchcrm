@@ -1027,9 +1027,12 @@
         },
         "noneIn": "Nothing came in in this period.",
         "noneHeld": "Nothing is with the couriers now."
-      }
+      },
+      "refusedPieces": "Pieces refused at the door (not sales)"
     },
-    "statementsCountDrafts": "{{count}} reviewed · {{drafts}} draft not counted"
+    "statementsCountDrafts": "{{count}} reviewed · {{drafts}} draft not counted",
+    "piecesKept": "{{count}} pieces · {{back}} back",
+    "backCount": "{{count}} back"
   },
   "log": {
     "title": "Log",

@@ -7,6 +7,7 @@ import {
   change,
   customers,
   leaveOutOpen,
+  leaveOutRefusals,
   moneyIn,
   moneyWithCouriers,
   openInRange,
@@ -86,19 +87,35 @@ const order = (fields: Partial<ReportOrder>): ReportOrder => ({
 
 const week = { from: '2026-10-20', to: '2026-10-26' };
 
-// Three orders: a hoodie delivered, a hoodie with 100 off refused (back on the
-// 22nd), and two shirts in the shop.
+// Three orders: a hoodie delivered, a hoodie with 100 off refused at the door
+// (back on the 22nd), and two shirts in the shop, one brought back on the 23rd.
 const lines = [
   sale({ order_id: 'a' }),
   sale({ order_id: 'b', discounts_egp: 100, net_egp: 900, placed_on: '2026-10-21' }),
   sale({ order_id: 'c', product_id: 'shirt', product_title: 'Shirt', variant_id: 'shirt-l', sku: 'S-L', size: 'l', quantity: 2, gross_egp: 1000, net_egp: 1000, channel: 'store' }),
 ];
-const returns = [back({ order_id: 'b', value_egp: 900 })];
+const returns = [
+  back({ order_id: 'b', value_egp: 900 }),
+  back({
+    order_id: 'c',
+    return_type: 'post_delivery',
+    reason: 'wrong_size',
+    returned_on: '2026-10-23',
+    product_id: 'shirt',
+    product_title: 'Shirt',
+    variant_id: 'shirt-l',
+    sku: 'S-L',
+    size: 'l',
+    value_egp: 500,
+  }),
+];
 const orders = [
   order({ order_id: 'a', customer_id: 'mona', customer_order_no: 1 }),
   order({ order_id: 'b', placed_on: '2026-10-21', net_egp: 900, outcome: 'refused', governorate: 'Giza', customer_id: 'ali', customer_name: 'Ali' }),
   order({ order_id: 'c', channel: 'store', courier: null, net_egp: 1000, units: 2, customer_id: 'mona', customer_order_no: 2 }),
 ];
+// As every report reads them: the refusal at the door is neither sold nor back.
+const sold = leaveOutRefusals({ lines, returns, orders });
 
 describe('dates', () => {
   it('compares a week with the week before it', () => {
@@ -110,19 +127,45 @@ describe('dates', () => {
   });
 });
 
-describe('summarize', () => {
-  const summary = summarize(lines, returns, orders, week);
-
-  it('counts sales the Shopify way: gross, less discounts, less what came back', () => {
-    expect(summary.gross).toBe(3000);
-    expect(summary.discounts).toBe(100);
-    expect(summary.returns).toBe(900);
-    expect(summary.net).toBe(2000);
+describe('refusals at the door', () => {
+  it('are neither sales nor returns: the refused order leaves both, and is worth nothing', () => {
+    expect(sold.lines.map((line) => line.order_id)).toEqual(['a', 'c']);
+    expect(sold.returns.map((line) => line.order_id)).toEqual(['c']);
+    expect(sold.orders.find((row) => row.order_id === 'b')).toMatchObject({ net_egp: 0, outcome: 'refused' });
+    expect(sold.refusals).toHaveLength(1);
   });
 
-  it('averages an order before returns, as Shopify does', () => {
-    expect(summary.orders).toBe(3);
-    expect(summary.averageOrder).toBe(966.67);
+  it('take off only the pieces refused when the customer kept the rest', () => {
+    const two = sale({ order_id: 'e', quantity: 2, gross_egp: 2000, discounts_egp: 200, net_egp: 1800 });
+    const result = leaveOutRefusals({
+      lines: [two],
+      returns: [back({ order_id: 'e', value_egp: 900 })],
+      orders: [order({ order_id: 'e', net_egp: 1800, units: 2 })],
+    });
+    expect(result.lines).toEqual([{ ...two, quantity: 1, gross_egp: 1000, discounts_egp: 100, net_egp: 900 }]);
+    expect(result.orders[0]!.net_egp).toBe(900);
+  });
+
+  it('leave the returns without taking anything off when the order was placed before the rows', () => {
+    const result = leaveOutRefusals({ lines, returns: [back({ order_id: 'old' })], orders });
+    expect(result.lines).toEqual(lines);
+    expect(result.returns).toEqual([]);
+  });
+});
+
+describe('summarize', () => {
+  const summary = summarize(sold.lines, sold.returns, sold.orders, week);
+
+  it('counts sales the Shopify way: gross, less discounts, less what came back - never a refusal', () => {
+    expect(summary.gross).toBe(2000);
+    expect(summary.discounts).toBe(0);
+    expect(summary.returns).toBe(500);
+    expect(summary.net).toBe(1500);
+  });
+
+  it('averages an order before returns, as Shopify does, and a refused order is no order', () => {
+    expect(summary.orders).toBe(2);
+    expect(summary.averageOrder).toBe(1000);
   });
 
   it('rates delivery only on courier orders that have finished', () => {
@@ -133,16 +176,16 @@ describe('summarize', () => {
   });
 
   it('takes a return off the period it came back in, not the one it was sold in', () => {
-    expect(summarize(lines, returns, orders, { from: '2026-10-20', to: '2026-10-21' }).returns).toBe(0);
+    expect(summarize(sold.lines, sold.returns, sold.orders, { from: '2026-10-20', to: '2026-10-22' }).returns).toBe(0);
   });
 });
 
 describe('orders still open', () => {
   // A fourth order, still with the courier.
   const withOpen = {
-    lines: [...lines, sale({ order_id: 'd', placed_on: '2026-10-25', net_egp: 1400, gross_egp: 1400 })],
-    returns,
-    orders: [...orders, order({ order_id: 'd', placed_on: '2026-10-25', net_egp: 1400, outcome: 'open' })],
+    lines: [...sold.lines, sale({ order_id: 'd', placed_on: '2026-10-25', net_egp: 1400, gross_egp: 1400 })],
+    returns: sold.returns,
+    orders: [...sold.orders, order({ order_id: 'd', placed_on: '2026-10-25', net_egp: 1400, outcome: 'open' })],
   };
 
   it('says how much of the range rests on orders not yet with the customer', () => {
@@ -151,10 +194,10 @@ describe('orders still open', () => {
   });
 
   it('counts them as sold, unless they are left out', () => {
-    expect(summarize(withOpen.lines, withOpen.returns, withOpen.orders, week).net).toBe(3400);
+    expect(summarize(withOpen.lines, withOpen.returns, withOpen.orders, week).net).toBe(2900);
     const firm = leaveOutOpen(withOpen);
-    expect(summarize(firm.lines, firm.returns, firm.orders, week).net).toBe(2000);
-    expect(summarize(firm.lines, firm.returns, firm.orders, week).orders).toBe(3);
+    expect(summarize(firm.lines, firm.returns, firm.orders, week).net).toBe(1500);
+    expect(summarize(firm.lines, firm.returns, firm.orders, week).orders).toBe(2);
   });
 
   it('leaves the rows alone when nothing is open', () => {
@@ -174,56 +217,51 @@ describe('change', () => {
 
 describe('over time', () => {
   it('puts each sale on its day and each return on the day it came back', () => {
-    const days = byDay(lines, returns, orders, week);
+    const days = byDay(sold.lines, sold.returns, sold.orders, week);
     expect(days).toHaveLength(7);
     expect(days[0]).toMatchObject({ day: '2026-10-20', net: 2000, orders: 2, units: 3 });
-    expect(days[1]).toMatchObject({ day: '2026-10-21', net: 900, orders: 1 });
-    expect(days[2]).toMatchObject({ day: '2026-10-22', net: -900, returns: 900 });
+    expect(days[1]).toMatchObject({ day: '2026-10-21', net: 0, orders: 0 });
+    expect(days[3]).toMatchObject({ day: '2026-10-23', net: -500, returns: 500 });
   });
 
   it('rolls days into weeks that add up', () => {
-    const [onlyWeek] = rollUp(byDay(lines, returns, orders, week), 'week');
-    expect(onlyWeek).toMatchObject({ day: '2026-10-20', net: 2000, orders: 3, units: 4 });
+    const [onlyWeek] = rollUp(byDay(sold.lines, sold.returns, sold.orders, week), 'week');
+    expect(onlyWeek).toMatchObject({ day: '2026-10-20', net: 1500, orders: 2, units: 3 });
   });
 });
 
 describe('what sold', () => {
   it('totals each product, with what came back taken off', () => {
-    const rows = byProduct(lines, returns, week);
-    expect(rows.find((row) => row.label === 'Shirt')).toMatchObject({ units: 2, net: 1000, returnRate: 0 });
-    expect(rows.find((row) => row.label === 'Hoodie')).toMatchObject({
-      units: 2,
-      unitsReturned: 1,
-      net: 1000,
-      returnRate: 0.5,
-    });
+    const rows = byProduct(sold.lines, sold.returns, week);
+    expect(rows.find((row) => row.label === 'Shirt')).toMatchObject({ units: 2, unitsReturned: 1, net: 500, returnRate: 0.5 });
+    expect(rows.find((row) => row.label === 'Hoodie')).toMatchObject({ units: 1, unitsReturned: 0, net: 1000, returnRate: 0 });
   });
 
   it('ranks by net sales', () => {
-    const rows = byProduct([...lines, sale({ order_id: 'd', placed_on: '2026-10-23' })], returns, week);
+    const rows = byProduct([...sold.lines, sale({ order_id: 'd', placed_on: '2026-10-23' })], sold.returns, week);
     expect(rows.map((row) => row.label)).toEqual(['Hoodie', 'Shirt']);
   });
 
   it('adds sizes up across products whatever their case', () => {
-    const sizes = bySize(lines, returns, week);
+    const sizes = bySize(sold.lines, sold.returns, week);
     expect(sizes.map((row) => [row.label, row.units])).toEqual([
-      ['M', 2],
       ['L', 2],
+      ['M', 1],
     ]);
   });
 });
 
 describe('where from', () => {
-  it('rates refusals by governorate', () => {
-    const rows = byGovernorate(orders, week);
-    expect(rows.find((row) => row.key === 'Giza')).toMatchObject({ orders: 1, refused: 1, refusalRate: 1 });
-    expect(rows.find((row) => row.key === 'Cairo')).toMatchObject({ orders: 2, delivered: 2, refusalRate: 0 });
+  it('rates refusals by governorate, and values only what was not refused', () => {
+    const rows = byGovernorate(sold.orders, week);
+    expect(rows.find((row) => row.key === 'Giza')).toMatchObject({ orders: 1, refused: 1, refusalRate: 1, value: 0, averageOrder: 0 });
+    expect(rows.find((row) => row.key === 'Cairo')).toMatchObject({ orders: 2, delivered: 2, refusalRate: 0, value: 2000, averageOrder: 1000 });
   });
 });
 
 describe('customers', () => {
   it('tells a first order from a returning customer, and ranks who spent most', () => {
-    const result = customers(orders, week);
+    const result = customers(sold.orders, week);
     expect(result.newCustomers).toBe(2);
     expect(result.returningCustomers).toBe(1);
     expect(result.top[0]).toMatchObject({ name: 'Mona', orders: 2, value: 2000 });

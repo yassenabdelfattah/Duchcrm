@@ -29,7 +29,7 @@ import { BarList, TrendChart } from '../../components/charts';
 import { Card, cx } from '../../components/ui';
 import { DataTable, Panel, Segmented, StatTile, percent, wholeEGP } from './parts';
 import type { ReportData } from './useReportData';
-import { Line, dayColumns, groupColumns, itemColumns, type T } from './columns';
+import { Line, dayColumns, groupColumns, itemColumns, keptPieces, piecesNote, type T } from './columns';
 import { CustomReport } from './CustomReport';
 
 /** The reports, by what they answer. */
@@ -177,7 +177,7 @@ export function ReportsHome({
               key: row.key,
               label: <bdi>{row.label}</bdi>,
               value: row.net,
-              note: t('analytics.pieces', { count: row.units }),
+              note: piecesNote(t, row),
             }))}
             format={(value) => wholeEGP(value, locale)}
             empty={t('analytics.empty')}
@@ -352,7 +352,7 @@ function ProductsReport({ data, range, initial }: { data: ReportData; range: Ran
       />
       <Panel title={t(byUnits ? 'analytics.mostPieces' : 'analytics.mostSales')}>
         <BarList
-          rows={(byUnits ? [...rows].sort((a, b) => b.units - a.units) : rows).slice(0, 10).map((row) => ({
+          rows={(byUnits ? [...rows].sort((a, b) => keptPieces(b) - keptPieces(a)) : rows).slice(0, 10).map((row) => ({
             key: row.key,
             label: (
               <span className="flex flex-wrap items-baseline gap-x-2">
@@ -360,8 +360,8 @@ function ProductsReport({ data, range, initial }: { data: ReportData; range: Ran
                 {row.detail ? <bdi className="text-xs text-stone-500">{row.detail}</bdi> : null}
               </span>
             ),
-            value: byUnits ? row.units : row.net,
-            note: byUnits ? undefined : t('analytics.pieces', { count: row.units }),
+            value: byUnits ? keptPieces(row) : row.net,
+            note: byUnits ? (row.unitsReturned > 0 ? t('analytics.backCount', { count: row.unitsReturned }) : undefined) : piecesNote(t, row),
           }))}
           format={(value) => (byUnits ? t('analytics.pieces', { count: value }) : wholeEGP(value, locale))}
           empty={t('analytics.empty')}
@@ -453,7 +453,9 @@ function RefusalsReport({ data, range }: { data: ReportData; range: Range }) {
   const { t, locale } = useLocale();
   const now = summarize(data.lines, data.returns, data.orders, range);
   const before = summarize(data.lines, data.returns, data.orders, previousRange(range));
-  const reasons = returnsByReason(data.returns, range);
+  // Every way a parcel came back: the refusals at the door, kept apart from
+  // the sales, and the returns after delivery.
+  const reasons = returnsByReason([...data.refusals, ...data.returns], range);
   const lostToRefusals = sumMoney(reasons.filter((row) => row.type === 'failed_delivery').map((row) => row.value));
   // What Accurate charged for the parcels that came back, on the statements received in the range.
   const refusalFees = sumMoney(data.statementLines.filter((row) => row.outcome.startsWith('returned')).map((row) => Number(row.fee_egp)));

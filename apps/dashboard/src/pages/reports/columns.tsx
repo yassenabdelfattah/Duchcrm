@@ -41,6 +41,19 @@ export function dayColumns(t: T, locale: 'ar' | 'en', grain: 'day' | 'week' | 'm
   ];
 }
 
+/**
+ * Beside an item's net sales: the pieces the customers kept - the ones the
+ * amount is for - and how many came back, if any. Not the pieces sold before
+ * returns, which read as if the amount were for all of them.
+ */
+export const keptPieces = (row: ItemRow) => row.units - row.unitsReturned;
+
+export function piecesNote(t: T, row: ItemRow): string {
+  return row.unitsReturned > 0
+    ? t('analytics.piecesKept', { count: keptPieces(row), back: row.unitsReturned })
+    : t('analytics.pieces', { count: keptPieces(row) });
+}
+
 /** What sold, by product, variant, size or colour: pieces, what came back, and net sales. */
 export function itemColumns(t: T, locale: 'ar' | 'en', view: 'product' | 'variant' | 'size' | 'color'): Column<ItemRow>[] {
   return [

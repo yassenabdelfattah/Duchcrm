@@ -837,3 +837,30 @@ order's date (the owner's choice):
 Accurate takes its fees off when it pays.
 
 Both are parts of the report put together by hand (#17).
+
+---
+
+## 20. A refusal at the door is neither a sale nor a return
+
+Decided 2026-11-04. Counted the Shopify way, a refused parcel was a sale on
+the day it was ordered and a return the day it was refused. It netted to
+nothing, but المرتجع read as money lost: 49,325 over the last 30 days, of
+which 41,425 were refusals at the door.
+
+A parcel the customer would not take was never a sale. The reports now leave
+its pieces out of المبيعات and its refusal out of المرتجع
+(`leaveOutRefusals`, applied where the report data loads). Refused in part,
+only the refused pieces leave; the order stays, worth what was kept. A refused
+order is no order in the counts and averages, and is worth nothing in the
+area and channel tables. Its refusal still counts in every refusal rate. The
+refusals report lists every refusal, and the report put together by hand
+counts the pieces refused beside the return rate.
+
+The cost of the change: a period's sales drop later when one of its open
+orders is refused, where Shopify's way kept past periods fixed. Over the
+same 30 days: المبيعات 197,605, المرتجع 7,900, net 189,205.
+
+Top sellers now show, beside each amount, the pieces customers kept, which
+are the pieces the amount is for, and how many came back. It used to show
+the pieces sold before returns: "Black Puffer Jacket M · 16 pieces · 21,000"
+was 14 kept and 2 refused.

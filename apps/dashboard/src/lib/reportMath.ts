@@ -3,7 +3,10 @@
  *
  * Sales are counted the way Shopify counts them (the owner, 2026-10-28):
  * gross on the day ordered, less discounts, less what came back on the day it
- * came back - net sales. Cancelled orders are not in the views at all.
+ * came back - net sales. Cancelled orders are not in the views at all. Except
+ * a refusal at the door (the owner, 2026-11-04): a parcel the customer would
+ * not take was never a sale, so it is in neither the sales nor the returns -
+ * see leaveOutRefusals.
  *
  * Dates are Cairo `YYYY-MM-DD` strings throughout, compared as strings; the
  * views have already put every row on its Cairo day.
@@ -138,8 +141,9 @@ export function summarize(lines: SaleLine[], returns: ReturnLine[], orders: Repo
   const gross = sum(sold, (line) => line.gross_egp);
   const discounts = sum(sold, (line) => line.discounts_egp);
   const returned = sum(back, (line) => line.value_egp);
-  // An exchange's replacement is not a new order from anyone.
-  const orderCount = placed.filter((order) => !order.is_exchange).length;
+  // An exchange's replacement is not a new order from anyone, and an order
+  // refused at the door was never a sale.
+  const orderCount = placed.filter((order) => !order.is_exchange && order.outcome !== 'refused').length;
 
   const shipped = placed.filter((order) => order.courier !== null);
   const delivered = shipped.filter((order) => order.outcome === 'delivered').length;
@@ -181,6 +185,61 @@ export function openInRange(lines: SaleLine[], orders: ReportOrder[], range: Ran
       lines.filter((line) => ids.has(line.order_id)),
       (line) => line.net_egp,
     ),
+  };
+}
+
+// --- Refusals at the door ------------------------------------------------------------------------
+
+/**
+ * The rows without what was refused at the door (the owner, 2026-11-04). A
+ * parcel the customer would not take was never a sale: rather than counted
+ * sold on the day ordered and taken back as a return when it was refused, its
+ * pieces leave the sales and its refusal leaves the returns. Refused in part,
+ * only the pieces refused leave; the order stays, worth what was kept.
+ *
+ * The refusals are kept apart, for the refusals report. A refusal of an order
+ * placed before the rows begin has no sale here to take off, and simply
+ * leaves the returns - its order's period is where it was never a sale.
+ */
+export function leaveOutRefusals<D extends { lines: SaleLine[]; returns: ReturnLine[]; orders: ReportOrder[] }>(
+  data: D,
+): D & { refusals: ReturnLine[] } {
+  const refusals = data.returns.filter((line) => line.return_type === 'failed_delivery');
+  // Pieces refused, by order and piece - a return line names the piece, not
+  // the order line it came from.
+  const refused = new Map<string, number>();
+  for (const line of refusals) {
+    const key = `${line.order_id}|${line.sku}`;
+    refused.set(key, (refused.get(key) ?? 0) + line.quantity);
+  }
+
+  const offOrder = new Map<string, number>();
+  const lines: SaleLine[] = [];
+  for (const line of data.lines) {
+    const key = `${line.order_id}|${line.sku}`;
+    const left = refused.get(key) ?? 0;
+    const take = Math.min(left, line.quantity);
+    if (take <= 0) {
+      lines.push(line);
+      continue;
+    }
+    refused.set(key, left - take);
+    const kept = line.quantity - take;
+    const gross = cents((Number(line.gross_egp) * kept) / line.quantity);
+    const net = cents((Number(line.net_egp) * kept) / line.quantity);
+    offOrder.set(line.order_id, cents((offOrder.get(line.order_id) ?? 0) + Number(line.net_egp) - net));
+    if (kept > 0) lines.push({ ...line, quantity: kept, gross_egp: gross, discounts_egp: cents(gross - net), net_egp: net });
+  }
+
+  return {
+    ...data,
+    lines,
+    returns: data.returns.filter((line) => line.return_type !== 'failed_delivery'),
+    orders: data.orders.map((order) => {
+      const off = offOrder.get(order.order_id);
+      return off ? { ...order, net_egp: cents(Number(order.net_egp) - off) } : order;
+    }),
+    refusals,
   };
 }
 
@@ -232,7 +291,7 @@ export function byDay(lines: SaleLine[], returns: ReturnLine[], orders: ReportOr
   }
   for (const order of orders) {
     const point = points.get(order.placed_on);
-    if (point && !order.is_exchange) point.orders += 1;
+    if (point && !order.is_exchange && order.outcome !== 'refused') point.orders += 1;
   }
   return [...points.values()].map((point) => ({
     ...point,
@@ -374,7 +433,7 @@ export function byColor(lines: SaleLine[], returns: ReturnLine[], range: Range):
 export interface GroupRow {
   key: string;
   orders: number;
-  /** Ordered value, after discounts, of the orders placed in the range. */
+  /** Ordered value, after discounts, of the orders placed in the range - less what was refused at the door. */
   value: number;
   averageOrder: number;
   delivered: number;
@@ -411,10 +470,13 @@ function groupOrders(orders: ReportOrder[], range: Range, keyOf: (order: ReportO
   return [...rows.values()]
     .map((row) => {
       const finished = row.delivered + row.refused + row.returnedAfterDelivery;
+      // An order refused at the door is worth nothing in the value, and is
+      // not an order in its average.
+      const sold = row.orders - row.refused;
       return {
         ...row,
         value: cents(row.value),
-        averageOrder: row.orders > 0 ? cents(row.value / row.orders) : 0,
+        averageOrder: sold > 0 ? cents(row.value / sold) : 0,
         refusalRate: finished > 0 ? row.refused / finished : null,
       };
     })
