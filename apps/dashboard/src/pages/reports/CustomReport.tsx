@@ -14,6 +14,8 @@ import {
   byVariant,
   daysBetween,
   leaveOutOpen,
+  moneyIn,
+  moneyWithCouriers,
   openInRange,
   rollUp,
   summarize,
@@ -24,7 +26,7 @@ import { useLocale } from '../../i18n';
 import { BarList } from '../../components/charts';
 import { Button, Card, ErrorNote, Input, cx } from '../../components/ui';
 import { DataTable, Panel, percent } from './parts';
-import { Line, dayColumns, groupColumns, itemColumns } from './columns';
+import { Line, courierMoneyColumns, dayColumns, groupColumns, itemColumns, moneyInColumns } from './columns';
 import type { Column } from './parts';
 import type { ReportData } from './useReportData';
 
@@ -41,6 +43,8 @@ import type { ReportData } from './useReportData';
 
 export const SECTIONS = [
   'summary',
+  'moneyIn',
+  'withCourier',
   'returnRate',
   'top',
   'variants',
@@ -209,6 +213,26 @@ export function CustomReport({ data, range }: { data: ReportData; range: Range }
     [t('analytics.col.unitsSold'), String(total.units), total.units],
     [t('analytics.col.average'), money(total.averageOrder), total.averageOrder],
   ];
+  // The money is what moved, whether or not the orders are still open.
+  const cash = useMemo(() => moneyIn(data.moneyIn, range), [data, range]);
+  const held = useMemo(() => moneyWithCouriers(data.withCouriers), [data]);
+  const cashLines: Array<[string, string, number | string]> = [
+    ...cash.bySource.map(
+      (row): [string, string, number | string] => [
+        `${t(`analytics.custom.money.from.${row.source}`)} (${row.count})`,
+        money(row.amount),
+        row.amount,
+      ],
+    ),
+    [t('analytics.custom.money.totalIn'), money(cash.total), cash.total],
+  ];
+  const heldLines: Array<[string, string, number | string]> = [
+    [`${t('analytics.custom.money.collected')} (${held.collected.count})`, money(held.collected.amount), held.collected.amount],
+    [`${t('analytics.custom.money.out')} (${held.out.count})`, money(held.out.amount), held.out.amount],
+    [`${t('analytics.custom.money.ownOut')} (${held.ownOut.count})`, money(held.ownOut.amount), held.ownOut.amount],
+    [t('analytics.custom.money.totalHeld'), money(held.total), held.total],
+  ];
+
   const returnLines: Array<[string, string, number | string]> = [
     [t('analytics.col.unitsSold'), String(total.units), total.units],
     [t('analytics.col.unitsBack'), String(total.unitsReturned), total.unitsReturned],
@@ -235,6 +259,14 @@ export function CustomReport({ data, range }: { data: ReportData; range: Range }
           return { title: heading, header: [t('analytics.custom.item'), t('analytics.custom.value')], rows: summaryLines.map(([label, , value]) => [label, value]) };
         case 'returnRate':
           return { title: heading, header: [t('analytics.custom.item'), t('analytics.custom.value')], rows: returnLines.map(([label, , value]) => [label, value]) };
+        case 'moneyIn': {
+          const list = table(moneyInColumns(t, locale), cash.rows);
+          return { title: heading, header: list.header, rows: [...list.rows, [], ...cashLines.map(([label, , value]) => [label, value])] };
+        }
+        case 'withCourier': {
+          const list = table(courierMoneyColumns(t, locale), data.withCouriers);
+          return { title: heading, header: list.header, rows: [...list.rows, [], ...heldLines.map(([label, , value]) => [label, value])] };
+        }
         case 'top':
           return { title: heading, ...table(itemColumns(t, locale, 'variant'), parts.top) };
         case 'variants':
@@ -414,6 +446,40 @@ export function CustomReport({ data, range }: { data: ReportData; range: Range }
                 </dl>
               </Panel>
             );
+          case 'moneyIn':
+          case 'withCourier': {
+            const isIn = section === 'moneyIn';
+            const figures = isIn ? cashLines : heldLines;
+            const totalLabel = t(isIn ? 'analytics.custom.money.totalIn' : 'analytics.custom.money.totalHeld');
+            return (
+              <Panel key={section} title={heading} help={t(isIn ? 'analytics.custom.money.inHelp' : 'analytics.custom.money.heldHelp')}>
+                <div className="space-y-3">
+                  <dl className="grid gap-x-6 gap-y-2 text-sm sm:grid-cols-2 lg:grid-cols-4">
+                    {figures.map(([label, value]) => (
+                      <Line key={label} label={label} value={value} strong={label === totalLabel} />
+                    ))}
+                  </dl>
+                  {isIn ? (
+                    <DataTable
+                      columns={moneyInColumns(t, locale)}
+                      rows={cash.rows}
+                      rowKey={(row) => `${row.source}:${row.ref_id}`}
+                      fileName={`money-in-${range.from}-${range.to}`}
+                      empty={t('analytics.custom.money.noneIn')}
+                    />
+                  ) : (
+                    <DataTable
+                      columns={courierMoneyColumns(t, locale)}
+                      rows={data.withCouriers}
+                      rowKey={(row) => row.shipment_id}
+                      fileName="money-with-couriers"
+                      empty={t('analytics.custom.money.noneHeld')}
+                    />
+                  )}
+                </div>
+              </Panel>
+            );
+          }
           case 'top':
             return (
               <Panel key={section} title={heading}>

@@ -2,7 +2,17 @@ import { useEffect, useState } from 'react';
 import { cairoDate } from '@duch/shared';
 import { supabase } from '../../lib/supabase';
 import { arabicError } from '../../lib/errors';
-import { addDays, previousRange, type Range, type ReportOrder, type ReturnLine, type SaleLine, type StockItem } from '../../lib/reportMath';
+import {
+  addDays,
+  previousRange,
+  type CourierMoneyRow,
+  type MoneyInRow,
+  type Range,
+  type ReportOrder,
+  type ReturnLine,
+  type SaleLine,
+  type StockItem,
+} from '../../lib/reportMath';
 
 export interface CustodyRow {
   shipment_id: string;
@@ -84,6 +94,10 @@ export interface ReportData {
   stock: StockItem[];
   takenOut: TakenOutRow[];
   reliability: ReliabilityRow[];
+  /** Money that came in, over the range and the one before it. */
+  moneyIn: MoneyInRow[];
+  /** What the couriers hold now, whatever the dates. */
+  withCouriers: CourierMoneyRow[];
 }
 
 /** The API returns at most 1,000 rows a request; a quarter of order lines can be more. */
@@ -118,7 +132,7 @@ export function useReportData(range: Range) {
     async function load() {
       setLoading(true);
       try {
-        const [lines, returns, orders, custody, exceptions, owed, statements, statementLines, stock, takenOut, reliability] =
+        const [lines, returns, orders, custody, exceptions, owed, statements, statementLines, stock, takenOut, reliability, moneyIn, withCouriers] =
           await Promise.all([
             fetchAll<SaleLine>((a, b) =>
               supabase.from('v_report_lines').select('*').gte('placed_on', from).lte('placed_on', to).order('line_id').range(a, b),
@@ -160,6 +174,12 @@ export function useReportData(range: Range) {
                 .order('refusals', { ascending: false })
                 .range(a, b),
             ),
+            fetchAll<MoneyInRow>((a, b) =>
+              supabase.from('v_report_money_in').select('*').gte('received_on', from).lte('received_on', to).order('received_on').order('ref_id').range(a, b),
+            ),
+            fetchAll<CourierMoneyRow>((a, b) =>
+              supabase.from('v_money_with_couriers').select('*').order('days', { ascending: false }).order('shipment_id').range(a, b),
+            ),
           ]);
 
         // One row per piece, whatever shelf it is on.
@@ -192,6 +212,8 @@ export function useReportData(range: Range) {
           stock: [...byVariant.values()],
           takenOut,
           reliability,
+          moneyIn,
+          withCouriers,
         });
         setError(null);
       } catch (caught) {

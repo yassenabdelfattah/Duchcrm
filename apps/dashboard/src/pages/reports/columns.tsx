@@ -1,5 +1,5 @@
 import { formatDate, formatEGP } from '@duch/shared';
-import type { DayPoint, GroupRow, ItemRow } from '../../lib/reportMath';
+import type { CourierMoneyRow, DayPoint, GroupRow, ItemRow, MoneyInRow } from '../../lib/reportMath';
 import { cx } from '../../components/ui';
 import { percent, type Column } from './parts';
 
@@ -100,4 +100,69 @@ export function Line({ label, value, strong }: { label: string; value: string; s
       <dd className="tabular">{value}</dd>
     </div>
   );
+}
+
+/** Each transfer or payment that came in, and each refund paid back. */
+export function moneyInColumns(t: T, locale: 'ar' | 'en'): Column<MoneyInRow>[] {
+  return [
+    {
+      key: 'day',
+      label: t('analytics.col.date'),
+      value: (row) => row.received_on,
+      render: (row) => <span className="tabular">{formatDate(row.received_on, locale)}</span>,
+    },
+    { key: 'source', label: t('analytics.custom.money.source'), value: (row) => t(`analytics.custom.money.from.${row.source}`) },
+    {
+      key: 'ref',
+      label: t('analytics.custom.money.ref'),
+      value: (row) => row.label,
+      render: (row) => (
+        <span className="tabular" dir="ltr">
+          {row.label ?? '—'}
+        </span>
+      ),
+    },
+    {
+      key: 'amount',
+      label: t('analytics.col.value'),
+      value: (row) => Number(row.amount_egp),
+      render: (row) => <span className={cx('font-semibold', Number(row.amount_egp) < 0 && 'text-red-700')}>{formatEGP(Number(row.amount_egp), locale)}</span>,
+      numeric: true,
+    },
+  ];
+}
+
+/** Each parcel whose cash a courier or our driver holds, or is out to collect. */
+export function courierMoneyColumns(t: T, locale: 'ar' | 'en'): Column<CourierMoneyRow>[] {
+  // Our driver by name; a courier company by its name.
+  const holder = (row: CourierMoneyRow) =>
+    row.courier === 'own' ? (row.driver_name ?? t('orders.courier.own')) : t(`orders.courier.${row.courier}`);
+  return [
+    {
+      key: 'order',
+      label: t('analytics.col.order'),
+      value: (row) => row.order_number,
+      render: (row) => (
+        <span className="tabular font-semibold" dir="ltr">
+          {row.order_number}
+        </span>
+      ),
+    },
+    { key: 'customer', label: t('analytics.col.customer'), value: (row) => row.customer_name, render: (row) => <bdi>{row.customer_name ?? '—'}</bdi> },
+    {
+      key: 'with',
+      label: t('analytics.custom.money.with'),
+      value: (row) => holder(row),
+      render: (row) => <bdi>{holder(row)}</bdi>,
+    },
+    { key: 'state', label: t('analytics.col.status'), value: (row) => t(`analytics.custom.money.state.${row.state}`) },
+    { key: 'days', label: t('analytics.col.days'), value: (row) => Math.floor(Number(row.days)), numeric: true },
+    {
+      key: 'amount',
+      label: t('analytics.col.value'),
+      value: (row) => Number(row.amount_egp),
+      render: (row) => formatEGP(Number(row.amount_egp), locale),
+      numeric: true,
+    },
+  ];
 }

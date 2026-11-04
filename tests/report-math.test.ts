@@ -7,6 +7,8 @@ import {
   change,
   customers,
   leaveOutOpen,
+  moneyIn,
+  moneyWithCouriers,
   openInRange,
   previousRange,
   rollUp,
@@ -14,6 +16,8 @@ import {
   summarize,
   toCsv,
   toCsvSections,
+  type CourierMoneyRow,
+  type MoneyInRow,
   type ReportOrder,
   type ReturnLine,
   type SaleLine,
@@ -250,6 +254,41 @@ describe('stockHealth', () => {
 
   it('lists the urgent first', () => {
     expect(rows.map((row) => row.state)).toEqual(['out', 'low', 'slow', 'ok']);
+  });
+});
+
+describe('money', () => {
+  const paid = (source: MoneyInRow['source'], received_on: string, amount_egp: number): MoneyInRow => ({
+    source, received_on, amount_egp, ref_id: `${source}-${received_on}-${amount_egp}`, label: null, order_id: null,
+  });
+
+  it('adds up what came in during the range by where it came from, refunds off the total', () => {
+    const result = moneyIn(
+      [paid('courier_transfer', '2026-10-28', 12542), paid('shop', '2026-10-20', 550), paid('shop', '2026-10-21', 1500),
+       paid('refund', '2026-10-25', -550), paid('courier_transfer', '2026-11-02', 26830)],
+      { from: '2026-10-01', to: '2026-10-31' },
+    );
+    expect(result.bySource).toEqual([
+      { source: 'courier_transfer', count: 1, amount: 12542 },
+      { source: 'shop', count: 2, amount: 2050 },
+      { source: 'refund', count: 1, amount: -550 },
+    ]);
+    expect(result.total).toBe(14042);
+  });
+
+  it('splits what the couriers hold into collected, still out with them, and out with our drivers', () => {
+    const parcel = (courier: string, state: CourierMoneyRow['state'], amount_egp: number): CourierMoneyRow => ({
+      shipment_id: `${courier}-${state}-${amount_egp}`, order_id: 'o', order_number: '#1', courier, tracking_number: null,
+      driver_name: null, state, amount_egp, days: 1, customer_name: null,
+    });
+    const result = moneyWithCouriers([parcel('accurate', 'collected', 630), parcel('accurate', 'collected', 1580),
+      parcel('accurate', 'out', 780), parcel('own', 'out', 600)]);
+    expect(result).toEqual({
+      collected: { count: 2, amount: 2210 },
+      out: { count: 1, amount: 780 },
+      ownOut: { count: 1, amount: 600 },
+      total: 3590,
+    });
   });
 });
 

@@ -579,7 +579,8 @@
       "returnRefunded": "{{amount}} paid back to the customer for the return",
       "shopifyClosedAfterReturn": "Closed in Shopify after it came back - stock unchanged",
       "shipToEdited": "Shipping details changed",
-      "deliveryUndone": "Delivery undone"
+      "deliveryUndone": "Delivery undone",
+      "partialDelivery": "Delivered in part: {{kept}} taken, {{back}} coming back"
     },
     "step": {
       "sold": "Sold",
@@ -641,7 +642,22 @@
     "undoDelivered": "Undo delivered",
     "undoDeliveredTitle": "Undo delivery of {{orderNumber}}",
     "undoDeliveredHelp": "For an order marked delivered by mistake. It goes back to the courier or our driver, as it was, and the order history records it under your name. If it really came back, check it in on Returns afterwards.",
-    "undoDeliveredReason": "Reason (optional)"
+    "undoDeliveredReason": "Reason (optional)",
+    "partialDelivery": "Delivered in part",
+    "partialTitle": "Delivered in part · {{orderNumber}}",
+    "partialHelp": "For each piece, say how many the customer took and how many are coming back with the courier. What comes back is taken off what is owed at once and shows on Returns as coming back; its stock returns when it is checked in there.",
+    "partialTook": "Took",
+    "partialBack": "Coming back",
+    "partialReason": "Why they came back",
+    "partialPickBack": "Mark the pieces coming back.",
+    "partialOffBill": "Coming back: {{amount}}",
+    "partialCustomerPays": "The customer pays the courier {{amount}} (what they took, and the shipping)",
+    "partialDriverCash": "Cash from our driver: {{amount}} (what was taken, and the shipping)",
+    "partialRefund": "{{amount}} is owed back to the customer - it was paid online",
+    "partialConfirm": "Confirm",
+    "partialDone": "Order {{orderNumber}} delivered in part: {{kept}} taken, {{back}} coming back. Check it in on Returns when it arrives.",
+    "comingBackQty": "{{count}} coming back",
+    "undoPartialNote": "What was marked coming back is cleared with it."
   },
   "reports": {
     "title": "Reports and log",
@@ -961,7 +977,9 @@
         "colors": "Colours",
         "days": "Sales day by day",
         "channels": "By channel",
-        "governorates": "By governorate"
+        "governorates": "By governorate",
+        "moneyIn": "Money that came in",
+        "withCourier": "With the courier"
       },
       "includeOpen": "Count open orders",
       "includeOpenHelp": "Orders placed in the range that have not reached the customer yet: being packed or with the courier. Left out, the numbers cover only what reached the customer or came back.",
@@ -983,8 +1001,35 @@
       "piecesReturnRate": "Return rate of pieces",
       "refusalRate": "Refusal rate of finished courier orders",
       "item": "Item",
-      "value": "Value"
-    }
+      "value": "Value",
+      "money": {
+        "source": "From",
+        "ref": "Statement / order",
+        "with": "With",
+        "from": {
+          "courier_transfer": "Accurate transfers",
+          "own_driver": "Our drivers’ cash",
+          "shop": "The shop and transfers",
+          "paid_before_shipping": "Paid before shipping",
+          "courier_by_hand": "Marked paid by hand, no statement",
+          "refund": "Paid back to customers"
+        },
+        "totalIn": "Net in",
+        "inHelp": "What actually arrived in this period: Accurate’s transfers on the day received, from reviewed statements (after their fees), and every other order on the day it was marked paid, less refunds. Nothing is counted twice.",
+        "collected": "Collected by Accurate, not paid over",
+        "out": "Still out with Accurate",
+        "ownOut": "Out with our drivers",
+        "totalHeld": "Total with couriers",
+        "heldHelp": "Right now, whatever the order’s date: what Accurate collected from customers (what they took, and the shipping) that is not on a reviewed statement yet, and what is still out to collect. Accurate takes its fees off when it pays.",
+        "state": {
+          "collected": "Collected",
+          "out": "Out"
+        },
+        "noneIn": "Nothing came in in this period.",
+        "noneHeld": "Nothing is with the couriers now."
+      }
+    },
+    "statementsCountDrafts": "{{count}} reviewed · {{drafts}} draft not counted"
   },
   "log": {
     "title": "Log",
@@ -1037,7 +1082,8 @@
       "exchange_refunded": "Exchange difference paid back",
       "return_refunded": "Return paid back to the customer",
       "ship_to_edited": "Shipping details changed",
-      "delivery_undone": "Delivery undone"
+      "delivery_undone": "Delivery undone",
+      "partial_delivery": "Delivered in part"
     },
     "note": {
       "customer": "Customer asked",

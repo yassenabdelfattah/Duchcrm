@@ -765,3 +765,75 @@ still open and how much they are worth.
 **Reports are kept by name** (`saved_reports`): the parts and the open-orders
 switch, never the dates. Everyone who can see the reports sees, changes and
 deletes the saved ones, because they are the shop's reports.
+
+---
+
+## 18. Delivered in part, said on the order
+
+Built 2026-11-04 on the owner's ask. A customer who kept some of a parcel and
+handed the rest back could only be recorded once the refused pieces reached
+Returns. Until then the order sat with the courier, owed in full.
+
+"التسليم جزئياً" on the order asks, piece by piece, what the customer took and
+what is coming back, and why (`record_partial_delivery`). In one step:
+- the order and its parcel are delivered, of what was kept. Our own driver's
+  cash comes in with it, as "cash received" does;
+- a refusal at the door is opened for the rest, with every piece's count.
+  Returns lists it as coming back, and its check-in starts from these counts.
+  Stock comes back only then, when the pieces are counted (#3).
+
+**The refused pieces come off what is owed at once** (the owner's choice):
+the order's total, the owed list, and what the courier's statement should
+say. A refusal that kept something counts wherever money is reckoned from
+when it is recorded, checked in or not. A whole refusal still with the
+courier does not. A refusal is paid nothing for, unless the order was paid
+online before it left; then it is owed back.
+
+It works while the parcel is with the courier or our driver, and on an order
+already marked delivered with nothing back on it yet (the owner's choice).
+That covers a batch marked delivered before Accurate's statement said the
+customer kept only part. Not on an exchange's replacement, whose parcel also
+brings the old piece back; that is said on Returns.
+
+Pressed by mistake, "taking back delivered" takes it back too, while the
+pieces are still on the way. The refusal it opened goes with it, and the
+history keeps what it had said.
+
+---
+
+## 19. Net sales count an exchange once; the money in and with the courier
+
+Checked against the data on 2026-11-04, when the owner asked whether net sales
+were right.
+
+**An exchange took the old piece off twice.** The replacement carries the old
+piece's value as its discount, so the customer is asked only for the
+difference (#13). The old piece coming back is also a return. #1407's 550
+hoodie for W2610-00044's 700 jacket: the customer has a 700 jacket and paid
+700, and the reports counted 150. October lost 3,550 this way, and November
+1,500 so far.
+
+Counted now the way Shopify counts an exchange: the old piece is a return, and
+the new piece a sale at its price. In the reports a replacement's credit is no
+discount (`v_report_lines`). A replacement's piece exchanged again comes back
+at what it sold for (`v_report_returns`). The order's own money is untouched.
+An exchange whose replacement was cancelled before the old piece came back is
+no return (W2611-00064).
+
+**Money that came in** (`v_report_money_in`), on the day it came:
+- Accurate's transfers, on the day received, from statements that are no
+  longer drafts;
+- every other order, on the day it was marked paid: the shop, our drivers,
+  paid before shipping, or a courier parcel marked paid by hand;
+- less refunds paid back.
+An order whose cash was in a transfer is not counted again. A draft statement
+counts once reviewed; the statements report now says the same.
+
+**Money with the courier** (`v_money_with_couriers`) is now, whatever the
+order's date (the owner's choice):
+- what Accurate collected and has not paid over on a reviewed statement:
+  the goods kept and the shipping;
+- what is still out with Accurate or our drivers, at what the label asks.
+Accurate takes its fees off when it pays.
+
+Both are parts of the report put together by hand (#17).

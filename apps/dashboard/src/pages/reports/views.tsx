@@ -638,14 +638,22 @@ function OwedReport({ data }: { data: ReportData }) {
 
 function StatementsReport({ data }: { data: ReportData }) {
   const { t, locale } = useLocale();
-  const received = sumMoney(data.statements.map((row) => Number(row.net_received_egp ?? row.net_egp)));
+  // A draft is still being entered and checked: its money counts once it is
+  // reviewed, as in the money that came in.
+  const reviewed = data.statements.filter((row) => row.status !== 'draft');
+  const received = sumMoney(reviewed.map((row) => Number(row.net_received_egp ?? row.net_egp)));
   const fees = sumMoney(data.statements.map((row) => Number(row.fees_egp)));
   const refusalFees = sumMoney(data.statementLines.filter((row) => row.outcome.startsWith('returned')).map((row) => Number(row.fee_egp)));
   const shipping = sumMoney(data.statementLines.map((row) => Number(row.shipping_gain_egp ?? 0)));
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <StatTile label={t('analytics.kpi.received')} value={wholeEGP(received, locale)} hint={t('analytics.statementsCount', { count: data.statements.length })} />
+        <StatTile label={t('analytics.kpi.received')} value={wholeEGP(received, locale)} hint={
+            reviewed.length === data.statements.length
+              ? t('analytics.statementsCount', { count: reviewed.length })
+              : t('analytics.statementsCountDrafts', { count: reviewed.length, drafts: data.statements.length - reviewed.length })
+          }
+        />
         <StatTile label={t('analytics.kpi.courierFees')} value={wholeEGP(fees, locale)} />
         <StatTile label={t('analytics.kpi.refusalFees')} value={wholeEGP(refusalFees, locale)} />
         <StatTile label={t('analytics.kpi.shippingDifference')} value={wholeEGP(shipping, locale)} hint={t('analytics.shippingDifferenceHint')} />

@@ -531,6 +531,68 @@ export function stockHealth(stock: StockItem[], lines: SaleLine[], returns: Retu
 
 const STATE_ORDER: Record<StockHealthRow['state'], number> = { out: 0, low: 1, slow: 2, ok: 3 };
 
+// --- Money ---------------------------------------------------------------------------------------
+
+/** One transfer or payment that came in, or a refund paid back (negative) - v_report_money_in. */
+export interface MoneyInRow {
+  source: 'courier_transfer' | 'shop' | 'own_driver' | 'paid_before_shipping' | 'courier_by_hand' | 'refund';
+  received_on: string;
+  ref_id: string;
+  label: string | null;
+  order_id: string | null;
+  amount_egp: number;
+}
+
+/** A parcel whose cash a courier or our driver holds, or is out to collect - v_money_with_couriers. */
+export interface CourierMoneyRow {
+  shipment_id: string;
+  order_id: string;
+  order_number: string;
+  courier: string;
+  tracking_number: string | null;
+  driver_name: string | null;
+  state: 'collected' | 'out';
+  amount_egp: number;
+  days: number;
+  customer_name: string | null;
+}
+
+export const MONEY_SOURCES: MoneyInRow['source'][] = [
+  'courier_transfer',
+  'own_driver',
+  'shop',
+  'paid_before_shipping',
+  'courier_by_hand',
+  'refund',
+];
+
+/** What came in during the range, by where from, and the total after refunds. */
+export function moneyIn(rows: MoneyInRow[], range: Range) {
+  const inRange = rows.filter((row) => within(row.received_on, range));
+  const bySource = MONEY_SOURCES.map((source) => {
+    const of = inRange.filter((row) => row.source === source);
+    return { source, count: of.length, amount: sum(of, (row) => row.amount_egp) };
+  }).filter((row) => row.count > 0);
+  return { rows: inRange, bySource, total: sum(inRange, (row) => row.amount_egp) };
+}
+
+/**
+ * What the couriers hold now: collected by Accurate and not paid over yet,
+ * still out with Accurate, out with our drivers.
+ */
+export function moneyWithCouriers(rows: CourierMoneyRow[]) {
+  const part = (keep: (row: CourierMoneyRow) => boolean) => {
+    const of = rows.filter(keep);
+    return { count: of.length, amount: sum(of, (row) => row.amount_egp) };
+  };
+  return {
+    collected: part((row) => row.state === 'collected'),
+    out: part((row) => row.state === 'out' && row.courier !== 'own'),
+    ownOut: part((row) => row.state === 'out' && row.courier === 'own'),
+    total: sum(rows, (row) => row.amount_egp),
+  };
+}
+
 // --- Download ----------------------------------------------------------------------------------------
 
 type CsvRow = Array<string | number | null>;

@@ -35,6 +35,7 @@ import { OrderEditor } from '../components/OrderEditor';
 import { ExchangeDialog } from '../components/ExchangeDialog';
 import { CancelOrderDialog } from '../components/CancelOrderDialog';
 import { CustomerSignals, type CustomerSignalsData } from '../components/CustomerSignals';
+import { PartialDeliveryDialog } from '../components/PartialDeliveryDialog';
 
 /**
  * Every order, findable, and each one a line until it is needed.
@@ -60,6 +61,8 @@ interface OrderItem {
   total_egp: number;
   /** Pieces of it back from the customer, checked in. */
   returned?: number;
+  /** Pieces of it on their way back - refused at the door, not checked in yet. */
+  coming_back?: number;
 }
 
 interface OrderRow {
@@ -85,6 +88,8 @@ interface OrderRow {
   courier: string | null;
   driver_name: string | null;
   shipment_status: string | null;
+  /** What the parcel's label asks the customer for; 0 when paid before it left. */
+  cod_amount_egp: number | null;
   handed_over_at: string | null;
   delivered_at: string | null;
   items: OrderItem[];
@@ -392,6 +397,7 @@ export function Orders() {
   const [history, setHistory] = useState<OrderRow | null>(null);
   const [reopening, setReopening] = useState<OrderRow | null>(null);
   const [undoing, setUndoing] = useState<OrderRow | null>(null);
+  const [partial, setPartial] = useState<OrderRow | null>(null);
   const [cancelling, setCancelling] = useState<OrderRow | null>(null);
   const [exchanging, setExchanging] = useState<OrderRow | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -688,6 +694,18 @@ export function Orders() {
         />
       ) : null}
 
+      {partial ? (
+        <PartialDeliveryDialog
+          order={partial}
+          onClose={() => setPartial(null)}
+          onDone={({ kept, back }) => {
+            setNotice(t('orders.partialDone', { orderNumber: partial.order_number, kept, back }));
+            setPartial(null);
+            reload();
+          }}
+        />
+      ) : null}
+
       {undoing ? (
         <UndoDeliveredDialog
           order={undoing}
@@ -818,6 +836,10 @@ export function Orders() {
                     onSettle={(rpc) => void settle(row, rpc)}
                     onReopen={() => setReopening(row)}
                     onUndoDelivered={() => setUndoing(row)}
+                    onPartial={() => {
+                      setNotice(null);
+                      setPartial(row);
+                    }}
                     onCancel={() => setCancelling(row)}
                     onExchange={() => {
                       setNotice(null);
@@ -1323,6 +1345,7 @@ function OrderDetails({
   onSettle,
   onReopen,
   onUndoDelivered,
+  onPartial,
   onCancel,
   onExchange,
 }: {
@@ -1335,6 +1358,7 @@ function OrderDetails({
   onSettle: (rpc: SettleAction) => void;
   onReopen: () => void;
   onUndoDelivered: () => void;
+  onPartial: () => void;
   onCancel: () => void;
   onExchange: () => void;
 }) {
@@ -1344,6 +1368,19 @@ function OrderDetails({
   const { cancelled, deliverable, courierDelivered, settleable } = stepsFor(row, perms);
   // Cancelled, or the goods came back: nothing is owed on it.
   const closed = isClosed(row);
+  // The customer kept part of the parcel: while it is with the courier or our
+  // driver, or once marked delivered with nothing back on it yet. Our
+  // driver's brings his cash in, so it is for the people who record cash. An
+  // exchange's parcel also carries the old piece, so it is said on Returns.
+  const pieceBack = row.items.some((item) => Number(item.returned) > 0 || Number(item.coming_back) > 0);
+  const partialable =
+    !cancelled &&
+    row.courier !== null &&
+    Number(row.unit_count) > 1 &&
+    !row.exchange_for_order_id &&
+    !pieceBack &&
+    ((row.stage === 'on_the_road' && (row.courier === 'own' ? perms.maySettle : perms.mayDeliver)) ||
+      (row.stage === 'delivered' && perms.mayDeliver));
 
   // The person's record and the number's other names. Read for the order
   // that is open, not for every row of the list.
@@ -1444,6 +1481,9 @@ function OrderDetails({
             </span>
             {Number(item.returned) > 0 ? (
               <StatusPill tone="back">{t('orders.returnedQty', { count: Number(item.returned) })}</StatusPill>
+            ) : null}
+            {Number(item.coming_back) > 0 ? (
+              <StatusPill tone="road">{t('orders.comingBackQty', { count: Number(item.coming_back) })}</StatusPill>
             ) : null}
             <span className="tabular whitespace-nowrap text-stone-600">
               {item.quantity} × {formatEGP(Number(item.unit_price_egp), locale)}
@@ -1589,6 +1629,12 @@ function OrderDetails({
           </Button>
         ) : null}
 
+        {partialable ? (
+          <Button variant="secondary" className="min-h-9 px-3 text-xs" onClick={onPartial}>
+            {t('orders.partialDelivery')}
+          </Button>
+        ) : null}
+
         {settleable ? (
           <Button className="ms-auto" disabled={busy} onClick={() => onSettle('mark_order_paid')}>
             {busy ? t('app.loading') : t('orders.markPaid')}
@@ -1684,6 +1730,11 @@ function describeEvent(event: OrderEvent, t: (k: string, p?: Record<string, unkn
       return t('orders.history.shipToEdited');
     case 'delivery_undone':
       return t('orders.history.deliveryUndone');
+    case 'partial_delivery':
+      return t('orders.history.partialDelivery', {
+        kept: String(event.details?.kept ?? ''),
+        back: String(event.details?.back ?? ''),
+      });
     default:
       return event.event_type;
   }
@@ -1876,7 +1927,10 @@ function UndoDeliveredDialog({
   return (
     <Modal open title={t('orders.undoDeliveredTitle', { orderNumber: order.order_number })} onClose={onClose}>
       <div className="space-y-3">
-        <p className="rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-900">{t('orders.undoDeliveredHelp')}</p>
+        <p className="rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-900">
+          {t('orders.undoDeliveredHelp')}
+          {order.items.some((item) => Number(item.coming_back) > 0) ? ` ${t('orders.undoPartialNote')}` : null}
+        </p>
 
         <Field label={t('orders.undoDeliveredReason')}>
           <Input value={reason} onChange={(event) => setReason(event.target.value)} autoFocus />
