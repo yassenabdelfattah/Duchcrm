@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { compareVariants, formatDate, formatDateTime } from '@duch/shared';
+import { cairoDatePlusDays, compareVariants, formatDate, formatDateTime } from '@duch/shared';
 import { supabase } from '../lib/supabase';
 import { arabicError } from '../lib/errors';
 import { useLocale } from '../i18n';
@@ -265,16 +265,11 @@ interface Picked extends PickRow {
 }
 
 /**
- * A date some days from today, as the date input wants it. Built from the
- * local calendar date - toISOString() would give the UTC date, which in
- * Cairo is yesterday until 2 or 3 in the morning.
+ * A date some days from Cairo's today, as the date input wants it - the
+ * shop's calendar, whatever the device's clock is set to.
  */
 function addDays(days: number): string {
-  const date = new Date();
-  date.setDate(date.getDate() + days);
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-  return `${date.getFullYear()}-${month}-${day}`;
+  return cairoDatePlusDays(days);
 }
 
 export function StockOutDialog({

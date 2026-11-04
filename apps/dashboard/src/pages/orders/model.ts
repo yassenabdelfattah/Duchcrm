@@ -1,3 +1,5 @@
+import { cairoDatePlusDays, cairoStartOfDayISO } from '@duch/shared';
+import { addDays } from '../../lib/reportMath';
 import type { StatusTone } from '../../components/ui';
 
 /**
@@ -165,18 +167,15 @@ export function applyFilters(query: Query, filters: Filters): Query {
   if (filters.governorate) q = q.eq('customer_governorate', filters.governorate);
   if (filters.exchange) q = q.not('exchange_for_order_id', 'is', null);
   if (filters.hasNote) q = q.not('note', 'is', null);
+  // Days are Cairo days, as everywhere else - not the device's midnight.
   if (filters.period === 'range') {
-    if (filters.from) q = q.gte('created_at', new Date(`${filters.from}T00:00:00`).toISOString());
-    if (filters.to) {
-      const end = new Date(`${filters.to}T00:00:00`);
-      end.setDate(end.getDate() + 1);
-      q = q.lt('created_at', end.toISOString());
-    }
+    if (filters.from) q = q.gte('created_at', cairoStartOfDayISO(filters.from));
+    if (filters.to) q = q.lt('created_at', cairoStartOfDayISO(addDays(filters.to, 1)));
+  } else if (filters.period === 'today') {
+    q = q.gte('created_at', cairoStartOfDayISO());
   } else if (filters.period) {
-    const since = new Date();
-    if (filters.period === 'today') since.setHours(0, 0, 0, 0);
-    else since.setDate(since.getDate() - Number(filters.period));
-    q = q.gte('created_at', since.toISOString());
+    // "7" is today and the six days before it, as the reports count it.
+    q = q.gte('created_at', cairoStartOfDayISO(cairoDatePlusDays(1 - Number(filters.period))));
   }
   return q;
 }

@@ -12,7 +12,7 @@ import {
   RefreshCw,
   Truck,
 } from 'lucide-react';
-import { can, canAny, formatEGP } from '@duch/shared';
+import { cairoStartOfDayISO, can, canAny, formatEGP } from '@duch/shared';
 import { supabase } from '../lib/supabase';
 import { useLocale } from '../i18n';
 import { readSeenAt } from '../hooks/useQueueAlert';
@@ -56,19 +56,7 @@ interface MovementRow {
 }
 
 /** Midnight in Cairo, as an ISO instant, so "today" means the shop's today. */
-function cairoStartOfDay(): string {
-  const parts = new Intl.DateTimeFormat('en-CA', {
-    timeZone: 'Africa/Cairo',
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  }).formatToParts(new Date());
-  const get = (type: string) => parts.find((p) => p.type === type)?.value ?? '01';
-  // Egypt runs UTC+2, or UTC+3 while summer time is in force. Letting Date
-  // resolve "YYYY-MM-DDT00:00:00" in the viewer's own zone is close enough
-  // for a headline figure; real reporting uses the server-side daily view.
-  return new Date(`${get('year')}-${get('month')}-${get('day')}T00:00:00`).toISOString();
-}
+const cairoStartOfDay = () => cairoStartOfDayISO();
 
 const TONE_STYLES: Record<StatusTone, { card: string; icon: string }> = {
   wait: { card: 'border-amber-200 bg-amber-50', icon: 'bg-amber-100 text-amber-800' },

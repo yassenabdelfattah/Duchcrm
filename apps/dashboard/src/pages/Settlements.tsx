@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router';
 import { Pencil } from 'lucide-react';
-import { can, formatDate, formatEGP } from '@duch/shared';
+import { cairoDate, can, formatDate, formatEGP } from '@duch/shared';
 import { useGetIdentity } from '@refinedev/core';
 import { supabase } from '../lib/supabase';
 import { arabicError } from '../lib/errors';
@@ -344,7 +344,8 @@ function NewSettlementDialog({
   onError: (message: string) => void;
 }) {
   const { t } = useLocale();
-  const today = new Date().toISOString().slice(0, 10);
+  // Cairo's today: the UTC date is still yesterday until midnight Cairo.
+  const today = cairoDate();
   const [reference, setReference] = useState('');
   const [statementDate, setStatementDate] = useState(today);
   const [receivedAt, setReceivedAt] = useState(today);
