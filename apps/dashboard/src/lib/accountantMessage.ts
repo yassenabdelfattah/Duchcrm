@@ -2,11 +2,12 @@
  * The message that goes to the accountant with a statement.
  *
  * What he writes into his ledger: each product, how many, what they came to,
- * a rule under each, and their total. Then what was taken off - each charge,
- * their total - and what is left, which is the transfer (the owner,
- * 2026-10-26).
+ * a rule under each, and their total. Then anything added on top, and what
+ * was taken off - each charge, their total - and what is left, which is the
+ * transfer (the owner, 2026-10-26).
  *
- * It has to add up on paper: products less deductions is the transfer. Where
+ * It has to add up on paper: products plus additions less deductions is the
+ * transfer. Where
  * the two would not meet - an order discount, Accurate charging more or less
  * for shipping than the customer paid, a parcel collected for a little more
  * or less than it should have been - the gap is written as its own line
@@ -29,9 +30,8 @@ export interface MessageLine {
   note: string | null;
   /** Shipping the customer paid at the door, inside what was collected; null on older lines. */
   customer_shipping_egp?: number | null;
-  /** On an exchange's replacement: what the piece sent back paid of it, and the order it came from. */
+  /** On an exchange's replacement: what the piece sent back paid of it. */
   exchange_credit_egp?: number | null;
-  exchange_for_order_number?: string | null;
 }
 
 /** Money without the currency and the .00: easier to read in a chat message. */
@@ -79,32 +79,33 @@ export function accountantMessage(
     }
   }
 
-  // What the courier took off: a return's fee, the shipping on a parcel paid
-  // online, a charge on the whole statement. A credit on the statement is a
-  // deduction with a minus.
+  // What the courier took off, as totals - the accountant needs no order
+  // numbers (the owner, 2026-11-04): the fees on everything that came back,
+  // as one shipping loss; the shipping on parcels the customer did not pay
+  // shipping for at the door; and each charge on the whole statement, by its
+  // note. A credit on the statement is one of these with a minus.
   //
   // Not the shipping on a delivery the customer paid shipping for at the
   // door: that was collected with the goods and charged straight back, and
   // all it leaves is whatever Accurate charged above or below it - one line
   // for the whole statement.
-  const charges: { label: string; amount: number }[] = [];
+  let returnFees = 0;
+  let shippingFees = 0;
   let shippingDifference = 0;
+  const statementCharges: { label: string; amount: number }[] = [];
   for (const line of lines) {
-    const parcel = line.order_number ?? line.tracking_number ?? '';
     if (line.outcome === 'adjustment') {
-      charges.push({
+      statementCharges.push({
         label: line.note ?? t('settlementOutcome.adjustment'),
         amount: Number(line.fee_egp) - Number(line.collected_egp),
       });
     } else if (line.outcome === 'delivered' && Number(line.customer_shipping_egp) > 0) {
       shippingDifference += Number(line.fee_egp) - Number(line.customer_shipping_egp);
-    } else if (Number(line.fee_egp) > 0) {
-      const what = line.outcome === 'delivered' ? t('settlements.shippingOf') : t(`settlementOutcome.${line.outcome}`);
-      charges.push({ label: `${what} ${parcel}`.trim(), amount: Number(line.fee_egp) });
+    } else if (line.outcome === 'delivered') {
+      shippingFees += Number(line.fee_egp);
+    } else {
+      returnFees += Number(line.fee_egp);
     }
-  }
-  if (cents(shippingDifference) !== 0) {
-    charges.push({ label: t('settlements.shippingGain'), amount: cents(shippingDifference) });
   }
 
   // An exchange's replacement is listed at its price, and the piece the
@@ -113,13 +114,16 @@ export function accountantMessage(
   let exchangeCredits = 0;
   for (const line of lines) {
     const credit = Number(line.exchange_credit_egp ?? 0);
-    if (line.outcome !== 'delivered' || !(Number(line.collected_egp) > 0) || !(credit > 0)) continue;
-    charges.push({
-      label: `${t('settlements.exchangeOf')} ${line.order_number ?? ''} (${t('settlements.exchangePieceFrom')} ${line.exchange_for_order_number ?? ''})`,
-      amount: credit,
-    });
-    exchangeCredits += credit;
+    if (line.outcome === 'delivered' && Number(line.collected_egp) > 0 && credit > 0) exchangeCredits += credit;
   }
+
+  const charges = [
+    { label: t('settlements.shippingLosses'), amount: cents(returnFees) },
+    { label: t('settlements.shippingFees'), amount: cents(shippingFees) },
+    ...statementCharges,
+    { label: t('settlements.shippingGain'), amount: cents(shippingDifference) },
+    { label: t('settlements.exchangeOf'), amount: cents(exchangeCredits) },
+  ].filter((charge) => charge.amount !== 0);
 
   out.push(`${t('settlements.productsTotal')} = ${n(listed)}`);
   out.push(RULE);
@@ -135,11 +139,22 @@ export function accountantMessage(
   const gap = cents(listed - charges.reduce((sum, charge) => sum + charge.amount, 0) - net);
   if (gap !== 0) charges.push({ label: t('settlements.collectionDifference'), amount: gap });
 
-  if (charges.length > 0) {
-    out.push(t('settlements.debits'));
-    for (const charge of charges) out.push(`${charge.label} = ${n(charge.amount)}`);
+  // What came in on top - a credit on the statement, customers paying more
+  // shipping than Accurate charged, a parcel collected for a little more - is
+  // an addition in its own block, not a deduction with a minus: "زيادة شحن =
+  // -10" under خصومات read as wrong (the owner, 2026-11-04).
+  const additions = charges.filter((charge) => charge.amount < 0).map((charge) => ({ ...charge, amount: -charge.amount }));
+  const deductions = charges.filter((charge) => charge.amount >= 0);
+
+  for (const [block, heading, totalLabel] of [
+    [additions, 'settlements.additions', 'settlements.totalAdditions'],
+    [deductions, 'settlements.debits', 'settlements.totalDebits'],
+  ] as const) {
+    if (block.length === 0) continue;
+    out.push(t(heading));
+    for (const charge of block) out.push(`${charge.label} = ${n(charge.amount)}`);
     out.push(RULE);
-    out.push(`${t('settlements.totalDebits')} = ${n(charges.reduce((sum, charge) => sum + charge.amount, 0))}`);
+    out.push(`${t(totalLabel)} = ${n(block.reduce((sum, charge) => sum + charge.amount, 0))}`);
     out.push(RULE);
   }
 

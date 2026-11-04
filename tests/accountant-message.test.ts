@@ -18,7 +18,7 @@ const line = (fields: Partial<MessageLine>): MessageLine => ({
 });
 
 describe('accountantMessage', () => {
-  it('lists the products, then what was taken off, their total and what is left', () => {
+  it('lists the products, then what was taken off as totals, their total and what is left', () => {
     const message = accountantMessage(
       [
         { title: 'Brown Baseball Leather Jacket', quantity: 2, total_egp: 1400 },
@@ -29,7 +29,10 @@ describe('accountantMessage', () => {
       [
         line({ order_number: '#1407', collected_egp: 1400 }),
         line({ order_number: '#1408', collected_egp: 1250 }),
-        line({ outcome: 'returned_other', order_number: '#1413', fee_egp: 130 }),
+        // Every parcel that came back, whatever Accurate called it: one loss.
+        line({ outcome: 'returned_other', order_number: '#1413', fee_egp: 80 }),
+        line({ outcome: 'returned_refused', order_number: '#1419', fee_egp: 15 }),
+        line({ outcome: 'returned_no_response', order_number: '#1427', fee_egp: 20 }),
         line({ order_number: '#1414', fee_egp: 80 }),
         line({ outcome: 'adjustment', note: 'فلايرات', fee_egp: 210 }),
       ],
@@ -45,13 +48,13 @@ describe('accountantMessage', () => {
         'اجمالي المنتجات = 2,650',
         '--------------------',
         'خصومات',
-        'مرتجعة #1413 = 130',
-        'شحن #1414 = 80',
+        'خساير شحن = 115',
+        'مصاريف شحن = 80',
         'فلايرات = 210',
         '--------------------',
-        'اجمالي الخصومات = 420',
+        'اجمالي الخصومات = 405',
         '--------------------',
-        'صافي التحويل = 2,230',
+        'صافي التحويل = 2,245',
       ].join('\n'),
     );
   });
@@ -95,11 +98,15 @@ describe('accountantMessage', () => {
         '--------------------',
         'اجمالي المنتجات = 615',
         '--------------------',
+        'إضافات',
+        'فرق في التحصيل = 5',
+        '--------------------',
+        'اجمالي الإضافات = 5',
+        '--------------------',
         'خصومات',
         'خصم للعملاء = 15',
-        'فرق في التحصيل = -5',
         '--------------------',
-        'اجمالي الخصومات = 10',
+        'اجمالي الخصومات = 15',
         '--------------------',
         'صافي التحويل = 605',
       ].join('\n'),
@@ -122,7 +129,6 @@ describe('accountantMessage', () => {
           fee_egp: 110,
           customer_shipping_egp: 110,
           exchange_credit_egp: 550,
-          exchange_for_order_number: '#1407',
         }),
         line({ order_number: 'D2610-00039', collected_egp: 500 }),
       ],
@@ -139,7 +145,7 @@ describe('accountantMessage', () => {
         'اجمالي المنتجات = 1,250',
         '--------------------',
         'خصومات',
-        'استبدال W2610-00044 (القطعة المرتجعة من #1407) = 550',
+        'استبدال = 550',
         'خصم للعملاء = 50',
         '--------------------',
         'اجمالي الخصومات = 600',
@@ -174,13 +180,50 @@ describe('accountantMessage', () => {
         '--------------------',
         'اجمالي المنتجات = 1,200',
         '--------------------',
-        'خصومات',
-        'مرتجعة #1413 = 15',
-        'فرق الشحن = -5',
+        'إضافات',
+        'فرق الشحن = 5',
         '--------------------',
-        'اجمالي الخصومات = 10',
+        'اجمالي الإضافات = 5',
+        '--------------------',
+        'خصومات',
+        'خساير شحن = 15',
+        '--------------------',
+        'اجمالي الخصومات = 15',
         '--------------------',
         'صافي التحويل = 1,190',
+      ].join('\n'),
+    );
+  });
+
+  it('lists what Accurate added as an addition, not a deduction with a minus (CSHP--030330)', () => {
+    const message = accountantMessage(
+      [{ title: 'Grey Puffer Jacket', quantity: 1, total_egp: 1500 }],
+      [
+        line({ order_number: '#1434', collected_egp: 1500 }),
+        line({ outcome: 'adjustment', note: 'زيادة شحن', collected_egp: 10 }),
+        line({ outcome: 'adjustment', note: 'مصاريف تحويل', fee_egp: 13 }),
+      ],
+      t,
+      1500,
+    );
+
+    expect(message).toBe(
+      [
+        'Grey Puffer Jacket * 1 = 1,500',
+        '--------------------',
+        'اجمالي المنتجات = 1,500',
+        '--------------------',
+        'إضافات',
+        'زيادة شحن = 10',
+        '--------------------',
+        'اجمالي الإضافات = 10',
+        '--------------------',
+        'خصومات',
+        'مصاريف تحويل = 13',
+        '--------------------',
+        'اجمالي الخصومات = 13',
+        '--------------------',
+        'صافي التحويل = 1,497',
       ].join('\n'),
     );
   });
