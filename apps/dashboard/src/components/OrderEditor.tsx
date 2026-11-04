@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { PAYMENT_METHODS, calculateInvoiceTotals, formatEGP, normalizeEgyptianPhone } from '@duch/shared';
+import { PAYMENT_METHODS, calculateInvoiceTotals, formatEGP, multiplyMoney, normalizeEgyptianPhone, toPiastres } from '@duch/shared';
 import type { PaymentMethod } from '@duch/shared';
 import { supabase } from '../lib/supabase';
 import { arabicError } from '../lib/errors';
@@ -51,8 +51,7 @@ interface LineRow {
 
 /** What a line comes to: the database rounds it the same way. */
 function lineTotal(line: LineRow) {
-  const cents = (value: number) => Math.round(value * 100) / 100;
-  return cents(Number(line.unit_price_egp) * line.quantity) - cents(line.discount_per_unit * line.quantity);
+  return toPiastres(multiplyMoney(Number(line.unit_price_egp), line.quantity) - multiplyMoney(line.discount_per_unit, line.quantity));
 }
 
 /** Who and where an order ships - the order's own, not the customer record's. */

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router';
 import { Pencil } from 'lucide-react';
-import { cairoDate, can, formatDate, formatEGP } from '@duch/shared';
+import { cairoDate, can, formatDate, formatEGP, sumMoney } from '@duch/shared';
 import { useGetIdentity } from '@refinedev/core';
 import { supabase } from '../lib/supabase';
 import { arabicError } from '../lib/errors';
@@ -728,8 +728,7 @@ function SettlementDetail({
   const balanced = Math.abs(difference) <= 0.009;
   // What customers paid for shipping at the door against what Accurate
   // charged for it: made when positive, lost when negative.
-  const shippingGain =
-    Math.round(lines.reduce((sum, line) => sum + Number(line.shipping_gain_egp ?? 0), 0) * 100) / 100;
+  const shippingGain = sumMoney(lines.map((line) => Number(line.shipping_gain_egp ?? 0)));
 
   return (
     <div className="space-y-4">

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Minus, Plus, X } from 'lucide-react';
-import { compareVariants, formatEGP } from '@duch/shared';
+import { compareVariants, formatEGP, multiplyMoney, sumMoney, toPiastres } from '@duch/shared';
 import { supabase } from '../lib/supabase';
 import { arabicError } from '../lib/errors';
 import { isolate, useLocale } from '../i18n';
@@ -192,15 +192,14 @@ export function ExchangeDialog({
   // The same sum the database makes: what the customer paid for the piece,
   // the order's own discount spread across it.
   const factor = Number(order.subtotal_egp) > 0 ? Number(order.total_egp) / Number(order.subtotal_egp) : 1;
-  const credit = (lines ?? []).reduce(
-    (sum, line) => sum + (Number(line.total_egp) / line.quantity) * factor * (back[line.id] ?? 0),
-    0,
+  const credit = sumMoney(
+    (lines ?? []).map((line) => toPiastres((Number(line.total_egp) / line.quantity) * factor * (back[line.id] ?? 0))),
   );
-  const goods = added.reduce((sum, line) => sum + Number(line.row.price_egp) * line.quantity, 0);
+  const goods = sumMoney(added.map((line) => multiplyMoney(Number(line.row.price_egp), line.quantity)));
   const fee = inStore ? 0 : Math.max(0, Number(shipping) || 0);
   const applied = Math.min(credit, goods);
-  const refund = credit - applied;
-  const due = goods - applied + fee;
+  const refund = toPiastres(credit - applied);
+  const due = toPiastres(goods - applied + fee);
   const piecesBack = Object.values(back).reduce((sum, n) => sum + n, 0);
 
   async function confirm() {

@@ -12,6 +12,8 @@
  * views have already put every row on its Cairo day.
  */
 
+import { toPiastres } from '@duch/shared';
+
 export interface SaleLine {
   line_id: string;
   order_id: string;
@@ -84,7 +86,8 @@ export interface Range {
   to: string;
 }
 
-const cents = (value: number) => Math.round(value * 100) / 100;
+// The shared rounding (money.ts says why Math.round(x*100)/100 is wrong).
+const cents = toPiastres;
 const sum = <T>(rows: T[], pick: (row: T) => number) => cents(rows.reduce((total, row) => total + Number(pick(row)), 0));
 
 // --- Dates --------------------------------------------------------------------------------

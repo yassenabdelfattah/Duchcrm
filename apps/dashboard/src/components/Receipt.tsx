@@ -1,4 +1,4 @@
-import { formatDateTime, formatEGP } from '@duch/shared';
+import { formatDateTime, formatEGP, multiplyMoney } from '@duch/shared';
 import { useLocale } from '../i18n';
 import type { CompletedSale } from '../pages/StoreSale';
 
@@ -43,7 +43,7 @@ export function Receipt({ sale }: { sale: CompletedSale }) {
               </td>
               <td className="tabular w-8 py-1 text-center">{line.quantity}</td>
               <td className="tabular w-20 py-1 text-end">
-                {formatEGP(line.unit_price_egp * line.quantity, locale)}
+                {formatEGP(multiplyMoney(line.unit_price_egp, line.quantity), locale)}
               </td>
             </tr>
           ))}

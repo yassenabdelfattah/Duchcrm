@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { formatDate, formatEGP } from '@duch/shared';
+import { formatDate, formatEGP, sumMoney } from '@duch/shared';
 import { supabase } from '../lib/supabase';
 import { useLocale } from '../i18n';
 import { Button, Spinner } from './ui';
@@ -58,7 +58,7 @@ export function PackingSlip({ order, onClose }: { order: SlipOrder; onClose: () 
     };
   }, [order.order_id]);
 
-  const goodsTotal = (lines ?? []).reduce((sum, line) => sum + Number(line.total_egp), 0);
+  const goodsTotal = sumMoney((lines ?? []).map((line) => Number(line.total_egp)));
 
   return (
     <div className="fixed inset-0 z-50 overflow-auto bg-white p-4 print:p-0">

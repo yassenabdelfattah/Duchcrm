@@ -14,6 +14,8 @@
  * rather than left for him to find.
  */
 
+import { toPiastres } from '@duch/shared';
+
 export interface MessageProduct {
   title: string;
   quantity: number;
@@ -38,7 +40,8 @@ export interface MessageLine {
 const PLAIN_NUMBER = new Intl.NumberFormat('en-EG', { maximumFractionDigits: 2 });
 const RULE = '--------------------';
 
-const cents = (value: number) => Math.round(value * 100) / 100;
+// The shared rounding, under the name this file always used.
+const cents = toPiastres;
 
 /**
  * `goods` is what the delivered orders came to after their own discounts

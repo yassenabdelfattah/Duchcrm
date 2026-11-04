@@ -4,6 +4,7 @@ import {
   calculateBasket,
   compareVariants,
   formatEGP,
+  multiplyMoney,
   normalizeEgyptianPhone,
   type PaymentMethod,
 } from '@duch/shared';
@@ -644,7 +645,7 @@ export function StoreSale() {
                   </span>
 
                   <span className="tabular w-24 text-end text-sm font-semibold">
-                    {formatEGP(line.unit_price_egp * line.quantity, locale)}
+                    {formatEGP(multiplyMoney(line.unit_price_egp, line.quantity), locale)}
                   </span>
                 </li>
               ))}
