@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import type {
   ButtonHTMLAttributes,
   InputHTMLAttributes,
@@ -34,7 +35,7 @@ export function Button({
         // min-h-11 keeps every control at a comfortable thumb target on the
         // phones staff actually use at the till.
         'inline-flex min-h-11 items-center justify-center gap-2 rounded-lg px-4 text-sm font-semibold',
-        'transition-colors disabled:cursor-not-allowed disabled:opacity-60',
+        'transition active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60 disabled:active:scale-100',
         'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-duch-accent',
         BUTTON_STYLES[variant],
         className,
@@ -196,9 +197,20 @@ export function Modal({
   onClose: () => void;
   children: ReactNode;
 }) {
+  // Escape closes, same as the ✕. The backdrop deliberately does not: a
+  // stray tap must not throw away a half-filled check-in form.
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [open, onClose]);
+
   if (!open) return null;
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-0 sm:items-center sm:p-4">
+    <div className="animate-fade-in fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-0 sm:items-center sm:p-4">
       {/*
         Capped in height with the body scrolling inside it. A return check-in
         for a multi-item parcel is taller than a phone screen, and without this
@@ -210,7 +222,7 @@ export function Modal({
         role="dialog"
         aria-modal="true"
         aria-label={title}
-        className="flex max-h-[92dvh] w-full max-w-md flex-col rounded-t-2xl bg-white shadow-xl sm:max-h-[85dvh] sm:rounded-2xl"
+        className="animate-rise-in flex max-h-[92dvh] w-full max-w-md flex-col rounded-t-2xl bg-white shadow-xl sm:max-h-[85dvh] sm:rounded-2xl"
       >
         <div className="flex shrink-0 items-start justify-between gap-4 border-b border-duch-line p-5 pb-3">
           <h2 className="text-base font-bold">{title}</h2>
@@ -220,6 +232,60 @@ export function Modal({
         </div>
         <div className="overflow-y-auto overscroll-contain p-5">{children}</div>
       </div>
+    </div>
+  );
+}
+
+// --- Toasts ------------------------------------------------------------------------------------
+//
+// One way to say "done" on every screen: toast(t('...')) after the action
+// lands, and a floating note appears for a few seconds where the thumb is not.
+// Errors stay inline next to what failed (ErrorNote) - they must not vanish.
+
+interface ToastItem {
+  id: number;
+  text: string;
+}
+
+let nextToastId = 1;
+let pushToast: ((text: string) => void) | null = null;
+
+/** Show a short success note. Safe to call from anywhere; no-op before the Layout mounts. */
+export function toast(text: string) {
+  pushToast?.(text);
+}
+
+/** The single host for toast(); the Layout mounts it once. */
+export function Toasts() {
+  const [items, setItems] = useState<ToastItem[]>([]);
+
+  useEffect(() => {
+    pushToast = (text) => {
+      const id = nextToastId++;
+      // At most three on screen, the oldest giving way.
+      setItems((current) => [...current.slice(-2), { id, text }]);
+      setTimeout(() => setItems((current) => current.filter((item) => item.id !== id)), 4000);
+    };
+    return () => {
+      pushToast = null;
+    };
+  }, []);
+
+  return (
+    // Above the phone tab bar, under the thumb line on desktop.
+    <div
+      aria-live="polite"
+      className="no-print pointer-events-none fixed inset-x-0 bottom-24 z-[60] flex flex-col items-center gap-2 px-4 sm:bottom-6"
+    >
+      {items.map((item) => (
+        <div
+          key={item.id}
+          className="animate-rise-in flex max-w-full items-center gap-2 rounded-full bg-duch-ink px-4 py-2.5 text-sm font-semibold text-white shadow-lg"
+        >
+          <span className="size-1.5 shrink-0 rounded-full bg-emerald-400" aria-hidden="true" />
+          <span className="truncate">{item.text}</span>
+        </div>
+      ))}
     </div>
   );
 }

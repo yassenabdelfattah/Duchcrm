@@ -24,7 +24,7 @@ import { useLocale } from '../i18n';
 import { useQueueAlert } from '../hooks/useQueueAlert';
 import type { StaffIdentity } from '../providers/authProvider';
 import { InstallAppRow } from './InstallApp';
-import { cx } from './ui';
+import { cx, Toasts } from './ui';
 
 interface NavItem {
   to: string;
@@ -181,6 +181,8 @@ export function Layout() {
       <main className="mx-auto max-w-6xl px-4 pb-28 pt-5 sm:pb-8">
         <Outlet />
       </main>
+
+      <Toasts />
 
       {/* Phones: four tabs and More, within thumb reach of someone holding
           the device one-handed behind the counter. */}

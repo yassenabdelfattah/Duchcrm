@@ -19,6 +19,7 @@ import {
   Modal,
   Spinner,
   cx,
+  toast,
 } from '../components/ui';
 import {
   AccountantSummary,
@@ -444,7 +445,6 @@ function SettlementDetail({
   const [fee, setFee] = useState('');
   const [netReceived, setNetReceived] = useState('');
   const [error, setError] = useState<string | null>(null);
-  const [toast, setToast] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [searchFocused, setSearchFocused] = useState(false);
   const [lineNote, setLineNote] = useState('');
@@ -532,7 +532,7 @@ function SettlementDetail({
       setError(arabicError(updateError));
       return;
     }
-    setToast(t('settlements.noteSaved'));
+    toast(t('settlements.noteSaved'));
   }
 
   useEffect(() => {
@@ -698,7 +698,7 @@ function SettlementDetail({
       return;
     }
     const result = data as { orders_marked_paid: number };
-    setToast(t('settlements.reviewed_toast', { count: result.orders_marked_paid }));
+    toast(t('settlements.reviewed_toast', { count: result.orders_marked_paid }));
     await load();
   }
 
@@ -715,7 +715,7 @@ function SettlementDetail({
       setError(arabicError(rpcError));
       return;
     }
-    setToast(t('settlements.reopened_toast'));
+    toast(t('settlements.reopened_toast'));
     await load();
   }
 
@@ -745,11 +745,6 @@ function SettlementDetail({
       </div>
 
       {error ? <ErrorNote>{error}</ErrorNote> : null}
-      {toast ? (
-        <p className="rounded-lg bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-800">
-          {toast}
-        </p>
-      ) : null}
 
       {isDraft ? (
         <Card className="no-print space-y-3">

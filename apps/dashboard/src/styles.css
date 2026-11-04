@@ -9,6 +9,30 @@
   --color-duch-paper: #fafaf9;
   --color-duch-line: #e7e5e4;
   --color-duch-accent: #c2410c;
+
+  /* Dialogs and toasts arrive instead of popping into place. */
+  --animate-fade-in: fade-in 0.15s ease-out;
+  --animate-rise-in: rise-in 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+
+  @keyframes fade-in {
+    from {
+      opacity: 0;
+    }
+  }
+  @keyframes rise-in {
+    from {
+      opacity: 0;
+      transform: translateY(14px) scale(0.98);
+    }
+  }
+}
+
+/* Whoever asked their phone for less motion gets none of ours. */
+@media (prefers-reduced-motion: reduce) {
+  .animate-fade-in,
+  .animate-rise-in {
+    animation: none;
+  }
 }
 
 :root {
