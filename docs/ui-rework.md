@@ -38,19 +38,23 @@ person actually uses.
 - `EmptyState` carries a quiet icon. The "one next step" per screen is
   still open - it needs new Arabic copy per screen, written with the owner.
 
-## Stage 3 - the orders screen as a workbench
+## Stage 3 - the orders screen as a workbench (done, but react-query)
 
-`pages/Orders.tsx` is 2,000 lines and every task happens in it. Split by
-what people do, not by code size:
+`pages/Orders.tsx` was 2,000 lines and every task happened in it. Now:
 
-- A `pages/orders/` folder: list, filter bar, order drawer, bulk bar - the
-  same screen, in parts a new reader can find.
-- On desktop, opening an order slides a drawer beside the list instead of
-  jumping; the list keeps the scroll position. On the phone it stays a page.
-- Saved filters as chips over the list (today's COD, with Accurate, unpaid),
-  like the saved reports: press, not re-pick, re-type.
-- Move fetching to react-query (installed through Refine, unused): retries,
-  caching and "is it stale" solved once instead of 77 hand-rolled effects.
+- A `pages/orders/` folder: the row and its rules in `model.ts` (types,
+  query builders, which step an order offers whom), and the pieces of the
+  screen - `OrderLine`, `OrderDetails`, `OrderHistory`, `FilterSheet`,
+  `BulkDialog`, `dialogs` - each findable on its own. The page itself is a
+  third of its old size and holds only the state and the layout.
+- On a wide screen an opened order sits in a drawer beside the list, so
+  working down a list never loses the place; clicking another line swaps
+  it. On the phone it still opens under its line, under the thumb.
+- The filters people reach for every day - today, COD, unpaid, Accurate,
+  our drivers, exchanges - are one-tap chips by the search box. A chip
+  pressed joins the active (filled, removable) chips; nothing new to learn.
+- Still open: fetching through react-query (installed via Refine, unused).
+  It pays once several screens move together; not worth churn on one.
 
 ## Stage 4 - one table on every screen
 
