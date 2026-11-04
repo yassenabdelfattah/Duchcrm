@@ -95,6 +95,23 @@ export function Layout() {
     setMoreOpen(false);
   }, [pathname]);
 
+  // On a keyboard, "/" jumps to the screen's search box - unless something
+  // is already being typed into.
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key !== '/' || event.ctrlKey || event.metaKey || event.altKey) return;
+      const target = event.target as HTMLElement | null;
+      if (target?.closest('input, textarea, select, [contenteditable="true"]')) return;
+      const box = document.querySelector<HTMLInputElement>('input[inputmode="search"]');
+      if (!box) return;
+      event.preventDefault();
+      box.focus();
+      box.select();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
+
   const moreActive = more.some((item) => isActivePath(pathname, item.to));
 
   function badgeFor(to: string) {

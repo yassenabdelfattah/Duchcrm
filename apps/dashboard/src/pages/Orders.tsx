@@ -264,6 +264,17 @@ export function Orders() {
   // On a wide screen the opened order lives in the drawer, not in the list.
   const drawerRow = wide && expanded ? (rows ?? []).find((row) => row.id === expanded) ?? null : null;
 
+  // Escape closes the drawer - but not from under a dialog, which takes it.
+  useEffect(() => {
+    if (!drawerRow) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape' || document.querySelector('[role="dialog"]')) return;
+      setExpanded(null);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [drawerRow]);
+
   const detailsFor = (row: OrderRow) => (
     <OrderDetails
       row={row}

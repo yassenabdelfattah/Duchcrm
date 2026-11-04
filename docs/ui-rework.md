@@ -56,21 +56,25 @@ person actually uses.
 - Still open: fetching through react-query (installed via Refine, unused).
   It pays once several screens move together; not worth churn on one.
 
-## Stage 4 - one table on every screen
+## Stage 4 - one table for numbers (done, narrower than planned)
 
-The reports' `DataTable` (sticky totals, CSV download, column meanings) is
-the best table in the app and only the reports use it. Lift it to
-`components/`, give it sortable headers and sticky first column, and move
-the hand-rolled tables (stock, staff, log) onto it, one screen a commit.
+The reports' `DataTable` (sortable columns, totals, CSV download) and
+`Segmented` now live in `components/table.tsx`, for every screen; the
+reports re-import them unchanged. The planned conversions were looked at
+and deliberately dropped: the statement and stock-count tables are forms
+people type into, not report tables, and the staff list is six rows with a
+button - moving any of them would be churn, not improvement. The rule
+going forward: a new screen that shows numbers uses the shared table.
 
-## Stage 5 - identity and comfort
+## Stage 5 - identity and comfort (keyboard done)
 
-- A quiet theme pass: the accent (`--color-duch-accent`) appears only on
+- Done: on a keyboard, `/` jumps to the screen's search box, and Escape
+  closes dialogs and the orders drawer (a dialog on top takes the Escape).
+- Open: a quiet theme pass - the accent (`--color-duch-accent`) only on
   what asks for a decision today; everything informational stays ink/stone.
-- Keyboard on desktop: `/` focuses search, Escape already closes.
-- Optional, after everything above: dark mode behind a token pass -
-  `styles.css` already keeps every color in `@theme`, so it is a variables
-  change, not a redesign.
+- Optional, last: dark mode. The tokens are in `@theme`, but the screens
+  also say `bg-white` and `text-stone-*` directly, so it is a real pass
+  over the pages, not only a variables change.
 
 ## How to tell it worked
 
