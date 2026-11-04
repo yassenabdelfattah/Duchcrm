@@ -30,11 +30,12 @@ import { Card, cx } from '../../components/ui';
 import { DataTable, Panel, Segmented, StatTile, percent, wholeEGP } from './parts';
 import type { ReportData } from './useReportData';
 import { Line, dayColumns, groupColumns, itemColumns, keptPieces, piecesNote, type T } from './columns';
+import { CompletedReport } from './CompletedReport';
 import { CustomReport } from './CustomReport';
 
 /** The reports, by what they answer. */
 export const REPORT_GROUPS = [
-  { key: 'mine', reports: ['custom'] },
+  { key: 'mine', reports: ['completed', 'custom'] },
   { key: 'sales', reports: ['sales', 'products', 'sizes', 'channels'] },
   { key: 'areas', reports: ['governorates', 'refusals'] },
   { key: 'money', reports: ['courier', 'owed', 'statements'] },
@@ -237,6 +238,8 @@ function OpenLink({ onClick }: { onClick: () => void }) {
 
 export function ReportView({ report, data, range }: { report: ReportKey; data: ReportData; range: Range }) {
   switch (report) {
+    case 'completed':
+      return <CompletedReport data={data} range={range} />;
     case 'custom':
       return <CustomReport data={data} range={range} />;
     case 'sales':

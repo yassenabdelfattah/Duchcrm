@@ -68,6 +68,14 @@ export interface ReportOrder {
   courier: string | null;
   outcome: 'delivered' | 'refused' | 'returned' | 'open';
   customer_order_no: number | null;
+  /** Where the goods are now. */
+  fulfillment_status: string;
+  /** What the customer was charged for shipping: not a sale. */
+  shipping_egp: number;
+  /** Where the money is - 'paid' once it is ours. Read from the order beside the view. */
+  payment_status: string | null;
+  /** For an exchange's replacement, the order it replaces. Read beside the view too. */
+  exchange_for_order_id: string | null;
 }
 
 /** Inclusive Cairo dates. */
@@ -652,6 +660,208 @@ export function moneyWithCouriers(rows: CourierMoneyRow[]) {
     out: part((row) => row.state === 'out' && row.courier !== 'own'),
     ownOut: part((row) => row.state === 'out' && row.courier === 'own'),
     total: sum(rows, (row) => row.amount_egp),
+  };
+}
+
+// --- Completed sales ---------------------------------------------------------------------------------
+
+/**
+ * Where an order placed in the range stands now. It is complete once it
+ * reached the customer and its money is ours (the owner, 2026-11-04):
+ * Accurate's statement reviewed, our driver's cash in, paid in the shop or
+ * before it shipped - payment_status 'paid', which nothing else sets.
+ */
+export type Standing = 'completed' | 'awaitingMoney' | 'onTheRoad' | 'notShipped' | 'cameBack';
+
+/** Not complete yet, but on the way to it - the furthest along first. */
+export const WAITING = ['awaitingMoney', 'onTheRoad', 'notShipped'] as const satisfies readonly Standing[];
+
+const ON_THE_ROAD = new Set(['awaiting_pickup', 'in_transit', 'out_for_delivery']);
+const CAME_BACK = new Set(['delivery_failed', 'return_in_transit', 'returned']);
+const MONEY_IN = new Set(['paid', 'partially_refunded']);
+
+export interface StandingOrder {
+  /** The order holding it up: the sale itself, or the replacement still out. */
+  order_id: string;
+  order_number: string;
+  placed_on: string;
+  /** For a replacement, the order the sale was placed as. */
+  replaces: string | null;
+  customer_name: string | null;
+  courier: string | null;
+  fulfillment_status: string;
+  standing: Standing;
+  /** The pieces the customer has, or will: less what was refused or sent back. */
+  pieces: number;
+  /** Their goods, after discounts. */
+  net: number;
+}
+
+export interface CompletedItem {
+  key: string;
+  label: string;
+  /** Size and colour for a variant; the colour, if the product has one, for an item. */
+  detail: string | null;
+  sku: string | null;
+  pieces: number;
+  net: number;
+}
+
+/**
+ * The month as the owner counts it (2026-11-04): the sales placed in the
+ * range, by order date, that are complete - their goods after discounts, less
+ * every piece refused at the door or sent back after delivery, whenever it
+ * came back; shipping apart, as it is no sale. What is not complete yet is
+ * counted beside it, so the range adds up: complete, still to come, or back.
+ *
+ * An exchange is the sale it was placed as, not a new order from anyone: its
+ * replacement - and a replacement's replacement - belongs to the order the
+ * customer placed, in that order's month. The sale is complete when the piece
+ * the customer ends up with is delivered and paid for: #1481, ordered in
+ * October, swapped once and then again, is October's, on the road until
+ * W2611-00069 arrives. The old piece is off at what it sold for and the new
+ * one on at its own price (the reports' way, 20261104130000).
+ *
+ * Read off rows without the refusals at the door (leaveOutRefusals). A past
+ * range keeps growing while its statements come in.
+ */
+export function completedSales(lines: SaleLine[], returns: ReturnLine[], orders: ReportOrder[], range: Range) {
+  const byId = new Map(orders.map((order) => [order.order_id, order]));
+  // The order a sale was placed as. One whose original is not in the rows was
+  // placed before them, so before the range.
+  const rootOf = (order: ReportOrder): ReportOrder | null => {
+    let at = order;
+    for (let hops = 0; at.exchange_for_order_id && hops < 20; hops += 1) {
+      const parent = byId.get(at.exchange_for_order_id);
+      if (!parent) return null;
+      at = parent;
+    }
+    return at;
+  };
+  const sales = new Map<string, { root: ReportOrder; members: ReportOrder[] }>();
+  for (const order of orders) {
+    const root = rootOf(order);
+    if (!root || !within(root.placed_on, range)) continue;
+    const sale = sales.get(root.order_id) ?? { root, members: [] };
+    sale.members.push(order);
+    sales.set(root.order_id, sale);
+  }
+  const ids = new Set([...sales.values()].flatMap((sale) => sale.members.map((order) => order.order_id)));
+
+  // Pieces back, by order and piece - a return line names the piece, not the order line.
+  const back = new Map<string, number>();
+  for (const line of returns) {
+    if (!ids.has(line.order_id)) continue;
+    const key = `${line.order_id}|${line.sku}`;
+    back.set(key, (back.get(key) ?? 0) + line.quantity);
+  }
+
+  // Each order's lines, less what came back of them.
+  const kept = new Map<string, Array<{ line: SaleLine; pieces: number; net: number }>>();
+  for (const line of lines) {
+    if (!ids.has(line.order_id) || line.quantity <= 0) continue;
+    const key = `${line.order_id}|${line.sku}`;
+    const left = back.get(key) ?? 0;
+    const take = Math.min(left, line.quantity);
+    if (take > 0) back.set(key, left - take);
+    const pieces = line.quantity - take;
+    const net = take > 0 ? cents((Number(line.net_egp) * pieces) / line.quantity) : Number(line.net_egp);
+    const list = kept.get(line.order_id) ?? [];
+    list.push({ line, pieces, net });
+    kept.set(line.order_id, list);
+  }
+  const piecesOf = (order: ReportOrder) => (kept.get(order.order_id) ?? []).reduce((total, entry) => total + entry.pieces, 0);
+  const netOf = (order: ReportOrder) => sum(kept.get(order.order_id) ?? [], (entry) => entry.net);
+
+  const standingOf = (order: ReportOrder): Standing => {
+    if (piecesOf(order) <= 0 || CAME_BACK.has(order.fulfillment_status) || order.payment_status === 'refunded') return 'cameBack';
+    if (order.fulfillment_status === 'delivered') return MONEY_IN.has(order.payment_status ?? '') ? 'completed' : 'awaitingMoney';
+    return ON_THE_ROAD.has(order.fulfillment_status) ? 'onTheRoad' : 'notShipped';
+  };
+
+  // A sale stands where the least advanced of its orders still holding pieces stands.
+  const rank: Standing[] = ['notShipped', 'onTheRoad', 'awaitingMoney', 'completed'];
+  const standings = [...sales.values()].map(({ root, members }) => {
+    const holding = members.filter((order) => standingOf(order) !== 'cameBack');
+    const behind = [...holding].sort(
+      (a, b) => rank.indexOf(standingOf(a)) - rank.indexOf(standingOf(b)) || a.placed_on.localeCompare(b.placed_on),
+    )[0];
+    const at = behind ?? root;
+    const row: StandingOrder = {
+      order_id: at.order_id,
+      order_number: at.order_number,
+      placed_on: at.placed_on,
+      replaces: at.order_id === root.order_id ? null : root.order_number,
+      customer_name: root.customer_name,
+      courier: at.courier,
+      fulfillment_status: at.fulfillment_status,
+      standing: behind ? standingOf(behind) : 'cameBack',
+      pieces: holding.reduce((total, order) => total + piecesOf(order), 0),
+      net: sum(holding, netOf),
+    };
+    return { row, holding, members };
+  });
+
+  const completed = standings.filter((sale) => sale.row.standing === 'completed');
+  const byStanding = Object.fromEntries(
+    (['completed', ...WAITING, 'cameBack'] as const).map((standing) => {
+      const of = standings.filter((sale) => sale.row.standing === standing).map((sale) => sale.row);
+      return [standing, { orders: of.length, pieces: of.reduce((total, row) => total + row.pieces, 0), net: sum(of, (row) => row.net) }];
+    }),
+  ) as Record<Standing, { orders: number; pieces: number; net: number }>;
+
+  // What the completed sales sold, by variant and by item (the product, in its colour).
+  const variants = new Map<string, CompletedItem>();
+  const items = new Map<string, CompletedItem>();
+  const add = (into: Map<string, CompletedItem>, key: string, make: () => Omit<CompletedItem, 'pieces' | 'net'>, pieces: number, net: number) => {
+    const row = into.get(key) ?? { ...make(), pieces: 0, net: 0 };
+    row.pieces += pieces;
+    row.net += net;
+    into.set(key, row);
+  };
+  for (const { holding } of completed) {
+    for (const order of holding) {
+      for (const { line, pieces, net } of kept.get(order.order_id) ?? []) {
+        if (pieces <= 0) continue;
+        const variantKey = line.variant_id ?? line.sku;
+        add(
+          variants,
+          variantKey,
+          () => ({ key: variantKey, label: line.product_title, detail: [line.size, line.color].filter(Boolean).join(' / ') || null, sku: line.sku }),
+          pieces,
+          net,
+        );
+        const itemKey = `${line.product_id ?? line.product_title}|${line.color ?? ''}`;
+        add(items, itemKey, () => ({ key: itemKey, label: line.product_title, detail: line.color, sku: null }), pieces, net);
+      }
+    }
+  }
+  const ranked = (rows: Map<string, CompletedItem>) =>
+    [...rows.values()]
+      .map((row) => ({ ...row, net: cents(row.net) }))
+      .sort((a, b) => b.pieces - a.pieces || b.net - a.net || a.label.localeCompare(b.label));
+
+  const net = byStanding.completed.net;
+  return {
+    net,
+    // Every time the customer paid for shipping on the sale: an exchange went out twice.
+    shipping: sum(
+      completed.flatMap((sale) => sale.members),
+      (order) => (order.fulfillment_status === 'delivered' && MONEY_IN.has(order.payment_status ?? '') ? Number(order.shipping_egp ?? 0) : 0),
+    ),
+    orders: completed.length,
+    pieces: byStanding.completed.pieces,
+    averageOrder: completed.length > 0 ? cents(net / completed.length) : 0,
+    /** Sales placed in the range: an exchange's replacements are not more of them. */
+    placed: standings.length,
+    byStanding,
+    /** Still to complete, oldest first. */
+    waiting: standings
+      .map((sale) => sale.row)
+      .filter((row) => row.standing !== 'completed' && row.standing !== 'cameBack')
+      .sort((a, b) => a.placed_on.localeCompare(b.placed_on) || a.order_number.localeCompare(b.order_number)),
+    variants: ranked(variants),
+    items: ranked(items),
   };
 }
 

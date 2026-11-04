@@ -136,7 +136,7 @@ export function useReportData(range: Range) {
     async function load() {
       setLoading(true);
       try {
-        const [lines, returns, orders, custody, exceptions, owed, statements, statementLines, stock, takenOut, reliability, moneyIn, withCouriers] =
+        const [lines, returns, placed, payments, custody, exceptions, owed, statements, statementLines, stock, takenOut, reliability, moneyIn, withCouriers] =
           await Promise.all([
             fetchAll<SaleLine>((a, b) =>
               supabase.from('v_report_lines').select('*').gte('placed_on', from).lte('placed_on', to).order('line_id').range(a, b),
@@ -144,8 +144,21 @@ export function useReportData(range: Range) {
             fetchAll<ReturnLine>((a, b) =>
               supabase.from('v_report_returns').select('*').gte('returned_on', from).lte('returned_on', to).order('return_line_id').range(a, b),
             ),
-            fetchAll<ReportOrder>((a, b) =>
+            fetchAll<Omit<ReportOrder, 'payment_status' | 'exchange_for_order_id'>>((a, b) =>
               supabase.from('v_report_orders').select('*').gte('placed_on', from).lte('placed_on', to).order('order_id').range(a, b),
+            ),
+            // Whether each of those orders' money is ours, and which order an
+            // exchange's replacement replaces. Placed on a Cairo day: from its
+            // midnight in summer time to the next one in winter time takes in
+            // every order of those days, and a few either side.
+            fetchAll<{ id: string; payment_status: string; exchange_for_order_id: string | null }>((a, b) =>
+              supabase
+                .from('orders')
+                .select('id, payment_status, exchange_for_order_id')
+                .gte('created_at', `${from}T00:00:00+03:00`)
+                .lt('created_at', `${addDays(to, 1)}T00:00:00+02:00`)
+                .order('id')
+                .range(a, b),
             ),
             fetchAll<CustodyRow>((a, b) => supabase.from('v_courier_custody').select('*').order('days_in_custody', { ascending: false }).range(a, b)),
             fetchAll<{ shipment_id: string }>((a, b) => supabase.from('v_custody_exceptions').select('shipment_id').range(a, b)),
@@ -204,6 +217,12 @@ export function useReportData(range: Range) {
         }
 
         // A refusal at the door is neither a sale nor a return (the owner, 2026-11-04).
+        const beside = new Map(payments.map((row) => [row.id, row]));
+        const orders: ReportOrder[] = placed.map((order) => ({
+          ...order,
+          payment_status: beside.get(order.order_id)?.payment_status ?? null,
+          exchange_for_order_id: beside.get(order.order_id)?.exchange_for_order_id ?? null,
+        }));
         const sales = leaveOutRefusals({ lines, returns, orders });
 
         if (cancelled) return;

@@ -804,6 +804,10 @@
       "stock": "Stock & customers"
     },
     "report": {
+      "completed": {
+        "title": "Completed sales",
+        "help": "Orders delivered with their money in: net, orders and pieces, the average, what is not complete yet, and the best sellers."
+      },
       "custom": {
         "title": "Custom report",
         "help": "Choose what it shows - net sales, variants, top sellers, return rate - and keep it by name."
@@ -1032,7 +1036,41 @@
     },
     "statementsCountDrafts": "{{count}} reviewed · {{drafts}} draft not counted",
     "piecesKept": "{{count}} pieces · {{back}} back",
-    "backCount": "{{count}} back"
+    "backCount": "{{count}} back",
+    "completed": {
+      "scope": "Orders from {{from}} to {{to}}",
+      "rule": "An order is complete once it is delivered and its money is ours: Accurate's statement reviewed, our driver's cash in, or paid in the shop or in advance. Each order is in the period it was placed in, and an exchange stays on the original order, complete once the new piece is. A past period grows as statements come in.",
+      "net": "Completed net sales",
+      "netHint": "Goods after discounts, without shipping",
+      "orders": "Completed orders",
+      "ofPlaced": "Of {{count}} orders in the period",
+      "pieces": "Pieces sold",
+      "average": "Average order",
+      "shipping": "Shipping the customers paid (not a sale)",
+      "waitingTitle": "Not complete yet",
+      "waitingHelp": "Orders placed in the period not delivered yet, or whose money has not reached us. Values are goods after discounts.",
+      "waitingTotal": "Not complete yet, in all",
+      "standing": {
+        "completed": "Complete",
+        "awaitingMoney": "Delivered, money not in yet",
+        "onTheRoad": "On the way to the customer",
+        "notShipped": "Not shipped yet",
+        "cameBack": "Refused or returned"
+      },
+      "addsUp": "{{placed}} orders in the period: {{completed}} complete · {{waiting}} still to come · {{back}} refused or returned",
+      "noneWaiting": "Every order in the period is complete or came back.",
+      "topTitle": "Best sellers - top 10",
+      "topHelp": "By size, in pieces delivered with their money in.",
+      "itemsTitle": "All pieces sold",
+      "itemsHelp": "Each product in its colour, from completed orders only.",
+      "itemsTotal": "Total: {{count}} pieces · {{amount}}",
+      "copy": "Copy the list",
+      "copied": "List copied",
+      "copyFailed": "Could not copy - download the table instead",
+      "noneDone": "No completed orders in this period yet.",
+      "replaces": "replaces",
+      "standingCol": "Standing"
+    }
   },
   "log": {
     "title": "Log",

@@ -5,6 +5,7 @@ import {
   byProduct,
   bySize,
   change,
+  completedSales,
   customers,
   leaveOutOpen,
   leaveOutRefusals,
@@ -82,6 +83,10 @@ const order = (fields: Partial<ReportOrder>): ReportOrder => ({
   courier: 'accurate',
   outcome: 'delivered',
   customer_order_no: 1,
+  fulfillment_status: 'delivered',
+  shipping_egp: 0,
+  payment_status: 'paid',
+  exchange_for_order_id: null,
   ...fields,
 });
 
@@ -359,6 +364,100 @@ describe('toCsvSections', () => {
       'الأصناف',
       'الصنف,القطع',
       '"Hoodie, M",3',
+    ]);
+  });
+});
+
+describe('completed sales', () => {
+  const month = { from: '2026-10-01', to: '2026-10-31' };
+  const shirt = { product_id: 'shirt', product_title: 'Shirt', variant_id: 'shirt-l', sku: 'S-L', size: 'L', color: null };
+  const lines = [
+    sale({ order_id: 'a', line_id: 'a1' }), // delivered, paid
+    sale({ order_id: 'b', line_id: 'b1', discounts_egp: 100, net_egp: 900 }), // refused at the door
+    sale({ order_id: 'c', line_id: 'c1', ...shirt, quantity: 2, gross_egp: 1000, net_egp: 1000 }), // the shop; one sent back after
+    sale({ order_id: 'd', line_id: 'd1' }), // delivered, the money still with Accurate
+    sale({ order_id: 'e', line_id: 'e1', quantity: 2, gross_egp: 2000, discounts_egp: 200, net_egp: 1800 }), // on the road
+    sale({ order_id: 'f', line_id: 'f1' }), // paid before it shipped, still packed
+    sale({ order_id: 'g', line_id: 'g1' }), // kept the M ...
+    sale({ order_id: 'g', line_id: 'g2', variant_id: 'hoodie-l', sku: 'H-L', size: 'L' }), // ... and refused the L
+    sale({ order_id: 'h', line_id: 'h1', ...shirt, gross_egp: 500, net_egp: 500 }), // exchanged ...
+    sale({ order_id: 'i', line_id: 'i1', placed_on: '2026-10-25' }), // ... for this hoodie, delivered and paid
+    sale({ order_id: 'j', line_id: 'j1', ...shirt, gross_egp: 500, net_egp: 500 }), // exchanged ...
+    sale({ order_id: 'k', line_id: 'k1', placed_on: '2026-11-02' }), // ... for a hoodie still on the road
+    sale({ order_id: 'z', line_id: 'z1', placed_on: '2026-09-30' }), // placed the month before
+  ];
+  const returns = [
+    back({ order_id: 'b', value_egp: 900 }),
+    back({ order_id: 'c', ...shirt, return_type: 'post_delivery', reason: 'wrong_size', value_egp: 500 }),
+    back({ order_id: 'g', variant_id: 'hoodie-l', sku: 'H-L', size: 'L' }),
+    back({ order_id: 'h', ...shirt, return_type: 'exchange', reason: 'wrong_size', value_egp: 500 }),
+    back({ order_id: 'j', ...shirt, return_type: 'exchange', reason: 'wrong_size', returned_on: '2026-11-02', value_egp: 500 }),
+  ];
+  const orders = [
+    order({ order_id: 'a', shipping_egp: 60 }),
+    order({ order_id: 'b', net_egp: 900, outcome: 'refused', fulfillment_status: 'returned', payment_status: 'pending', shipping_egp: 60 }),
+    order({ order_id: 'c', courier: null, channel: 'store', units: 2 }),
+    order({ order_id: 'd', payment_status: 'pending', shipping_egp: 60 }),
+    order({ order_id: 'e', units: 2, net_egp: 1800, outcome: 'open', fulfillment_status: 'in_transit', payment_status: 'pending' }),
+    order({ order_id: 'f', outcome: 'open', fulfillment_status: 'packed' }),
+    order({ order_id: 'g', units: 2, net_egp: 2000, shipping_egp: 60 }),
+    order({ order_id: 'h', net_egp: 500, shipping_egp: 60 }),
+    order({ order_id: 'i', placed_on: '2026-10-25', is_exchange: true, exchange_for_order_id: 'h', shipping_egp: 60 }),
+    order({ order_id: 'j', order_number: '#j', net_egp: 500 }),
+    order({
+      order_id: 'k',
+      order_number: '#k',
+      placed_on: '2026-11-02',
+      is_exchange: true,
+      exchange_for_order_id: 'j',
+      outcome: 'open',
+      fulfillment_status: 'in_transit',
+      payment_status: 'pending',
+    }),
+    order({ order_id: 'z', placed_on: '2026-09-30' }),
+  ];
+  const sold = leaveOutRefusals({ lines, returns, orders });
+  const done = completedSales(sold.lines, sold.returns, sold.orders, month);
+
+  it('counts what was delivered with its money in, less every piece refused or sent back', () => {
+    // a 1,000 + c's shirt kept 500 + g's M 1,000 + h's shirt swapped for i's hoodie 1,000.
+    expect(done).toMatchObject({ net: 3500, orders: 4, pieces: 4, averageOrder: 875 });
+    // Shipping apart, every time it was paid: a and g, and h and its replacement.
+    expect(done.shipping).toBe(240);
+  });
+
+  it('keeps an exchange on the order the customer placed, complete once the new piece is', () => {
+    // i and k are no more sales than h and j; k, placed in November, is October's.
+    expect(done.placed).toBe(9);
+    expect(done.byStanding.onTheRoad).toEqual({ orders: 2, pieces: 3, net: 2800 });
+    expect(done.waiting.at(-1)).toMatchObject({ order_number: '#k', replaces: '#j', standing: 'onTheRoad', pieces: 1, net: 1000 });
+    expect(completedSales(sold.lines, sold.returns, sold.orders, { from: '2026-11-01', to: '2026-11-30' }).placed).toBe(0);
+  });
+
+  it('says what of the range is not complete yet, and the rest adds up', () => {
+    expect(done.byStanding.awaitingMoney).toEqual({ orders: 1, pieces: 1, net: 1000 });
+    // Paid before it shipped is not complete: it has not reached the customer.
+    expect(done.byStanding.notShipped).toEqual({ orders: 1, pieces: 1, net: 1000 });
+    expect(done.byStanding.cameBack.orders).toBe(1);
+    expect(done.waiting.map((row) => row.order_id)).toEqual(['d', 'e', 'f', 'k']);
+    expect(done.orders + done.waiting.length + done.byStanding.cameBack.orders).toBe(done.placed);
+  });
+
+  it('completes an order once its money comes in', () => {
+    const paid = sold.orders.map((row) => (row.order_id === 'd' ? { ...row, payment_status: 'paid' } : row));
+    expect(completedSales(sold.lines, sold.returns, paid, month)).toMatchObject({ net: 4500, orders: 5 });
+    const refunded = sold.orders.map((row) => (row.order_id === 'a' ? { ...row, payment_status: 'refunded' } : row));
+    expect(completedSales(sold.lines, sold.returns, refunded, month)).toMatchObject({ net: 2500, orders: 3 });
+  });
+
+  it('ranks the variants and lists every item by the pieces kept', () => {
+    expect(done.variants.map((row) => [row.label, row.detail, row.pieces, row.net])).toEqual([
+      ['Hoodie', 'M / Black', 3, 3000],
+      ['Shirt', 'L', 1, 500],
+    ]);
+    expect(done.items.map((row) => [row.label, row.detail, row.pieces])).toEqual([
+      ['Hoodie', 'Black', 3],
+      ['Shirt', null, 1],
     ]);
   });
 });

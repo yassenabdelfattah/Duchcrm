@@ -864,3 +864,42 @@ Top sellers now show, beside each amount, the pieces customers kept, which
 are the pieces the amount is for, and how many came back. It used to show
 the pieces sold before returns: "Black Puffer Jacket M · 16 pieces · 21,000"
 was 14 kept and 2 refused.
+
+---
+
+## 21. Completed sales: the month as the owner counts it
+
+Decided 2026-11-04. A report of its own (المبيعات المكتملة, first under
+تقاريري), on the page's date range:
+
+- **Complete** means delivered and the money is ours, which is
+  `payment_status` 'paid' (or Shopify's 'partially_refunded'). Only a
+  reviewed statement, our driver's cash, the shop, or a payment before
+  shipping sets it. Paid before shipping is not complete until delivered.
+- **By order date** (the owner's choice): an order is in the range it was
+  placed in. A past month keeps growing as its statements come in.
+- **Net sales are goods only** (the owner's choice): price after discounts,
+  less every piece refused at the door or sent back after delivery, whenever
+  it came back. The shipping customers paid is shown on its own line.
+- **Orders, pieces, average order** count completed sales only. Next to them
+  is what of the range is not complete yet: delivered with the money not in,
+  on the road, or not shipped yet. Each of these has a count and its goods
+  value, plus a list of the orders to chase. Complete, still to come, and
+  refused or returned add up to the orders placed.
+- **An exchange stays on the order the customer placed.** The replacement,
+  and any replacement of it, is part of that sale and is not a new order.
+  The sale is complete when the piece the customer ends up with is delivered
+  and paid. #1481 (October) was swapped twice, so it counts in October, on
+  the road until W2611-00069 arrives. The old piece comes off at what it sold
+  for and the new one counts at its own price, as in #19.
+- **Top 10** is by variant (size and colour), ranked by pieces in completed
+  sales. **All pieces sold** lists each product in its colour, like a
+  statement ("16 × Black Puffer Jacket"), with a copy button and a download.
+
+Payment status and the exchange link are read from `orders` next to
+`v_report_orders`, so the report needs no database change.
+
+October 2026 as of today: 144 sales placed. 58 are complete: 81,930 net,
+102 pieces, 1,412.59 average, plus 3,920 shipping. 27 are delivered with the
+money not in yet (43,045). 23 are on the road (34,540). 36 were refused or
+returned.
