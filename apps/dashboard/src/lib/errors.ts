@@ -97,6 +97,14 @@ const RULES: Rule[] = [
   [/^Line discount for (\S+) is larger than the line total/, (m) => `خصم الصنف ${m[1]} أكبر من سعره.`],
   [/^Quantity for (\S+) must be a positive whole number/, (m) => `كمية ${m[1]} يجب أن تكون رقماً صحيحاً موجباً.`],
   [/^Variant (\S+)(?: \((\S+)\))? is not active and cannot be sold/, (m) => `الصنف ${m[2] ?? m[1]} غير مفعّل ولا يمكن بيعه.`],
+  // --- Costs and the gift fund ------------------------------------------------
+  [/^You may not change costs/, () => 'ليس لديك صلاحية تعديل التكاليف.'],
+  [/^You may not spend from the gift fund/, () => 'ليس لديك صلاحية الصرف من صندوق الهدايا.'],
+  [/^A cost needs at least one line/, () => 'اكتب بنداً واحداً على الأقل في التكلفة.'],
+  [/^Every cost line needs a name/, () => 'كل بند في التكلفة يحتاج اسماً.'],
+  [/^The amount for (.+) must be zero or more/, (m) => `مبلغ ${m[1]} لا يصح أن يكون أقل من صفر.`],
+  [/^Say which date the cost counts from/, () => 'اختر التاريخ الذي تبدأ منه التكلفة.'],
+  [/^Every piece needs a price/, () => 'اكتب سعراً لكل قطعة.'],
   [/^Unknown variant/, () => 'الصنف غير موجود.'],
 
   // --- Stock -------------------------------------------------------------------

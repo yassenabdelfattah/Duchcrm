@@ -50,7 +50,7 @@ const NAV_ITEMS: NavItem[] = [
   { to: '/stock', labelKey: 'nav.stock', permissions: ['stock.read', 'stock.adjust', 'products.manage'], icon: Boxes },
   { to: '/', labelKey: 'nav.dashboard', permissions: null, icon: House },
   { to: '/returns', labelKey: 'nav.returns', permissions: ['returns.manage', 'orders.read'], icon: Undo2 },
-  { to: '/reports', labelKey: 'nav.reports', permissions: ['reports.read'], icon: ChartColumn },
+  { to: '/reports', labelKey: 'nav.reports', permissions: ['reports.read', 'profit.view'], icon: ChartColumn },
   // Mostly stock movements, so whoever counts stock reads it too.
   { to: '/log', labelKey: 'nav.log', permissions: ['reports.read', 'stock.adjust'], icon: History },
   { to: '/settlements', labelKey: 'nav.settlements', permissions: ['settlements.manage'], icon: Wallet },

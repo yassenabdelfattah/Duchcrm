@@ -903,3 +903,66 @@ October 2026 as of today: 144 sales placed. 58 are complete: 81,930 net,
 102 pieces, 1,412.59 average, plus 3,920 shipping. 27 are delivered with the
 money not in yet (43,045). 23 are on the road (34,540). 36 were refused or
 returned.
+
+---
+
+## 22. Profit: what a piece costs, and the reports rebuilt around it
+
+Decided 2026-11-11, question by question with the owner, who did not trust
+the reports page and wanted one number he could: what did we make?
+
+**What counts as sold** is #21 unchanged: delivered, paid for, in the period
+it was ordered. A piece that comes back later comes off that same period.
+
+**A product has one cost, with a history** (`cost_sheets`). The cost is lines
+the owner names (fabric, tailoring, accessories, printing, packaging, anything
+else), and a line can differ for a size or a colour (`cost_line_overrides`,
+kept by size and colour so a size added later is covered). A new cost counts
+from a date and sales ordered before it keep the old one. A sale from before
+a product's first cost is costed by that first one, so typing a cost in
+covers the past. The old `variant_costs` (one bare figure for stock value) is
+left alone and no longer read by any screen.
+
+**Two amounts per piece are set aside, not spent.** Both are lines of the
+cost sheet with their own kind:
+- *Courier-loss reserve.* Each period, what was set aside less what the
+  courier really cost; the leftover is added to profit, a shortfall taken off.
+- *Gift reserve.* Goes to the gift fund and never into profit. The fund
+  rolls over, is spent on offers and giveaways (`expenses.kind = 'gift'`),
+  and counts only from `profit_settings.gift_fund_from`: a sale ordered
+  before that sets nothing aside, so what leaves profit is exactly what
+  enters the fund.
+
+**What the courier costs** is read off the statements, never typed twice
+(`v_profit_courier`), on the day the order was placed. On a delivery the
+customer pays the shipping and the courier keeps it, so it is neither income
+nor cost. What is ours: a refusal (the full fee), no answer after three tries
+(the small fee), free shipping, the gap when the courier charged more or less
+than the customer was charged, and a collection gap. A customer who paid the
+shipping and refused the goods costs nothing. Only reviewed statements count;
+drafts are shown as waiting.
+
+**Ads** are typed as a total for some days (Meta), spread evenly over them,
+and shared between products by pieces sold. **Fixed costs** are typed with a
+date and a name and come off the month they were paid in.
+
+**The gift fund can buy dead stock from our own shelf** at a price typed in
+each time (`record_gift_from_stock`). The pieces leave as a gift stock-out,
+the fund pays the price, and they count as sold at it against what they cost.
+
+**The statement**, top to bottom: sales, less making, less both reserves,
+less ads = products' profit; plus what is left of the courier reserve, less
+fixed costs, plus dead stock sold to the fund = net profit. The sums are in
+`lib/profitMath.ts`, in whole piastres, so every line adds to the next and
+the product table adds to the statement exactly.
+
+**Who sees it.** A new permission, `profit.view`. Without it the reports page
+is four lists only: returns, refusals, with the courier, money in. With it
+the courier statements become readable too, since the costs come from them.
+
+**What went.** The sales, products, sizes, channels, areas, stock, customers
+and stock-value reports, the completed-sales report (now the profit screen)
+and the report put together by hand (#17; now the monthly report, whose parts
+are switched on and off and remembered in `profit_settings.report_hidden`).
+`saved_reports` is left in the database, unread. The functions in
+`reportMath.ts` that only those screens used are still there and still tested.

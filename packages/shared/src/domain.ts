@@ -115,6 +115,8 @@ export const PERMISSIONS = [
   'settlements.manage',
   'sync.manage',
   'staff.manage',
+  // Profit, what each piece costs, ads and expenses: the owner's figures.
+  'profit.view',
 ] as const;
 export type Permission = (typeof PERMISSIONS)[number];
 

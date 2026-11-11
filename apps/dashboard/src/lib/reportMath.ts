@@ -37,6 +37,8 @@ export interface SaleLine {
 
 export interface ReturnLine {
   return_line_id: string;
+  /** The return this piece came back on; one return can bring several pieces. */
+  return_id?: string;
   order_id: string;
   order_number: string;
   returned_on: string;
@@ -865,6 +867,13 @@ export function completedSales(lines: SaleLine[], returns: ReturnLine[], orders:
       .sort((a, b) => a.placed_on.localeCompare(b.placed_on) || a.order_number.localeCompare(b.order_number)),
     variants: ranked(variants),
     items: ranked(items),
+    /**
+     * The lines behind the completed sales: each piece the customer ended up
+     * with, on the order it went out on. What profit is worked out from.
+     */
+    sold: completed.flatMap(({ holding }) =>
+      holding.flatMap((order) => (kept.get(order.order_id) ?? []).filter((entry) => entry.pieces > 0)),
+    ),
   };
 }
 

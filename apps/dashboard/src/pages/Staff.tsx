@@ -378,7 +378,7 @@ const PERMISSION_GROUPS: Array<{ key: string; permissions: Permission[] }> = [
   { key: 'orders', permissions: ['orders.read', 'orders.settle', 'orders.edit', 'orders.cancel'] },
   { key: 'shipping', permissions: ['orders.ship', 'returns.manage'] },
   { key: 'stock', permissions: ['stock.read', 'stock.adjust', 'products.manage'] },
-  { key: 'admin', permissions: ['reports.read', 'settlements.manage', 'sync.manage', 'staff.manage'] },
+  { key: 'admin', permissions: ['reports.read', 'profit.view', 'settlements.manage', 'sync.manage', 'staff.manage'] },
 ];
 
 function RoleDialog({

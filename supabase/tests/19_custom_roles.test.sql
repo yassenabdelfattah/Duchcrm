@@ -199,8 +199,8 @@ select throws_ok(
 
 select is(
   (select array_length(public.known_permissions(), 1)),
-  14,
-  'Fourteen permissions can be given'
+  15,
+  'Fifteen permissions can be given'
 );
 
 select * from finish();

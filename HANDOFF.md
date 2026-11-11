@@ -578,7 +578,7 @@ Recorded from the user; most of the design follows from it. Fuller version in
 | `/queue` | Packing queue. Shipping is one tap - the shipment number, "ship" - and the parcel is **waiting for the courier** (`awaiting_pickup`): booked, still in the shop. When the courier comes, "the courier collected all" (one tap, the parcels on screen) or scan each label as it leaves (`mark_picked_up`); that is the handover, and the custody clock starts then. A parcel still waiting can be cancelled here or on Orders - its pieces go back, its shipment is called off, a reminder says to cancel the pickup with Accurate - or in Shopify, which the CRM now follows. Or deliver ourselves. The confirmation call is optional. "With our driver" below is cash still to be handed in |
 | `/returns` | Checking returns back in, per item with a count. Looks up a courier tracking code or an order number - an exchange's old piece by its replacement's code or number. Tapping the box lists parcels coming back, orders out with our driver, and the last 30 days of deliveries |
 | `/stock` | Products and stock in one page (`/products` redirects here): each product with photo, type, price and size chips carrying stock; search by name/SKU/barcode (a scan opens the product); filters by type and stock state. Pick sizes across products for received-from-production, a stock count (`record_stock_count`, difference worked out under lock) or taking out. Tab "الإخراج" tracks stock-outs. Names and prices stay Shopify's |
-| `/reports` | Four tabs: summary · log · refusals · custody |
+| `/reports` | Rebuilt 2026-11-11 around profit (DECISIONS #22). A month picker, then tabs: profit (the statement, each line opening to what is behind it; profit per product; the gift fund; what is not counted yet), the monthly report (one page, parts switched on and off, PDF by printing, Excel), costs and spending (each product's cost lines, ads, expenses, the gift fund) - those three need `profit.view` - and four lists for everyone with reports: returns, refusals, with the courier, money in |
 | `/settlements` | Entering the courier's statement |
 | `/sync` | Shopify divergences. A product-level issue names the product; a "no SKU" one closes itself when the SKUs arrive. Order issues name the order: changed in Shopify after it shipped (both item lists shown), or a change Shopify refused three times (reason shown, "try again now") |
 | `/staff` | Activate a signup and give it a role; create and edit custom roles by ticking permissions. Needs `staff.manage` |
@@ -602,6 +602,13 @@ Worker, or opening stock.** It is the ordered sequence out of trial mode,
 and it explains why each thing is currently switched off.
 
 ---
+
+**The profit migration (20261111090000) must be pushed before the new reports
+page is deployed.** The page reads `cost_sheets`, `profit_settings` and
+`v_profit_courier`; without them it shows an error instead of numbers. The
+built-in admin role holds `*`, so the owner sees profit at once; anyone else
+needs `profit.view` ticked on their role from the staff screen. Until a
+product's cost is typed in, its profit is overstated and the page says so.
 
 ## Open questions for the user
 
