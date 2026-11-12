@@ -21,6 +21,7 @@ import {
   type ExpenseRow,
   type GiftPiece,
 } from '../../lib/profitMath';
+import type { ProductionRun, RunLine } from '../../lib/productionMath';
 
 /** The API returns at most 1,000 rows a request; a month of order lines can be more. */
 async function fetchAll<T>(build: (from: number, to: number) => PromiseLike<{ data: unknown; error: unknown }>): Promise<T[]> {
@@ -161,11 +162,13 @@ export interface ProfitBooks {
   expenses: ExpenseRow[];
   giftPieces: GiftPiece[];
   settings: ProfitSettings;
+  /** The manufacturing log, latest first. */
+  runs: ProductionRun[];
 }
 
 /** Everything typed in about money: costs, ads, expenses, the gift fund. Small tables, read whole. */
 async function loadBooks(): Promise<ProfitBooks> {
-  const [sheets, lines, overrides, products, variants, ads, expenses, items, settings] = await Promise.all([
+  const [sheets, lines, overrides, products, variants, ads, expenses, items, settings, runs, runProducts, runLines, runReceipts] = await Promise.all([
     fetchAll<{ id: string; product_id: string; effective_from: string; note: string | null }>((a, b) =>
       supabase.from('cost_sheets').select('id, product_id, effective_from, note').order('id').range(a, b),
     ),
@@ -187,6 +190,18 @@ async function loadBooks(): Promise<ProfitBooks> {
       supabase.from('expense_items').select('id, expense_id, variant_id, quantity, unit_price_egp').order('id').range(a, b),
     ),
     supabase.from('profit_settings').select('gift_fund_from, gift_fund_opening_egp, report_hidden').maybeSingle(),
+    fetchAll<{ id: string; made_on: string; name: string; note: string | null }>((a, b) =>
+      supabase.from('production_runs').select('id, made_on, name, note').order('made_on', { ascending: false }).order('created_at', { ascending: false }).range(a, b),
+    ),
+    fetchAll<{ run_id: string; product_id: string; pieces: number; applied_sheet_id: string | null }>((a, b) =>
+      supabase.from('production_run_products').select('run_id, product_id, pieces, applied_sheet_id').order('run_id').order('product_id').range(a, b),
+    ),
+    fetchAll<RunLine & { id: string; run_id: string; position: number }>((a, b) =>
+      supabase.from('production_run_lines').select('id, run_id, label, basis, amount_egp, position').order('run_id').order('position').range(a, b),
+    ),
+    fetchAll<{ id: string; run_id: string; path: string; file_name: string | null }>((a, b) =>
+      supabase.from('production_run_receipts').select('id, run_id, path, file_name').order('created_at').order('id').range(a, b),
+    ),
   ]);
   if (settings.error) throw settings.error;
 
@@ -221,6 +236,12 @@ async function loadBooks(): Promise<ProfitBooks> {
     ads,
     expenses,
     giftPieces,
+    runs: runs.map((run) => ({
+      ...run,
+      products: runProducts.filter((row) => row.run_id === run.id).map((row) => ({ product_id: row.product_id, pieces: Number(row.pieces), applied_sheet_id: row.applied_sheet_id })),
+      lines: runLines.filter((row) => row.run_id === run.id).map((row) => ({ label: row.label, basis: row.basis, amount_egp: Number(row.amount_egp) })),
+      receipts: runReceipts.filter((row) => row.run_id === run.id).map((row) => ({ id: row.id, path: row.path, file_name: row.file_name })),
+    })),
     settings: {
       gift_fund_from: settings.data?.gift_fund_from ?? cairoDate(),
       gift_fund_opening_egp: Number(settings.data?.gift_fund_opening_egp ?? 0),

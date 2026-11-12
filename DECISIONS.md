@@ -966,3 +966,38 @@ and the report put together by hand (#17; now the monthly report, whose parts
 are switched on and off and remembered in `profit_settings.report_hidden`).
 `saved_reports` is left in the database, unread. The functions in
 `reportMath.ts` that only those screens used are still there and still tested.
+
+---
+
+## 23. The manufacturing log: one entry for the products made together
+
+Built 2026-11-12, the day after #22, on the owner's ask. Black and ash grey
+cuffed sweatpants are made in one run and cost the same; typing that into
+each product was the same figures twice, and nothing kept the receipts or
+said what the last run had cost.
+
+A run (`production_runs`) is a name, a date, the products made in it with how
+many of each, and the cost lines. Decided with him:
+
+- **A line is either a total bill or a per-piece amount**, line by line. A
+  total (the fabric invoice) is shared evenly over every piece of the run,
+  whichever product it is; a per-piece amount stays as typed. So the totals
+  match the receipts.
+- **Receipts are photos on the entry**, in the private `receipts` bucket,
+  shown through links that last an hour. Images and PDFs, up to 10 MB.
+- **Saving a run changes no product's cost: he is asked each time.** After
+  saving, each product is shown with its cost now and what it would become,
+  and nothing is written until he ticks the products and confirms
+  (`apply_production_run`). It writes a cost sheet from the date he gives, as
+  #22: the run's lines as the cost, and what the product sets aside (courier
+  losses, gift fund) carried over untouched. A product whose cost differs by
+  size or colour is warned about, since a run's cost is one figure for all.
+- **Compared with last time**: each run is set against the latest earlier run
+  that made one of the same products, line by line by name, per piece.
+- **Pieces are not stock.** The number is only there to share a total bill
+  out. Stock is still received on the stock page, so nothing is counted twice.
+- **Selling prices are never touched.** Prices are Shopify's.
+
+Editing a run later does not reach the products either; applying it again
+does. Deleting a run removes its receipts and leaves the costs it was applied
+as. Only `profit.view` reads any of it.

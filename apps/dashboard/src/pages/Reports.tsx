@@ -30,7 +30,7 @@ import { CourierTab, MoneyTab, RefusalsTab, ReturnsTab } from './reports/OpsTabs
 const PROFIT_TABS = ['profit', 'monthly', 'costs'] as const;
 const OPS_TABS = ['returns', 'refusals', 'courier', 'money'] as const;
 type Tab = (typeof PROFIT_TABS)[number] | (typeof OPS_TABS)[number];
-const COSTS_VIEWS: readonly CostsView[] = ['products', 'ads', 'expenses', 'gift'];
+const COSTS_VIEWS: readonly CostsView[] = ['products', 'runs', 'ads', 'expenses', 'gift'];
 
 /** "نوفمبر 2026", in Latin digits like every other number here. */
 function monthName(month: string, locale: 'ar' | 'en'): string {
@@ -63,7 +63,7 @@ export function Reports() {
   }
 
   // "Right now" lists and the place costs are typed in take no period.
-  const dated = tab !== 'courier' && !(tab === 'costs' && view === 'products');
+  const dated = tab !== 'courier' && !(tab === 'costs' && (view === 'products' || view === 'runs'));
 
   const shell = (content: ReactNode) => (
     <div className="space-y-4">

@@ -105,6 +105,11 @@ const RULES: Rule[] = [
   [/^The amount for (.+) must be zero or more/, (m) => `مبلغ ${m[1]} لا يصح أن يكون أقل من صفر.`],
   [/^Say which date the cost counts from/, () => 'اختر التاريخ الذي تبدأ منه التكلفة.'],
   [/^Every piece needs a price/, () => 'اكتب سعراً لكل قطعة.'],
+  [/^Say when it was made/, () => 'اختر تاريخ التصنيع.'],
+  [/^Give the run a name/, () => 'اكتب اسماً للتصنيع.'],
+  [/^Choose at least one product for the run/, () => 'اختر منتجاً واحداً على الأقل.'],
+  [/^Say how many pieces were made/, () => 'اكتب عدد القطع عشان الفواتير الإجمالية تتقسم عليها.'],
+  [/^That product is not part of this production run/, () => 'المنتج ده مش ضمن هذا التصنيع.'],
   [/^Unknown variant/, () => 'الصنف غير موجود.'],
 
   // --- Stock -------------------------------------------------------------------

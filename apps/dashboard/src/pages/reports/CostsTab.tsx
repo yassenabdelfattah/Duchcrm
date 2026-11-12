@@ -9,6 +9,7 @@ import { useLocale } from '../../i18n';
 import { Button, ErrorNote, Field, Input, Modal, Select, cx, toast } from '../../components/ui';
 import { Panel, Segmented } from './parts';
 import { CostEditor } from './CostEditor';
+import { ProductionLog } from './ProductionLog';
 import { FundLines } from './ProfitTab';
 import type { CostProduct, ProfitBooks } from './data';
 import type { ProfitModel } from './model';
@@ -19,7 +20,7 @@ import type { ProfitModel } from './model';
  * is worked out - these are the figures the profit is worked out from.
  */
 
-export type CostsView = 'products' | 'ads' | 'expenses' | 'gift';
+export type CostsView = 'products' | 'runs' | 'ads' | 'expenses' | 'gift';
 
 const amountOf = (text: string) => {
   const value = Number(text.replace(',', '.'));
@@ -43,9 +44,10 @@ export function CostsTab({
       <Segmented
         value={view}
         onChange={onView}
-        options={(['products', 'ads', 'expenses', 'gift'] as const).map((value) => ({ value, label: t(`profit.costs.view.${value}`) }))}
+        options={(['products', 'runs', 'ads', 'expenses', 'gift'] as const).map((value) => ({ value, label: t(`profit.costs.view.${value}`) }))}
       />
       {view === 'products' ? <ProductCosts books={model.books} onChanged={onChanged} /> : null}
+      {view === 'runs' ? <ProductionLog books={model.books} onChanged={onChanged} /> : null}
       {view === 'ads' ? <AdSpend key={`${model.range.from}:${model.range.to}`} books={model.books} range={model.range} onChanged={onChanged} /> : null}
       {view === 'expenses' ? <Expenses books={model.books} range={model.range} onChanged={onChanged} /> : null}
       {view === 'gift' ? <GiftFundPanel model={model} onChanged={onChanged} /> : null}
