@@ -10,7 +10,7 @@
 -- ---------------------------------------------------------------------------
 
 begin;
-select plan(17);
+select plan(20);
 
 insert into public.roles (id, name_ar, permissions) values
   ('f9a9a9a9-0000-0000-0000-0000000000e1', 'تصنيع تجريبي', array['profit.view']),
@@ -118,6 +118,27 @@ select is(
   (select l.amount_egp from public.cost_lines l join public.cost_sheets s on s.id = l.sheet_id
     where s.product_id = 'f9a9a9a9-0000-0000-0000-000000000001' and s.effective_from = '2026-11-08' and l.label = 'تفصيل'),
   120.00, 'and the cost already applied waits to be applied again');
+
+-- Applied again with new amounts to set aside: the courier reserve changed,
+-- the gift one left out so kept, and zero takes a line away.
+select is(
+  public.apply_production_run('f9a9a9a9-0000-0000-0000-0000000000f1',
+    array['f9a9a9a9-0000-0000-0000-000000000001']::uuid[], '2026-11-08', 55, null),
+  1, 'Applying can set what each piece puts aside');
+select is(
+  (select string_agg(l.kind || '=' || l.amount_egp, ' ' order by l.position)
+     from public.cost_lines l join public.cost_sheets s on s.id = l.sheet_id
+    where s.product_id = 'f9a9a9a9-0000-0000-0000-000000000001' and s.effective_from = '2026-11-08' and l.kind <> 'cost'),
+  'gift_reserve=20.00 loss_reserve=55.00',
+  'the one given is replaced, the one left out is kept');
+select public.apply_production_run('f9a9a9a9-0000-0000-0000-0000000000f1',
+  array['f9a9a9a9-0000-0000-0000-000000000001']::uuid[], '2026-11-08', null, 0);
+select is(
+  (select string_agg(l.kind || '=' || l.amount_egp, ' ' order by l.position)
+     from public.cost_lines l join public.cost_sheets s on s.id = l.sheet_id
+    where s.product_id = 'f9a9a9a9-0000-0000-0000-000000000001' and s.effective_from = '2026-11-08' and l.kind <> 'cost'),
+  'loss_reserve=55.00',
+  'and zero takes it away');
 
 -- --- Without the permission -------------------------------------------------------------------
 

@@ -1744,7 +1744,6 @@
     "applyBody": "\"{{name}}\": a piece costs {{amount}} to make. Choose the products whose cost changes.",
     "now": "Now",
     "becomes": "Becomes",
-    "reservesKept": "The product's reserves ({{amount}}) stay as they are.",
     "differsWarning": "This product's cost differs for a size or colour. Applying makes it one figure for every size - you can put the difference back under Product costs.",
     "from": "The new cost starts from",
     "fromHelp": "What was ordered before this date keeps the old cost.",
@@ -1752,6 +1751,10 @@
     "applyConfirm": "Apply",
     "notNow": "Not now",
     "pickToApply": "Choose at least one product, or press Not now.",
-    "appliedToast": "Cost applied to {{count}} products"
+    "appliedToast": "Cost applied to {{count}} products",
+    "setsAside": "Sets aside per piece: shipping {{loss}} · gifts {{gift}}",
+    "reservesTitle": "Set aside from every piece (optional)",
+    "asIs": "as it is",
+    "reservesHelp": "Type the amount per piece to put it on every product ticked. Leave it empty and each product keeps its own. Zero removes it. It is not counted in the log's manufacturing cost."
   }
 }

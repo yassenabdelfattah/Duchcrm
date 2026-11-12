@@ -550,8 +550,13 @@ function ApplyRun({ run, books, onClose, onApplied }: { run: ProductionRun; book
   const today = cairoDate();
   const [from, setFrom] = useState(run.made_on > today ? today : run.made_on);
   const [picked, setPicked] = useState<Set<string>>(() => new Set(run.products.map((product) => product.product_id)));
+  // What each piece sets aside. Empty leaves every product's own as it is.
+  const [loss, setLoss] = useState('');
+  const [gift, setGift] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const lossValue = amountOf(loss);
+  const giftValue = amountOf(gift);
 
   const rows = run.products.map((product) => {
     const info = books.products.find((row) => row.id === product.product_id);
@@ -561,7 +566,8 @@ function ApplyRun({ run, books, onClose, onApplied }: { run: ProductionRun; book
       id: product.product_id,
       title: info?.title ?? '—',
       current: current?.cost ?? null,
-      reserves: current ? current.lossReserve + current.giftReserve : 0,
+      loss: current?.lossReserve ?? 0,
+      gift: current?.giftReserve ?? 0,
       // A size or colour that costs more is typed on the product, and a run's cost is one figure for all.
       differs: Boolean(sheet?.lines.some((line) => line.kind === 'cost' && line.overrides.length > 0)),
     };
@@ -569,9 +575,17 @@ function ApplyRun({ run, books, onClose, onApplied }: { run: ProductionRun; book
 
   async function apply() {
     if (picked.size === 0) return setError(t('production.pickToApply'));
+    if ((loss.trim() !== '' && (lossValue === null || lossValue < 0)) || (gift.trim() !== '' && (giftValue === null || giftValue < 0))) return setError(t('profit.needAmount'));
     setSaving(true);
     setError(null);
-    const { error: failed } = await supabase.rpc('apply_production_run', { p_run_id: run.id, p_product_ids: [...picked], p_effective_from: from });
+    const { error: failed } = await supabase.rpc('apply_production_run', {
+      p_run_id: run.id,
+      p_product_ids: [...picked],
+      p_effective_from: from,
+      // Sent only when typed: left out, each product keeps what it sets aside.
+      ...(lossValue !== null ? { p_loss_reserve: lossValue } : {}),
+      ...(giftValue !== null ? { p_gift_reserve: giftValue } : {}),
+    });
     setSaving(false);
     if (failed) return setError(arabicError(failed));
     toast(t('production.appliedToast', { count: picked.size }));
@@ -614,7 +628,9 @@ function ApplyRun({ run, books, onClose, onApplied }: { run: ProductionRun; book
                       </span>
                       {change !== null ? <Delta value={Math.round(change * 100) / 100} money={money} /> : null}
                     </span>
-                    {row.reserves > 0 ? <span className="block text-xs text-stone-500">{t('production.reservesKept', { amount: money(row.reserves) })}</span> : null}
+                    <span className="block text-xs text-stone-500">
+                      {t('production.setsAside', { loss: money(lossValue ?? row.loss), gift: money(giftValue ?? row.gift) })}
+                    </span>
                     {row.differs ? <span className="block text-xs text-amber-800">{t('production.differsWarning')}</span> : null}
                   </span>
                 </label>
@@ -622,6 +638,19 @@ function ApplyRun({ run, books, onClose, onApplied }: { run: ProductionRun; book
             );
           })}
         </ul>
+
+        <div className="space-y-2 rounded-lg border border-amber-200 bg-amber-50/50 p-2.5">
+          <p className="text-xs font-semibold text-amber-900">{t('production.reservesTitle')}</p>
+          <div className="grid grid-cols-2 gap-2">
+            <Field label={t('profit.costs.default.lossReserve')}>
+              <Input value={loss} onChange={(event) => setLoss(event.target.value)} inputMode="decimal" placeholder={t('production.asIs')} className="tabular min-h-10" />
+            </Field>
+            <Field label={t('profit.costs.default.giftReserve')}>
+              <Input value={gift} onChange={(event) => setGift(event.target.value)} inputMode="decimal" placeholder={t('production.asIs')} className="tabular min-h-10" />
+            </Field>
+          </div>
+          <p className="text-xs text-amber-800">{t('production.reservesHelp')}</p>
+        </div>
 
         <Field label={t('production.from')} hint={t('production.fromHelp')}>
           <Input type="date" value={from} onChange={(event) => event.target.value && setFrom(event.target.value)} className="tabular" />

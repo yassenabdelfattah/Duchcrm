@@ -998,6 +998,12 @@ many of each, and the cost lines. Decided with him:
   out. Stock is still received on the stock page, so nothing is counted twice.
 - **Selling prices are never touched.** Prices are Shopify's.
 
+**Applying can set the two amounts set aside** (added the same day, his ask):
+typed in the confirm step, the courier-loss reserve and the gift amount go
+onto every product ticked; left empty, each product keeps its own; zero
+removes the line. They stay out of the run's own lines, so the log is what
+making really cost.
+
 Editing a run later does not reach the products either; applying it again
 does. Deleting a run removes its receipts and leaves the costs it was applied
 as. Only `profit.view` reads any of it.

@@ -603,7 +603,7 @@ and it explains why each thing is currently switched off.
 
 ---
 
-**The profit migrations (20261111090000 and 20261112090000) must be pushed
+**The profit migrations (20261111090000, 20261112090000 and 20261112100000) must be pushed
 before the new reports page is deployed.** The second makes the private
 `receipts` storage bucket the manufacturing log keeps its photos in. The page reads `cost_sheets`, `profit_settings` and
 `v_profit_courier`; without them it shows an error instead of numbers. The
