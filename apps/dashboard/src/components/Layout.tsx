@@ -131,10 +131,13 @@ export function Layout() {
   return (
     <div className="min-h-dvh">
       <header className="no-print sticky top-0 z-30 border-b border-duch-line bg-white/95 backdrop-blur">
-        <div className="mx-auto flex max-w-6xl items-center gap-3 px-4 py-2.5">
-          <span className="flex items-center gap-2">
-            <img src="/logo-black.png" alt="" className="h-8 w-auto" />
-            <span className="whitespace-nowrap text-base font-extrabold tracking-tight">{t('app.name')}</span>
+        <div className="mx-auto flex max-w-6xl items-center gap-3 px-4 py-2.5 xl:max-w-7xl">
+          {/* Once the whole menu sits in this row (xl), there is no room left
+              for the name beside it - an admin's eleven items ran under it.
+              The logo alone says whose system it is. */}
+          <span className="flex shrink-0 items-center gap-2">
+            <img src="/logo-black.png" alt={t('app.name')} className="h-8 w-auto" />
+            <span className="whitespace-nowrap text-base font-extrabold tracking-tight xl:hidden">{t('app.name')}</span>
           </span>
 
           <nav className="ms-auto hidden items-center gap-0.5 xl:flex">
